@@ -1,0 +1,11 @@
+# .gitignore
+*.DS_Store
+.snakemake/
+fastp*
+logs/
+slurm*.out
+snakemake_dry_run.txt
+Results/
+.Rhistory
+__pycache__/
+*samples_table_2.csv

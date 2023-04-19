@@ -1,0 +1,1406 @@
+configfile: "Config/config.yaml"
+
+import os
+import re
+import pandas as pd
+import numpy as np
+import smk_functions as smkf
+
+#########################################
+## Load sample table and check format ###
+#########################################
+samples_table = pd.read_csv(
+    "Config/samples.csv",
+    true_values = ["True", "TRUE", "T"],
+    false_values = ["False", "FALSE", "F"],
+    na_values= {"dros_equalization_group":"-",
+                "fastq2":"-"}).set_index("sample_name", drop=False) 
+    # "-" will be interpreted as NaN only at "dros_equalization_group" column
+
+exit_message = "\n\n One or more errors have been detected on your 'samples_table.xlsx' file.\nErrors:\n"
+exit_script = False
+# Check names of samples don't contain / or . or finish in "_MERGED"
+if (
+(samples_table['sample_name'].str.contains("\.")) |
+(samples_table['sample_name'].str.contains("/")) |
+(samples_table['sample_name'].str.contains(" ")) |
+(samples_table['sample_name'].str.contains("_MERGED$"))).any():
+    exit_message += "* One or more sample names in samples table contain a dot " +\
+    "('.'), a slash ('/'), a space (' ') or ends with the word '_MERGED'. These are not allowed " +\
+    "in sample names. Modify names and try again\n"
+    exit_script = True
+
+# Check that none of the sample names is repeated
+if samples_table['sample_name'].duplicated().any():
+    exit_message += "* One or more sample names in samples table is repeated.\n" +\
+    "Choose different names for all your samples.\n"
+    exit_script = True
+
+# Check that "merge_with" reference is not a deduplicated/filtered file for spiked-in samples (it has to be raw bam)
+if (
+(samples_table['merge_with'].str.contains(".nodup.")) &
+(samples_table['dros_spike_in'])
+).any():
+    exit_message += "* One or more samples' 'merge_with' parameter is a deduplicated/filtered " +\
+    "bam file AND has drosophila spike in. When sample is spiked, the 'merge_with' " +\
+    "file has to be the raw bam.\n"
+    exit_script = True
+
+# Check that there are 2 FASTQs when sample is PE and 1 when is not
+if (
+(samples_table['PE']) &
+( (samples_table['fastq1'] == "") | (samples_table['fastq2'] == "") )).any():
+    exit_message += "* At least one sample is set as PE but only contains one " +\
+    "FASTQ path. Interleaved FASTQs are not supported yet.\n"
+    exit_script = True
+if ((~samples_table['PE']) & (~samples_table['fastq2'].isna())).any():
+    exit_message += "* At least one sample is set as SR (PE == False) but contains " +\
+    "a FASTQ path at column 'fastq2'. Please put it at column 'fastq1'\n"
+    exit_script = True
+if "" in samples_table.drop(["fastq1","fastq2"], axis=1).values:
+    exit_message += "* There is a cell that  is empty. There cannot be any empty cell. Please fill empty cells with '-'\n"
+    exit_script = True
+
+# Check that the samples with a "dros_equalization_group" have "dros_spike_in" == T 
+#(I don't do the complementary becuase you might have the sample to equalize on another library)
+if (~samples_table['dros_equalization_group'].isnull() &
+~samples_table['dros_spike_in']).any():
+    exit_message += "* At least one of your samples has a 'dros_equalization_group' " +\
+    "assigned to it but has the field 'dros_spike_in' set as False.\n"
+    exit_script = True
+
+# Check that all columns with false-true are actually false true (check if col == bool)
+booleans_check=samples_table[["PE","dros_spike_in",
+                 "get_single_strand",
+                 "Clip_reads_to_1bp_on_5_prime",
+                 "top5000_HS_heatmap"]].dtypes
+if (booleans_check != "bool").any():
+    exit_message += "* One or more of the following columns has at lesat one row" +\
+    "filled with something different than 'T', 'F', 'True', 'False', 'TRUE' or 'FALSE'.\n" +\
+    "columns: 'PE','dros_spike_in', 'get_single_strand', 'Clip_reads_to_1bp_on_5_prime'," +\
+    "'top5000_HS_heatmap'\n"
+    exit_script = True
+
+# Exit if any previous condition is met
+if exit_script:
+    print(exit_message)
+    quit()
+
+############################################################
+########## Add merged samples to samples table #############
+############################################################
+    # For samples that will be merged with another deduplicated and filtered bam (from
+    # another library or within the same library). The "merged" sample will be
+    # added to the samples table and treated
+    # as one more sample. Parameters for the merged sample will be taken from the
+    # sample from this library that will be merged. Hence, both samples to be merged
+    # need to have been sequenced using the same technology (SR or PE).
+
+for sample in samples_table['sample_name']:
+    if not(samples_table.loc[sample,'merge_with'] == "-"):
+         new_row=samples_table.loc[sample,]
+         new_row['sample_name'] = f"{new_row['sample_name']}_MERGED"
+         new_row['merge_with']="-"
+         samples_table=pd.concat([samples_table, new_row.to_frame().T],axis=0, join='outer') 
+            # to concatenate a df with a series, I need to convert series to df, and to get
+            # the columns right I need to transpose the tabel  (.T). the axis=0 and join='outer'
+            # are not really necessary because those are the default values for concat.
+            # I put them just as a remininder and for learning purpos
+         samples_table=samples_table.set_index("sample_name", drop=False)
+
+
+####################################################
+##### Add samples names with suffixes to table #####
+####################################################
+# All potentially generated files with their proper extensions will be added to 
+# a dataframe called "samples_table_2".
+# Files will be called using the samples_table_2 dataframe, which will be exported
+# as an csv table on "Config/samples_table_processed.csv"
+
+mm10_samples_table = samples_table.loc[samples_table['reference_genome'] == "mm10"] 
+    # For procedures that are only applied to mm10 (such as HS intersection)
+number_samples = len(samples_table)
+#%% samples_table with extra columns for full names
+samples_table_2 = samples_table.copy()
+
+### Suffixes to make file names ###
+nodup_filt = ".q_filt.srt.nodup.mit_filt"
+
+aligned_genomes = (
+    np.where(samples_table_2['dros_spike_in'],
+             "." + samples_table_2['reference_genome'] + "_f_d6",
+             "." + samples_table_2['reference_genome'])
+    )
+
+final_genomes = (
+    np.where(samples_table_2['dros_spike_in'],
+             aligned_genomes + "." + samples_table_2['reference_genome'],
+             aligned_genomes)
+    )
+
+samples_nodup_filt = (
+    samples_table_2['sample_name'] + final_genomes +
+    nodup_filt
+    )
+
+cov_params = f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}/"
+
+peak_nrw_params=(
+     "qv_" + (config['MACS2']['qvalue'].split("."))[1] +
+    "__" + samples_table_2['peak_ctrl_file_alias']
+    )
+
+peak_brd_params=(
+     "bco_" + (config['MACS2']['broad_cutoff'].split("."))[1] + "_qv_" +
+    (config['MACS2']['qvalue'].split("."))[1] + "__" +
+    samples_table_2['peak_ctrl_file_alias']
+    )
+
+#### Create columns with file names #####
+### Dros bam
+samples_table_2['dros_dedup_bam'] = (
+    np.where(samples_table_2['dros_spike_in'],
+             ("Results/d6/Bams/Both_strands/" + samples_table_2['sample_name'] +
+              aligned_genomes + ".d6" + nodup_filt + ".bam"),
+             np.NaN)
+    )
+
+### Both strands bam
+samples_table_2['raw_bam'] = (
+    "Results/" + samples_table_2['sample_name'] +
+    aligned_genomes + ".bam"
+    )
+samples_table_2['dedup_flt_both_strds_bam'] = (
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Both_strands/" + samples_nodup_filt + ".bam"
+    )
+
+### Single strand bam files, unclipped
+conditions_ss_83_or_i16_bam = [
+    samples_table_2['PE'] & samples_table_2['get_single_strand'],
+    ~samples_table_2['PE'] & samples_table_2['get_single_strand']
+    ]
+choices_ss_83_or_i16_bam = [
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/Full_length_reads/" +
+    samples_nodup_filt + ".83-163.bam"),
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/Full_length_reads/" +
+    samples_nodup_filt + ".inc_16.bam"
+    ]
+
+samples_table_2['ss_83_or_i16_bam'] = (
+    np.select(conditions_ss_83_or_i16_bam,
+              choices_ss_83_or_i16_bam,
+              default=np.NaN)
+    )
+
+samples_table_2['ss_99_or_e16_bam'] = (
+    np.where(samples_table_2['PE'],
+             "Results/" + samples_table_2['reference_genome'] +
+             "/Bams/Single_strand/Full_length_reads/" +
+             samples_nodup_filt + ".99-147.bam",
+             "Results/" + samples_table_2['reference_genome'] +
+             "/Bams/Single_strand/Full_length_reads/" +
+             samples_nodup_filt + ".exc_16.bam"
+             )
+    )
+
+### Single strand bam, clipped profiles
+    ## PE data
+conditions_ss_not_clpd_bam = [
+    samples_table_2['PE'] & samples_table_2['get_single_strand'],
+    ~samples_table_2['PE'] & samples_table_2['get_single_strand']
+    ]
+choices_ss_83_or_i16_bam = [
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/Full_length_reads/" +
+    samples_nodup_filt + ".83-163.bam"),
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/Full_length_reads/" +
+    samples_nodup_filt + ".inc_16.bam"
+    ]
+choices_ss_99_or_e16_bam = [
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/Full_length_reads/" +
+    samples_nodup_filt + ".99-147.bam"),
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/Full_length_reads/" +
+    samples_nodup_filt + ".exc_16.bam"
+    ]
+
+samples_table_2['ss_83_or_i16_bam'] = (
+    np.select(conditions_ss_not_clpd_bam,
+              choices_ss_83_or_i16_bam,
+              default=np.NaN)
+    )
+samples_table_2['ss_99_or_e16_bam'] = (
+    np.select(conditions_ss_not_clpd_bam,
+              choices_ss_99_or_e16_bam,
+              default=np.NaN)
+    )
+
+## Clipped
+samples_table_2['ssPE_83_i16_clpd_bam'] = np.where(
+    samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/1bp_clipped_reads/" + samples_nodup_filt +
+    ".83-163.inc_16.clipped_1_bp.bam"),
+    np.NaN)
+
+samples_table_2['ssPE_83_e16_clpd_bam'] = np.where(
+    samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/1bp_clipped_reads/" + samples_nodup_filt +
+    ".83-163.exc_16.clipped_1_bp.bam"),
+    np.NaN)
+
+samples_table_2['ssPE_99_i16_clpd_bam'] = np.where(
+    samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/1bp_clipped_reads/" + samples_nodup_filt +
+    ".99-147.inc_16.clipped_1_bp.bam"),
+    np.NaN)
+
+
+samples_table_2['ssPE_99_e16_clpd_bam'] =  np.where(
+    samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/1bp_clipped_reads/" + samples_nodup_filt +
+    ".99-147.exc_16.clipped_1_bp.bam"),
+    np.NaN)
+
+    ## SR data
+samples_table_2['ssSR_i16_clp_bam'] = np.where(
+    ~samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/1bp_clipped_reads/" + samples_nodup_filt +
+    ".inc_16.clipped_1_bp.bam"),
+    np.NaN)
+samples_table_2['ssSR_e16_clp_bam'] = np.where(
+    ~samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Single_strand/1bp_clipped_reads/" + samples_nodup_filt +
+    ".exc_16.clipped_1_bp.bam"),
+    np.NaN)
+
+### Coverage files
+# Both strands bw
+samples_table_2['dedup_flt_both_strds_bw'] = (
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Both_strands/" + cov_params + samples_nodup_filt + ".bw"
+    )
+
+# Single strand bw files, unclipped
+conditions_ss_83_or_i16_bw = [
+    samples_table_2['PE'] & samples_table_2['get_single_strand'],
+    ~samples_table_2['PE'] & samples_table_2['get_single_strand']
+    ]
+choices_ss_83_or_i16_bw = [
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+    samples_nodup_filt + ".83-163.bw"),
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+    samples_nodup_filt + ".inc_16.bw"
+    ]
+
+samples_table_2['ss_83_or_i16_bw'] = (
+    np.select(conditions_ss_83_or_i16_bw,
+              choices_ss_83_or_i16_bw,
+              default=np.NaN)
+    )
+
+samples_table_2['ss_99_or_e16_bw'] = (
+    np.where(samples_table_2['PE'],
+             "Results/" + samples_table_2['reference_genome'] +
+             "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+             samples_nodup_filt + ".99-147.bw",
+             "Results/" + samples_table_2['reference_genome'] +
+             "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+             samples_nodup_filt + ".exc_16.bw"
+             )
+    )
+
+# Single strand bw, clipped profiles
+    # PE data
+conditions_ss_not_clpd_bw = [
+    samples_table_2['PE'] & samples_table_2['get_single_strand'],
+    ~samples_table_2['PE'] & samples_table_2['get_single_strand']
+    ]
+choices_ss_83_or_i16_bw = [
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+    samples_nodup_filt + ".83-163.bw"),
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+    samples_nodup_filt + ".inc_16.bw"
+    ]
+choices_ss_99_or_e16_bw = [
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+    samples_nodup_filt + ".99-147.bw"),
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+    samples_nodup_filt + ".exc_16.bw"
+    ]
+
+samples_table_2['ss_83_or_i16_bw'] = (
+    np.select(conditions_ss_not_clpd_bw,
+              choices_ss_83_or_i16_bw,
+              default=np.NaN)
+    )
+samples_table_2['ss_99_or_e16_bw'] = (
+    np.select(conditions_ss_not_clpd_bw,
+              choices_ss_99_or_e16_bw,
+              default=np.NaN)
+    )
+
+# Clipped
+samples_table_2['ssPE_83_i16_clpd_bw'] = np.where(
+    samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/1bp_clipped_reads/" +  cov_params +samples_nodup_filt +
+    ".83-163.inc_16.clipped_1_bp.bw"),
+    np.NaN)
+
+samples_table_2['ssPE_83_e16_clpd_bw'] = np.where(
+    samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/1bp_clipped_reads/" +  cov_params +samples_nodup_filt +
+    ".83-163.exc_16.clipped_1_bp.bw"),
+    np.NaN)
+
+samples_table_2['ssPE_99_i16_clpd_bw'] = np.where(
+    samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/1bp_clipped_reads/" + cov_params + samples_nodup_filt +
+    ".99-147.inc_16.clipped_1_bp.bw"),
+    np.NaN)
+
+
+samples_table_2['ssPE_99_e16_clpd_bw'] =  np.where(
+    samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/1bp_clipped_reads/" + cov_params + samples_nodup_filt +
+    ".99-147.exc_16.clipped_1_bp.bw"),
+    np.NaN)
+
+    # SR data
+samples_table_2['ssSR_i16_clp_bw'] = np.where(
+    ~samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/1bp_clipped_reads/" + cov_params + samples_nodup_filt +
+    ".inc_16.clipped_1_bp.bw"),
+    np.NaN)
+samples_table_2['ssSR_e16_clp_bw'] = np.where(
+    ~samples_table_2['PE'] & samples_table_2['Clip_reads_to_1bp_on_5_prime'],
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/1bp_clipped_reads/" + cov_params + samples_nodup_filt +
+    ".exc_16.clipped_1_bp.bw"),
+    np.NaN)
+
+### Peak files
+samples_table_2['peak_bl_gr_flt_nrw'] = np.where(
+    samples_table['peak_ctrl_file_alias'] != "-",
+    "Results/" + samples_table_2['reference_genome'] + "/Peaks/MACS2/Narrow/" +
+    peak_nrw_params + "/Black-grey_filtered/" + samples_nodup_filt +
+     ".narrowPeak",
+     np.NaN
+    )
+
+samples_table_2['peak_bl_gr_flt_brd'] = np.where(
+    samples_table['peak_ctrl_file_alias'] != "-",
+    "Results/" + samples_table_2['reference_genome'] + "/Peaks/MACS2/Broad/" +
+    peak_brd_params + "/Black-grey_filtered/" + samples_nodup_filt +
+    ".broadPeak",
+    np.NaN
+    )
+
+samples_table_2['peak_bl_gr_flt_hs_int_brd'] = np.where(
+    (samples_table_2["reference_genome"] == "mm10") & (samples_table['peak_ctrl_file_alias'] != "-"),
+    ("Results/" + samples_table_2['reference_genome'] + "/Peaks/MACS2/Broad/" +
+    peak_brd_params + "/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/" +
+    samples_nodup_filt + ".broadPeak"),
+    np.NaN)
+
+samples_table_2['peak_bl_gr_flt_hs_int_nrw'] = np.where(
+    (samples_table_2["reference_genome"] == "mm10") & (samples_table['peak_ctrl_file_alias'] != "-"),
+    ("Results/" + samples_table_2['reference_genome'] + "/Peaks/MACS2/Narrow/" +
+    peak_nrw_params + "/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/" +
+    samples_nodup_filt +
+    ".narrowPeak"),
+    np.NaN)
+
+# Qctrl files
+    # FRIP
+samples_table_2['FRIP_nrw_blk_gr_flt'] = np.where(
+    samples_table['peak_ctrl_file_alias'] != "-",
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Qctrl/" + samples_table_2['sample_name'] + "/Processed_bam/FRIP/MACS2_Narrow_" + 
+    peak_nrw_params  + "_bl-gr_flt/" + samples_nodup_filt + ".FRIP.txt"),
+    np.NaN
+    )
+samples_table_2['FRIP_brd_blk_gr_flt'] = np.where(
+    samples_table['peak_ctrl_file_alias'] != "-",
+    ("Results/" + samples_table_2['reference_genome'] +
+    "/Qctrl/" + samples_table_2['sample_name'] + "/Processed_bam/FRIP/MACS2_Broad_" +
+    peak_brd_params + "_bl-gr_flt/" + samples_nodup_filt + ".FRIP.txt"),
+    np.NaN
+    )
+    # samtools flagstat
+samples_table_2['raw_flagstat'] = (
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Qctrl/" + samples_table_2['sample_name'] + "/Raw_bam/" +
+    samples_table_2['sample_name'] + ".flagstat.txt"
+    )
+samples_table_2['processed_flagstat'] = (
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Qctrl/" + samples_table_2['sample_name'] + "/Processed_bam/" +
+    samples_table_2['sample_name'] + ".flagstat.txt"
+    )
+samples_table_2['processed_flagstat_dros'] = np.where(
+    samples_table["dros_spike_in"],
+    ("Results/d6/Qctrl/" + samples_table_2['sample_name'] + "/Processed_bam/" +
+    samples_table_2['sample_name'] + ".flagstat.txt"),
+    np.NaN)
+
+
+# Merged files (same experiment sequenced more than once)
+samples_table_2['merged_dedup_bam'] = np.where(
+    ~((samples_table_2['merge_with'] == "") | (samples_table_2['merge_with'] == "-")),
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bams/Both_strands/" + samples_table_2['sample_name'] + "_MERGED" + final_genomes +
+    nodup_filt + ".bam",
+    np.NaN)
+# Hotspot heatmaps (only for top 5000 hs, both strands)
+samples_table_2['heatmap_top_5000_hs'] = np.where(
+    samples_table_2["top5000_HS_heatmap"],
+    ("Results/" + samples_table_2['reference_genome'] +
+     "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000/Both_strands/" +
+     cov_params + "Heatmaps/" + samples_nodup_filt + ".png"),
+    np.NaN)
+
+# Dros. normalized/equalized samples (bw)
+samples_table_2['dros_eq_both_strand_cov'] = (
+    np.where(~samples_table['dros_equalization_group'].isna(),
+              "Results/" + samples_table['reference_genome'] +
+              "/Bigwigs/Coverage/Both_strands/" + cov_params +
+              "Drosophila_normalized/" + samples_table['dros_equalization_group'] +
+              "/" + samples_nodup_filt + ".dros_norm.bw",
+              np.NaN))
+
+conditions_dros_eq = [
+    (~samples_table['dros_equalization_group'].isna()) & (samples_table_2['PE']) & (samples_table_2['get_single_strand']),
+    (~samples_table['dros_equalization_group'].isna()) & (~samples_table_2['PE']) & (samples_table_2['get_single_strand'])
+    ]
+
+choices_ss_83_or_i16_cov = [
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+    "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
+    samples_nodup_filt + ".83-163.dros_norm.bw",
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+    "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
+    samples_nodup_filt + ".inc_16.dros_norm.bw"
+    ]
+
+choices_ss_99_or_e16_cov = [
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+    "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
+    samples_nodup_filt + ".99-147.dros_norm.bw",
+    "Results/" + samples_table_2['reference_genome'] +
+    "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+    "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
+    samples_nodup_filt + ".exc_16.dros_norm.bw"]
+
+samples_table_2['dros_eq_83_or_i16_cov'] = (
+    np.select(conditions_dros_eq,
+              choices_ss_83_or_i16_bam,
+              default=np.NaN)
+    )
+samples_table_2['dros_eq_99_or_e16_cov'] = (
+    np.select(conditions_dros_eq,
+              choices_ss_99_or_e16_cov,
+              default=np.NaN)
+    )
+
+### Save table for debugging
+samples_table_2.to_csv("Config/samples_table_2.csv")
+
+
+###################################################
+##### Get list of files to call in rule all: ######
+###################################################
+
+hs_agg_profs = []
+for region in ["top_5000_plus_minus_2000", "x_non_par", "autosomal_x_non_par_ctrl", "asymetric_watson_strong", "asymetric_crick_strong"]:
+    hs_agg_profs += [f"Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{region}.RData"]
+
+peak_summaries = []
+ref_genomes = samples_table['reference_genome'].unique().tolist()
+for genomes in ref_genomes:
+    peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
+# Get single strand files (ss), black-list filtered peak lists (peak_bl),
+# FRIP values, drosophila deduplicated bam files, heatmaps
+files_df = samples_table_2.filter(regex="^(ss|peak_bl|FRIP|both|dros_dedup_bam|processed_flagstat_dros|merged_dedup|heatmap|dros_eq_).*") # Filter columns using regex to match name of column
+files_array = files_df.to_numpy().ravel()
+files_list = files_array[~pd.isnull(files_array)].tolist()
+files_list += peak_summaries
+
+# pre_formed_strings (put this aside later)
+cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
+#cov_param_clipped_string=f"{config['coverage']['normalization']}_bs1_sm1" # Not in use for now...
+
+############################################
+#####   Add variables to smkf module   #####
+############################################
+# (otherwise those variables are not accesible to that module)
+smkf.samples_table = samples_table
+smkf.config = config
+smkf.cov_config_params_string = cov_config_params_string
+smkf.samples_table_2 = samples_table_2
+
+###########################
+######### RULES  ##########
+###########################
+# To be able to produce different early-products of processing, I either have to
+# set differnt names in all final products according to those early changes (and 
+#restrict regex of following rules to use right products) or, I can set up the initial 
+# rule (where change happens) according to parameters... the problem with the later 
+# methodology is that I would have to put many steps in one rule...
+
+rule all: # Call for cov files ()
+    input:
+        files_list,
+        expand(
+        "Results/{genomes}/Qctrl/multiqc_report_{lib_name}.html",
+        genomes = samples_table["reference_genome"].unique().tolist(),
+        lib_name = config['library']['name']
+        ),
+        expand(
+        "Results/{genomes}/Analysis/{lib_name}.html",
+        genomes = samples_table["reference_genome"].unique().tolist(),
+        lib_name = config['library']['name']
+        ),
+
+
+        # Cov. Dedup merged
+            # This should probably go on a separate folder (not the library folder, 
+            # since it does not correspond to any library in particular by definition)
+        # IDR Analysis
+            # Same as merged files analysis since most of the times both files 
+            # do not belong to the same library
+
+wildcard_constraints: # Automate constrain expression depending on config or sample file (which genomes are there?)
+    sample="[^./ ]+", # Name of files cannot contain . or / or space
+    sample_with_extensions="[^/]+",
+    strands="Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)",
+    int_genome="mm10|hg19|hg38",
+    spike_genome="d6",
+    genomes_not_fused="mm10|d6|hg19|hg38",
+    genomes_all="mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6",
+    fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6)",
+    cov_params="(CPM|RPKM|none)_bs[0-9]+_sm[0-9]+",
+    genomes_final="(?<=\.)(?P<interest_genome>mm10|hg19|hg38)+(_f_d6\.((?P=interest_genome)|d6))?(?=\.)",
+    ss_PE="83-163|99-147",
+    clipped_1bp_PE="((inc|exc)_16\.clipped_1_bp\.)?",
+    ss_SR="(inc|exc)_16",
+    peak_params="(bco_[0-9]+_)?qv_[0-9]+__[^/]*",
+    hs_region =  "top_5000_plus_minus_2000|asymetric_watson_strong|asymetric_crick_strong|x_non_par|autosomal_x_non_par_ctrl",
+    bam_type = "Raw_bam|Processed_bam",
+    extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
+    strand = "(\.(83-163|99-147|inc_16|exc_16))?",
+    library_name = config['library']['name'],
+    dros_eq_group="[^./ ]+"
+
+ruleorder: get_strand_sep_pe_bams > dedup_bam > index
+ruleorder: merge_bams > align_fastq
+localrules: filter_peaks_blk_grey_list, filter_peaks_blk_grey_list, intersect_peaks_HSs_list, sumarize_peak_count#, dros_normalization_report#,markdown_report_aggregate_profiles
+
+##############################
+###### Basic processing ######
+##############################
+
+# Index rule should create all indexes (as long as I ask for them. In final bams
+#  I will have to ask for them, on the rest it won't be necessary)
+rule index:
+    input:
+        "{sample}.bam" # In this case, sample wildcard can be anything (path included)
+    output:
+        "{sample,.+}.bam.bai" # In this case, sample can be anything (path included), 
+        # hence I need to override the global wildcard constrain (which does not allow paths on sample wildcard)
+    # log:
+    #     "{sample}.index.log"
+    threads: 2
+    envmodules:
+        "sambamba/0.8.2"
+    shell:
+        """
+        sambamba index {input}
+        """
+
+rule align_fastq: 
+# Alignement should take into account the sequencing mode (SR or PE),
+# the species of interest, the spike in, and the technology used to do the library
+#  (adaptase or regular). For now I'll forget about o3.
+    input:
+        unpack(smkf.get_input_align)
+    output:
+        bam = "Results/{sample}.{genomes_all}.bam",  # How do I use scratch temp dir here?  # Make this output temp? #
+        fastp_json = "Results/{genomes_all}/Qctrl/{sample}/Raw_FASTQ/{sample}_fastp.json", 
+        # This is actually not right, the fastp report is on the FASTQ file, not "raw bam", 
+        # and should be placed on final genomes, not all genemos (drosophila fusions not included). 
+        # So, it should be on: "Results/{final_genomes}/Qctrl/{sample}/FASTQ/{sample}_fastp.json"
+        fastp_html = "Results/{genomes_all}/Qctrl/{sample}/Raw_FASTQ/{sample}_fastp.html"
+    params:
+        genome_path = lambda w: config['genomes'][w.genomes_all],
+        library_tech = lambda w: samples_table.loc[w.sample, "library_technology"],
+        PE = lambda w: str(samples_table.loc[w.sample, "PE"]).lower()
+    # log:
+    #     "Results/Log_files/align_spiked_fastq/{sample}.{genomes_all}.log"
+    threads: 2
+    envmodules:
+        "fastp/0.23.2",
+        "bwa/0.7.15",
+        "sambamba/0.8.2",
+        "samtools/1.14"
+    shell: # I need to assemble the command as a string and the "eval" it, 
+    # otherwise it doesn't work. Another workaround is to use wrappers (there is a wrapper that does this)
+        """
+input2=""
+PE_adaptase=""
+echo "determining alignement conditions..."
+if [[ "{params.PE}" == "true" ]]; then
+  input2="-I {input.fastq2} "
+  echo "Data is PE"
+  if [[ "{params.library_tech}" == "adaptase" ]]; then
+PE_adaptase="fastp \\
+--stdin \\
+--interleaved_in \\
+--trim_front2 10 \\
+--stdout |"
+echo "Library technology: Adaptase"
+fi
+fi
+echo "finished the first part"
+
+command="
+fastp \\
+-i {input.fastq1} $input2 \\
+--html {output.fastp_html} \\
+--json {output.fastp_json} \\
+--stdout | $PE_adaptase \\
+bwa mem -v 1 -M -p -t $SLURM_CPUS_ON_NODE {params.genome_path} - \\
+| samtools sort -@ $SLURM_CPUS_ON_NODE -O bam -o {output.bam}"
+
+#sambamba sort --nthreads $SLURM_CPUS_ON_NODE -o {output.bam} /dev/stdin # --. Apparently sambamba sort only takes bam files
+
+eval $command
+        """
+
+rule filter_spiked_in_bam_int_genome:
+    input:
+        bam="Results/{sample}.{fused_genome}.bam",
+        bai="Results/{sample}.{fused_genome}.bam.bai" # To view by chr needs a bai
+    output:
+        "Results/{sample}.{fused_genome}.{int_genome}.bam"
+    # log:
+    #     "Results/Log_files/filter_spiked_in_bam_int_genome/{sample}.{fused_genome}.{int_genome}.log"
+    params:
+        spike_suffix= lambda w: config['spike_in_suffixes'][w.fused_genome]
+    threads: 2
+    envmodules:
+        "samtools/1.14",
+        "sambamba/0.8.2"
+    shell:
+        """
+        int_chromsomes=$(samtools idxstats {input.bam} | \\
+         cut -f 1 | grep -v .*{params.spike_suffix} | \\
+         grep -v \* | paste  -sd ' ')
+        sambamba view --nthreads $SLURM_CPUS_PER_TASK --format bam -o {output} {input.bam} $int_chromsomes
+        """
+
+rule filter_spiked_in_bam_spike_in_genome:
+    input:
+        bam="Results/{sample}.{fused_genome}.bam",
+        bai="Results/{sample}.{fused_genome}.bam.bai"
+    output:
+        "Results/{sample}.{fused_genome}.{spike_genome}.bam"
+    # log:
+    #     "Results/Log_files/filter_spiked_in_bam_spike_in_genome/{sample}.{fused_genome}.{spike_genome}.log"
+    params:
+        spike_suffix= lambda w: config['spike_in_suffixes'][w.fused_genome]
+    threads: 2
+    envmodules:
+        "sambamba/0.8.2",
+        "samtools/1.14"
+    shell:
+        """
+        spike_chromsomes=$(samtools idxstats {input.bam} | cut -f 1 | grep .*{params.spike_suffix} | grep -v \* | paste  -sd ' ')
+command="sambamba view --nthreads $SLURM_CPUS_PER_TASK --format bam -o {output} {input.bam} $spike_chromsomes"
+        echo $command
+        eval $command
+        """
+
+rule dedup_bam:
+    input:
+        bam = "Results/{sample}.{genomes_final}.bam",
+        bai = "Results/{sample}.{genomes_final}.bam.bai" # Is this necessary?
+    output:
+        bam = temp("Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bam"),
+        qctrl = "Results/{genomes_not_fused}/Qctrl/{sample}/Raw_bam/{sample}.{genomes_final}.markDup_raw.txt",
+        bai = temp("Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bai")
+    # log:
+    #     "Results/Log_files/dedup/{genomes_not_fused}{sample}.{genomes_final}.log"
+    threads: 2
+    envmodules:
+        "picard/2.21.2"
+    shell:
+        """
+        picard MarkDuplicates I={input.bam} O={output.bam} M={output.qctrl} VALIDATION_STRINGENCY=LENIENT ASSUME_SORTED=true REMOVE_DUPLICATES=TRUE VERBOSITY=INFO CREATE_INDEX=TRUE
+        """
+
+rule filter_bam:
+    input:
+        bam = "Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bam",
+        bai = "Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bam.bai",
+    output:
+        "Results/{genomes_not_fused}/Bams/Both_strands/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.bam"
+    # log:
+    #     "Results/Log_files/filter_bam/{genomes_not_fused}/{sample}.{genomes_final}.log"
+    params:
+        min_mapping_qual = lambda w: config['min_mapping_qual'],
+        PE = lambda w: str(samples_table.loc[w.sample, "PE"]).lower()
+    threads: 2
+    envmodules:
+        "samtools/1.14",
+        "sambamba/0.8.2"
+    shell:
+        """
+chromsomes=$(samtools idxstats {input.bam} | cut -f 1 \\
+| grep -v MT | grep -v chrM | grep -v \* | paste  -sd ' ') # This is to filter out mitochondrial reads
+
+if [[ "{params.PE}" == "true" ]]; then
+  echo "Data is PE"
+  filter="-F 3852 -f 3"
+else
+echo "Data is SR"
+  filter="-F 3844"
+fi
+
+command="samtools view \\
+-q {params.min_mapping_qual} \\
+-b \\
+-@ $SLURM_CPUS_ON_NODE \\
+${{filter}} \\
+-o {output} \\
+{input.bam} $chromsomes"
+
+echo "Command:
+$command"
+eval $command
+
+# Flags
+    # 3852 = read or mate unmapped, not primary alignement, read fails platform/vendor quality checks, read is PCR or optical duplicate, supplementary alignment
+    # 3 = read paired and read mapped in proper pair
+    # 3844 = read unmapped, not primary alignement, read fails platform/vendor quality checks, read is PCR or optical duplicate, supplementary alignment
+        """
+
+rule get_strand_sep_pe_bams: # Do I need to separate 83 AND 163 or are the both the same?
+    input:
+        bam="Results/{genomes_not_fused}/Bams/Both_strands/{sample_with_extensions}.bam"
+    output:
+        bam=temp("Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag}.bam"),
+        bai=temp("Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag}.bam.bai"), # Index is needed for next merge_watson_or_crick and is also temp, that is why it is not done by index rule
+    wildcard_constraints:
+        flag="(83|163|99|147)"
+    # log:
+    #     "Results/Log_files/get_strand_sep_pe_bams/{genomes_not_fused}/{sample_with_extensions}.{flag}.log"
+    threads: 2
+    envmodules:
+        "samtools/1.14"
+    shell:
+        """
+        samtools view -b -f {wildcards.flag} {input.bam} > {output.bam}
+        samtools index {output.bam}
+        """
+
+rule merge_watson_or_crick: # If the next rule works for both SR and PE, erase this rule
+    input:
+        flag1="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag1}.bam",
+        index_1="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag1}.bam.bai",
+        flag2="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag2}.bam",
+        index_2="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag2}.bam.bai"
+    output:
+        "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag1}-{flag2}.bam"
+    wildcard_constraints:
+        flag1="(83|99)",
+        flag2="(163|147)"
+    # log:
+    #     "Results/Log_files/merge_watson_or_crick/{genomes_not_fused}/{sample_with_extensions}.{flag1}-{flag2}.log"
+    threads: 2
+    envmodules:
+        "samtools/1.14"
+    shell:
+        """
+        samtools merge {output} {input.flag1} {input.flag2}
+        """
+
+rule get_rv_fw_strand:
+    input:
+        smkf.get_rv_fw_strand_input
+        #"Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.bam",
+        #"Results/{genomes_not_fused}/Bams/Both_strands/{sample_with_extensions}.bam"
+    output:
+        inc_16="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.inc_16.bam",
+        exc_16="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.exc_16.bam"
+    # log:
+    #     "Results/Log_files/get_rv_fw_strand/{genomes_not_fused}/{sample_with_extensions}.log"
+    threads: 2
+    envmodules:
+        "samtools/1.14"
+    shell:
+        """
+        samtools view -b -f 16 {input} > {output.inc_16}
+        samtools view -b -F 16 {input} > {output.exc_16}
+        """
+
+rule create_coverage_bw:
+    input:
+        bam="Results/{genomes_not_fused}/Bams/{strands}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_condit}{clip_condit}bam",
+        bai="Results/{genomes_not_fused}/Bams/{strands}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_condit}{clip_condit}bam.bai"
+    output:
+        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_condit}{clip_condit}bw"
+    # log:
+    #     "Results/Log_files/create_coverage_bw/{genomes_not_fused}.{strands}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_condit}{clip_condit}{cov_params}.log"
+    wildcard_constraints:
+        ss_condit="(((83-163|99-147)|(inc_16|exc_16))\.)?",
+        clip_condit="(((inc|exc)_16\.)?clipped_1_bp\.)?"
+    params:
+        smooth = config['coverage']['smooth'],
+        bin = config['coverage']['bin_size'],
+        normalize = config['coverage']['normalization'],
+        extend_reads = config['coverage']['extend_reads']
+    threads: 2
+    envmodules:
+        "deeptools/3.4.3"
+    shell: # The coverage will be different depending on weather the bam's been clipped or not. If clipped, then cov smooth and bin  == 1, otherwise use config file parameters
+        """
+        if [ -z {wildcards.clip_condit} ] # Cannot do the test [[ curly_brace empty_variable curly_brace == "" ]], won't work
+        then
+        echo "Doing smooth and bin according to config file (not clipped profile)"
+        bamCoverage --numberOfProcessors max -b {input.bam} -bs {params.bin} --smoothLength {params.smooth} --normalizeUsing {params.normalize} -o {output}
+        else
+        echo "Doing smooth 1 and bin 1 (clipped profile)"
+        bamCoverage --numberOfProcessors max -b {input.bam} -bs 1 --smoothLength 1 --normalizeUsing {params.normalize} -o {output}
+        fi
+        """
+
+rule clip_1bp:
+    input:
+        "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag16}.bam"
+    output:
+        bam="Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/{sample_with_extensions}.{flag16}.clipped_1_bp.bam",
+        tmp_dir=temp(directory("Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/{sample_with_extensions}.{flag16}/temp_clip_1bp"))
+    wildcard_constraints:
+        flag16="inc_16|exc_16"
+    # log:
+    #     "Results/Log_files/clip_1bp/{genomes_not_fused}/{sample_with_extensions}.{flag16}.log"
+    threads: 2
+    envmodules:
+        "samtools/1.14",
+        "bamutil/1.0.15"
+    shell:
+        """
+        set -x
+        temp_dir="{output.tmp_dir}"
+
+        mkdir -p $temp_dir
+
+        # Get header and sam file
+        samtools view -H {input} > ${{temp_dir}}/header
+
+        # Clip reads
+
+        samtools view {input} | \\
+        awk -v dir="${{temp_dir}}" '{{read_length=length($10)}} {{print $0 >> dir "/" read_length ".sam" }} '
+
+        sam_files=$(find ./${{temp_dir}} -regextype awk -iregex ".*sam$")
+
+        for sam in ${{sam_files}}; do
+          read_length=$(basename $sam .sam)
+          clip_length=$(( $read_length - 1 ))
+          echo -e "clippping reads of readlength = $read_length \\n"
+          cat ${{temp_dir}}/header $sam |
+          bam trimBam - - -R $clip_length --clip | \
+          samtools sort -n -o - - | \
+          samtools fixmate - - | \
+          samtools sort - -o ${{temp_dir}}/${{read_length}}_clipped_temp.bam
+        done
+
+        # Merge them
+        bam_files=$(find ./${{temp_dir}} -regextype awk -iregex ".*bam$" -type f | tr "\\n" " ")
+        samtools merge -o {output.bam} $bam_files
+        """
+
+rule call_peaks_macs2: # Check on the original script I get a file with the name "._peaks.broadPeak". Should take out that ._peaks.
+    input:
+        unpack(smkf.MACS2_peak_calling_files)
+    output:
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak" # Check the file name
+    params:
+        smkf.get_MACS2_params # Within params, `unpack` is not allowed, instead return a dictionary and access it via {params[0][mykey]}. Not sure why the [0]. Appaerently params is a list, and the first item is the dict...
+    # log:
+    #     "Results/Log_files/call_peaks_macs2/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{sample}.{genomes_final}{extension}.{peak_params}.log"
+    wildcard_constraints:
+        peak_type="broad|narrow",
+        peak_type_folder="Broad|Narrow",
+        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?"
+    threads: 2
+    envmodules:
+        "macs2/2.2.7.1"
+    shell:
+        """
+        directory=$(dirname {output})
+        macs2 callpeak --outdir $directory --name {wildcards.sample}.{wildcards.genomes_final}{wildcards.extension} -t {input.treat_bam} {params[0][ctrl]} -g {params[0][genome]} {params[0][qv_bco]} {params[0][PE]} {params[0][peak_type_options]}
+        """
+
+rule filter_peaks_blk_grey_list:
+    input:
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak"
+    output:
+        final="Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak",
+        temp=temp("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.temp")
+    wildcard_constraints:
+        peak_type="broad|narrow",
+        peak_type_folder="Broad|Narrow",
+        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?"
+    # log:
+    #     "Results/Log_files/filter_peaks_blk_grey_list/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{sample}.{genomes_final}{extension}.{peak_params}.log"
+    threads: 1
+    envmodules:
+        "bedtools/2.30.0"
+    params:
+        blck_gry_lst = lambda w: config['references'][w.genomes_not_fused]['black_grey']
+    shell:
+        """
+        bedtools intersect -wa -v -a {input} -b {params.blck_gry_lst} > {output.temp}
+        awk 'BEGIN {{ OFS = "\t"}} {{print $0, ($1 ":" $2 "-" $3)}}' {output.temp} > {output.final}
+        """
+
+rule annotate_peaks:
+    input:
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak"
+    output:
+        anno_peaks = temp("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.homer_anotated.tsv"),
+        genome_ontology = directory("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Genome_ontology/{sample}.{genomes_final}{extension}.{peak_type}")
+    threads: 1
+    envmodules:
+        "homer/4.7",
+    shell:
+        """
+        annotatePeaks.pl {input} {wildcards.genomes_not_fused} -genomeOntology {output.genome_ontology} > {output.anno_peaks}
+        """
+
+rule modify_annotated_peaks:
+    input:
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.homer_anotated.tsv"
+    output:
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Annotated_peaks/{sample}.{genomes_final}{extension}.{peak_type}Peak.annotated.tsv"
+    threads: 1
+    envmodules:
+        "R/4.1.2-mkl",
+        "bioconductor/3.14"
+    script:
+        "Scripts/modify_annotated_peaks.R"
+
+####################
+#### Merge files ###
+####################
+
+rule merge_bams:
+    input:
+        smkf.input_merge_bams
+    output:
+        temp("Results/{sample}_MERGED.{genomes_all}.bam")
+    threads: 2
+    envmodules:
+        "samtools/1.14"
+    shell:
+        """
+samtools merge -o {output} {input}
+        """
+
+####################################
+#### Dros spike in normalization ###
+####################################
+rule dros_normalization_report:
+    input:
+        smkf.dros_norm_report_input
+    output:
+        "Results/d6/Analysis/drosophila_normalization/{dros_eq_group}/drosophila_equalization_report.tsv"
+    params:
+        samples_table_2 = samples_table_2
+    threads: 1
+    script:
+        "Scripts/dros_norm_report.py"
+
+rule dros_normalization:
+    input:
+        unpack(smkf.dros_norm_input)
+    output:
+        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/Drosophila_normalized/{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}.dros_norm.bw",
+    params:
+        smooth = config['coverage']['smooth'],
+        bin = config['coverage']['bin_size'],
+        normalize = config['coverage']['normalization'],
+        extend_reads = config['coverage']['extend_reads']
+    threads: 1
+    envmodules:
+        "deeptools/3.4.3"
+    shell:
+        """
+scaleFactor=$(awk 'BEGIN {{FS="\t"}} $1 == "{wildcards.sample}" {{print $4}}' {input.report})
+
+echo -e "scaleFactor = $scaleFactor \n"
+
+if (( $(echo "$scaleFactor < 1" | bc -l) )); then
+  echo "Sample will be scaled down with a scale factor of $scaleFactor"
+  bamCoverage --numberOfProcessors max -b {input.bam} -bs {params.bin} --smoothLength {params.smooth} --normalizeUsing {params.normalize} -o {output} --scaleFactor $scaleFactor
+else
+  unscaled_bw=$(readlink -f {input.unscaled_bw})
+  echo "sample will not be re-scaled, creating symbolic link to original coverage bigwig file (${{unscaled_bw}})"
+  ln --symbolic --relative "${{unscaled_bw}}" "{output}"
+  # --relative : create symbolic links relative to link location
+fi
+        """
+
+#############
+### Qctrl ###
+#############
+
+rule FRIP_narrow:
+    input:
+        peak = "Results/{genomes_not_fused}/Peaks/MACS2/Narrow/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.narrowPeak",
+        bam = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"],
+        bai = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"] + ".bai"
+    output:
+        "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/MACS2_Narrow_{peak_params}_bl-gr_flt/{sample}.{genomes_final}{extension}.FRIP.txt"
+    # log:
+    #     "Results/Log_files/FRIP/{genomes_not_fused}/Narrow/{sample}.{genomes_final}.{peak_params}{extension}.log"
+    threads: 1
+    envmodules:
+        "sambamba/0.8.2",
+        "samtools/1.14"
+    params:
+        param1 = "1"
+    shell:
+        """
+        echo "Getting total number of reads"
+        total_reads=$( sambamba view -c {input.bam} )
+
+        # Get reads in peak list
+        echo "Getting number of reads in peaks"
+        peak_reads=$( samtools view -L {input.peak} -c {input.bam} )
+
+        FRIP=$( echo "scale=2; 100 * $peak_reads / $total_reads" | bc )
+
+        echo "
+        Sample name: $(basename {input.bam} bam)
+        Total reads: $total_reads
+        Reads in peaks: $peak_reads
+        FRIP (%): $FRIP
+        Anything below 1% is not good..." > {output}
+        """
+
+rule FRIP_broad:
+    input:
+        peak = "Results/{genomes_not_fused}/Peaks/MACS2/Broad/{peak_params}/{sample}.{genomes_final}{extension}_peaks.broadPeak",
+        bam = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"],
+        bai = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"] + ".bai"
+    output:
+        "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/MACS2_Broad_{peak_params}_bl-gr_flt/{sample}.{genomes_final}{extension}.FRIP.txt"
+    # log:
+    #     "Results/Log_files/FRIP/{genomes_not_fused}/Broad/{sample}.{genomes_final}.{peak_params}{extension}.log"
+    threads: 1
+    envmodules:
+        "sambamba/0.8.2",
+        "samtools/1.14"
+    params:
+        param1 = "1"
+    shell:
+        """
+        echo "Getting total number of reads"
+        total_reads=$( sambamba view -c {input.bam} )
+
+        # Get reads in peak list
+        echo "Getting number of reads in peaks"
+        peak_reads=$( samtools view -L {input.peak} -c {input.bam} )
+
+        FRIP=$( echo "scale=2; 100 * $peak_reads / $total_reads" | bc )
+
+        echo "
+        Sample name: $(basename {input.bam} bam)
+        Total reads: $total_reads
+        Reads in peaks: $peak_reads
+        FRIP (%): $FRIP
+        Anything below 1% is not good..." > {output}
+        """
+
+rule crosscorrelation: # only processed bam
+    input:
+        lambda w: samples_table_2.loc[w.sample,'dedup_flt_both_strds_bam']
+    output:
+        pdf="Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/{sample}.crosscorrelation.pdf",
+        tab="Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/{sample}.crosscorrelation.spp.out" # For multiqc, the suffix has to be ".spp.out"
+    # log:
+    #     "Results/Log_files/crosscorrelation/{genomes_not_fused}/{sample}.log"
+    threads: 2
+    envmodules:
+        "phantompeakqualtools/1.2",
+        "samtools/1.14",
+        "sambamba/0.8.2",
+        "picard/2.21.2",
+        "deeptools/3.4.3"
+    shell:
+        """
+    run_spp.R -c="{input}" -savp="{output.pdf}" -out="{output.tab}"
+        """
+
+rule samstats:
+    input:
+        unpack(smkf.get_qctrl_bams_bais)
+    output:
+        "Results/{genomes_not_fused}/Qctrl/{sample}/{bam_type}/{sample}.samstats.txt" # This file is actualy just a txt file, but to be able to use expand in multiqc I am using .tab
+    threads: 2
+    envmodules:
+        "samtools/1.14",
+    shell:
+        """
+    samtools stats {input.bam} > {output}
+        """
+
+rule samtools_flagstat:
+    input:
+        unpack(smkf.get_qctrl_bams_bais)
+    output:
+        "Results/{genomes_not_fused}/Qctrl/{sample}/{bam_type}/{sample}.flagstat.txt"
+    threads: 2
+    envmodules:
+        "samtools/1.14",
+    shell:
+        """
+    samtools flagstat {input.bam} > {output}
+        """
+
+rule insert_size_picard: # Only processed bam and PE. I put {bam_type} wildcard though to be able to use the function to get the input bam/bai
+    input:
+        lambda w: samples_table_2.loc[w.sample,'dedup_flt_both_strds_bam']
+    output:
+        tab = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/{sample}.insert_size_picard.tab",
+        pdf = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/{sample}.insert_size_picard.pdf"
+    threads: 2
+    envmodules:
+        "picard/2.21.2",
+        "R/4.0.3-mkl"
+    shell:
+        """
+    	picard CollectInsertSizeMetrics M=0.25 I={input} O={output.tab} H={output.pdf} VALIDATION_STRINGENCY=LENIENT ASSUME_SORTED=true VERBOSITY=INFO
+        """
+
+rule library_complexity_picard: # only raw bam and PE
+    input:
+        lambda w: samples_table_2.loc[w.sample, 'raw_bam'] # If I don't convert the wildcards to list, it returns a warning
+    output:
+        "Results/{genomes_not_fused}/Qctrl/{sample}/Raw_bam/{sample}.picard_library_complexity.tab"
+    threads: 2
+    envmodules:
+        "picard/2.21.2"
+    shell:
+        """
+    	picard EstimateLibraryComplexity I={input} O={output} VALIDATION_STRINGENCY=LENIENT VERBOSITY=INFO
+        """
+
+rule multiqc:
+    input:
+        expand(
+        "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/{sample}.crosscorrelation.spp.out",
+        sample = samples_table['sample_name'].tolist()
+        ),
+        expand(
+        "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/{sample}.insert_size_picard.tab",
+        sample = samples_table.loc[samples_table['PE'], 'sample_name'].tolist()
+        ), # insert size only applies for PE samples
+        expand(
+        "Results/{{genomes_not_fused}}/Qctrl/{sample}/Raw_bam/{sample}.picard_library_complexity.tab",
+        sample = samples_table.loc[~samples_table['sample_name'].str.endswith("MERGED"), 'sample_name'].to_list() # Not applying this to merged files since they have already been dedupped. Before the command was: samples_table['sample_name'].tolist()
+        ),
+        expand(
+        "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/{sample}.{ext}",
+        sample = samples_table['sample_name'].tolist(),
+        ext = ["samstats.txt", "flagstat.txt"]
+        ),
+        expand(
+        "Results/{{genomes_not_fused}}/Qctrl/{sample}/Raw_bam/{sample}.{ext}",
+        sample = samples_table.loc[~samples_table['sample_name'].str.endswith("MERGED"), 'sample_name'].to_list() ,
+        ext = ["samstats.txt", "flagstat.txt"] # Not applying this to merged files since they have already been dedupped. Before the command was: sample=samples_table['sample_name'].tolist()
+        )
+    output:
+        directory("Results/{genomes_not_fused}/Qctrl/multiqc_report_{library}_data"),
+        html = "Results/{genomes_not_fused}/Qctrl/multiqc_report_{library}.html"
+    threads: 2
+    envmodules:
+        "multiqc/1.8"
+    shell:
+        """
+config_file_path="$(pwd)/Config/multiqc_config.yaml"
+cd Results/{wildcards.genomes_not_fused}/Qctrl && \
+multiqc --dirs --dirs-depth 1 --filename "multiqc_report_{wildcards.library}.html" --config $config_file_path ./
+# --dirs       : use directory name as part of sample name (not to overwrite data with same file name)
+# --dirs-depth : how many directories should be used for the name of the sample
+# --config     : path for config file
+        """
+
+
+#################
+#### Analysis ###
+#################
+rule intersect_peaks_HSs_list:
+    input:
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak"
+    output:
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/{sample}.{genomes_final}{extension}.{peak_type}Peak"
+    wildcard_constraints:
+        peak_type="broad|narrow",
+        peak_type_folder="Broad|Narrow"
+    # log:
+    #     "Results/Log_files/intersect_peaks_HSs_list/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{peak_params}/{sample}.{genomes_final}.{extension}log"
+    threads: 1
+    envmodules:
+        "bedtools/2.30.0"
+    params:
+        hs_list = lambda w: config['references'][w.genomes_not_fused]['spo11']['all_plus_minus_2000']
+    shell:
+        """
+        bedtools intersect -wa -a {input} -b {params.hs_list} > {output}
+        """
+
+rule compute_matrix_outfiles_hs:
+    input:
+        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/{sample}.{genomes_final}{extension}{strand}.bw"
+    output:
+        filename = temp("Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/{cov_params}/filenames/{sample}.{genomes_final}{extension}{strand}.filename"), # This file is to be used by plotHeatmap
+        matrix = "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/{cov_params}/matrixes/{sample}.{genomes_final}{extension}{strand}.matrix", # This file is to do the aggregate profiles.
+    # log:
+    #     ""
+    threads: 1
+    envmodules:
+        "deeptools/3.4.3"
+    params:
+        region = lambda w: config['references']['mm10']['spo11'][w.hs_region],
+        before_region = config['heatmaps']['before_region'],
+        after_region = config['heatmaps']['after_region'],
+        bin_size = config['heatmaps']['bin_size']
+    shell:
+        """
+computeMatrix reference-point -p max -R {params.region} -S {input} --sortRegions keep -b {params.before_region} -a {params.after_region} --outFileName {output.filename} --outFileNameMatrix {output.matrix} --referencePoint center --binSize {params.bin_size}
+        """
+
+rule process_aggregate_profiles:
+    input:
+        unpack(smkf.get_hs_agg_profs_inputs) # It returns a dict with 3 lists named as ""{strnd}_{reg}""
+    output:
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}.RData"
+    wildcard_constraints:
+        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?"
+    # log:
+    #     ""
+    threads: 1
+    envmodules:
+        "R/4.1.2-mkl",
+        "bioconductor/3.14"
+    params:
+        genomes = config['genomes'].keys(),
+        overwrite = config['aggregate_profiles']['process_outfile']['overwrite'],
+        smooth = config['aggregate_profiles']['process_outfile']['smooth']
+    script:
+        "Scripts/process_outfile_matrix.R"
+
+rule wrangle_X_nonPAR_asymmetric_HS:
+    input:
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/x_non_par.RData",
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/autosomal_x_non_par_ctrl.RData",
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/asymetric_watson_strong.RData",
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/asymetric_crick_strong.RData",
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"
+    output:
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{libary}_aggregate_profiles_data.RData"
+    # log:
+    #     ""
+    threads: 1
+    envmodules:
+        "R/4.1.2-mkl",
+        "bioconductor/3.14"
+    script:
+        "Scripts/wrangle_X_nonPAR_asymmetric_HS.R"
+
+rule plot_heatmaps:
+    input:
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/Both_strands/{cov_params}/filenames/{sample}.{genomes_final}{extension}{strand}.filename"
+    output:
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/Both_strands/{cov_params}/Heatmaps/{sample}.{genomes_final}{extension}{strand}.png"
+    wildcard_constraints:
+        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?"
+    # log:
+    #     ""
+    threads: 1
+    envmodules:
+        "deeptools/3.4.3"
+    params:
+        region =  lambda w: config['references'][w.genomes_not_fused]['spo11'][w.hs_region],
+
+    shell:
+        """
+plotHeatmap --matrixFile {input} --sortRegions keep --plotTitle "{wildcards.sample}, {wildcards.strand} at {wildcards.hs_region}" -out {output} \
+--legendLocation none
+#############
+### NOTES ###
+#############
+# --legendLocation none : applies to the legend inside the aggregate profile box.
+        """
+
+rule sumarize_peak_count:
+    input:
+        unpack(smkf.all_peaks)
+    output:
+        "Results/{genomes_not_fused}/Analysis/Peaks_summary.tsv"
+    threads: 1
+    params:
+        samples_table_2 = samples_table_2
+    script:
+        "Scripts/peaks_summary.py"
+
+rule markdown_report_aggregate_profiles:
+    # https://stackoverflow.com/questions/32183333/what-is-a-neat-command-line-equivalent-to-rstudios-knit-html
+    input:
+        unpack(smkf.hmlt_report_input)
+    output:
+        html_report = "Results/{genomes_not_fused}/Analysis/{lib_name}.html",
+        xlsx_table = "Results/{genomes_not_fused}/Analysis/{lib_name}_for_NGS_files.xlsx"
+        #RData = "Results/{genomes_not_fused}/Analysis/{lib_name}_aggregate_profile_data.RData" # --> How to make this output conditional? --Make another rule
+    threads: 1
+    envmodules:
+        "R/4.1.2-mkl",
+        "bioconductor/3.14"
+    # log: "Results/Log_files/markdown_report_aggregate_profiles/{genomes_not_fused}/{lib_name}.log"
+    params:
+        top_5000_hs = lambda w: samples_table['top5000_HS_heatmap'].any(), # Is there any sample with heatmap on top5000 hs?
+        top_5000_and_ssDNA = lambda w: ((samples_table['top5000_HS_heatmap']) &
+         (samples_table['get_single_strand'])).any(), # Is there any sample with heatmap at top 5000 hs AND that has ssDNA profile as well (only these samples will have a plot at asymetric and X-nonPAR HSs)
+        lib_name = lambda w: config['library']['name'],
+        general_info = lambda w: config['library']['general_info']
+    script:
+        "Scripts/html_report.R"

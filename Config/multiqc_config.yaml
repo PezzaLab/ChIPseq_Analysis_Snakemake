@@ -1,0 +1,31 @@
+# Clean samples names
+fn_clean_exts: # This removes the pattern and everyhing to the right of it
+  - ".picard_library_complexity.tab"
+  - ".mm10"
+  - ".hg38"
+  - ".hg19"
+  - ".crosscorrelation"
+  - ".flagstat"
+  - ".samstats"
+  - ".fastq"
+
+extra_fn_clean_exts:
+  - type: regex
+    pattern: "_S[0-9]+_R[12]_[0-9]+"
+
+# Sample buttons for filtering in html report (it is not working for some reason..)
+show_hide_buttons:
+  - "Cut&run"
+show_hide_mode:
+  - show_re
+show_hide_patterns:
+  - ".*CyR.*"
+
+# Remove sections
+remove_sections:
+  - fastp-insert-size
+
+# Hide column from general table
+table_columns_visible:
+  fastp:
+    pct_duplication: False

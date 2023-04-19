@@ -1,0 +1,333 @@
+---
+title: "Analysis report for `r snakemake@config[['library']][['name']]`"
+author: "Quio"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+    code_folding: hide # or show
+    toc: TRUE
+    toc_float:
+      collapsed: TRUE
+# Put the following to show chunck: "class.source = 'fold-show'", or
+#"class.source = 'fold-hide'", depending on the configuration of 'code_folding' on top
+# To insert sa brake after an image (so the text won't be next to it) put '<br/><br/>'
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = F,
+                      warning = F)
+```
+```{r,include=F, eval=F}
+save.image("html_report_image.RData")
+```
+
+```{r, libraries, message=F, error=F}
+library(tidyverse)
+library(cowplot) # to put plots side by side using plot_grid()
+library(rjson)
+library(ggtext) # To fit long text in ggplot
+library(openxlsx) # To write xls files (with format and everything)
+library(readxl) # To read exel files (I think this can also be done with the package above)
+```
+```{r, libraries_not_in_use,include=F, message=F, error=F}
+# library(clipr) # to copy text to the clipboard
+# library(tidygenomics) 
+# library(Hmisc) # to divide the vector in equal parts using cut2()
+# library(biomaRt)# To get gene names out of refseq accessions
+# library(ggrepel) # To put names on plots
+# library(ggfortify) # To plot PCAs with ggplot
+# library(factoextra) # To easily get info from PCA analysis
+# library(ViSEAGO) # To analyze GO terms, although I don't think I am going to use it.
+# library(qpcR) # To bind vectors of different length using qpcR:::cbind.na
+# library(eulerr) # To draw proportional venn diagrams (need to have the numbers though)
+# library(R.utils) # To count number of lines of a file
+# <br/><br/>    ---> That is to insert a break in the page so that the text don't wrap the images when they don't occupy the whole width
+```
+# General information  
+`r snakemake@params[['general_info']]`
+
+# Load data  
+
+## Aggregate profiles   
+```{r, load_agg_profs}
+if (snakemake@params[['top_5000_and_ssDNA']]) {
+  load(snakemake@input[["agg_profiles"]])
+} else if (snakemake@params[['top_5000_hs']]){
+  load(snakemake@input[["top_5000_ag_profs"]])
+  aggregate_profiles <- list()
+  aggregate_profiles[["top_5000_plus_minus_2000"]] <- 
+    final_table
+}
+```
+
+## Peaks  
+```{r}
+# Peak summary
+  # Peaks found at "Results/{genomes_not_fused}/Analysis/Peaks_summary.tsv"
+peaks <- read_tsv(snakemake@input[["peaks_summary"]])
+peaks_sorted <- 
+  peaks %>% 
+  arrange(desc(broad_all)) %>% 
+  select("sample" = "sample_name", "broad_all", "broad_hs", "% brd peaks at HS",
+         "narrow_all", "narrow_hs", "% nrw peaks at HS")
+```
+
+## Number of reads in fastq and in final bam  
+How may reads were in the fastq used for alignment (after fastp filtering), and how many primary reads on the final filtered BAM file.  
+```{r, get_number_of_reads}
+# Fastp
+# files_fastp <-
+#   list.files(path = "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/Snake_make/Results/mm10",
+#     full.names = T,
+#     recursive = T) %>% 
+#   grep("_fastp\\.json",., value =T)
+
+files_fastp <-  
+  list.files(path = "Results",
+    full.names = T,
+    recursive = T) %>% 
+  grep("_fastp\\.json$",., value =T)
+  
+
+files_fastp_names <-  
+  files_fastp %>% 
+  basename %>% 
+  str_remove("_fastp.json")
+
+FASTQ_reads <- 
+  map_dbl(files_fastp,
+          ~fromJSON(file = .) %>%
+            .[['read1_after_filtering']] %>%
+            .[['total_reads']]/1000000) %>% 
+  round(2) %>% format(nsmall = 2)
+
+results_reads_filtered_FASTQs <- 
+  tibble("sample" = files_fastp_names,
+         "# R1 in filtered FASTQ" = FASTQ_reads)
+
+# Final bam file
+  # Get the info from the field "read1" (since they should al be properly paired).
+get_read1_number <- 
+  function(flagstat_text){
+    read1 <- readLines(flagstat_text) %>% 
+                .[str_detect(.,"read1")] %>%
+                str_extract("^[0-9]+") %>% 
+                as.double()
+    if (read1 == 0) { # When SR, read1 and read2 are == 0 in flagstat
+      read1 <- readLines(flagstat_text) %>% 
+                .[str_detect(.,"in total")] %>%
+                str_extract("^[0-9]+") %>% 
+                as.double()
+    read1
+    }
+    read1 <-   
+      read1 %>%
+      `/` (1000000) %>% # that's the way to do this... weird...
+      round(1) %>% 
+      format(nsmall = 2)
+}
+
+# bam_read_files <- 
+#   list.files(path = "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/Snake_make/Results/mm10/Qctrl",
+#              recursive = T,
+#              full.names = T) %>% 
+#   grep("Processed_bam.*flagstat\\.txt",., value =T)
+
+# snakemake@input[["bamfiles_reads"]]
+  # list.files(path = "Results",
+  #            recursive = T,
+  #            full.names = T) %>% 
+  # grep("Processed_bam.*flagstat\\.txt",., value =T)
+
+bam_read_file_names <- 
+  snakemake@input[["bamfiles_reads"]] %>% 
+  basename %>% 
+  str_remove(".flagstat.txt")
+
+filtered_BAM_reads <-
+  map_chr(snakemake@input[["bamfiles_reads"]],
+          get_read1_number)
+
+results_reads_processed_bams <- 
+  tibble("sample" = bam_read_file_names,
+         "# R1 in filtered BAM" = filtered_BAM_reads)
+     
+# Put everything together
+results_reads <- 
+  full_join(results_reads_filtered_FASTQs,
+            results_reads_processed_bams)
+```
+
+
+# Quality control  
+For a detailed quality control analysis look at the multiqc report (Results/genome/Qctrl/Multiqc...)
+
+# Number of reads and peaks  
+```{r}
+full_join(peaks_sorted,results_reads)
+```
+
+# Plots  
+
+## Hotspots  
+
+### Top 5000 Hotspots
+```{r, include=!snakemake@params[['top_5000_hs']]}
+"Aggregate profiles were not requested for any of the samples"
+```
+
+```{r, eval=snakemake@params[['top_5000_hs']]}
+lapply(levels(aggregate_profiles$top_5000_plus_minus_2000$Protein),
+  function(i) {
+    a <- ggplot(data = filter(aggregate_profiles$top_5000_plus_minus_2000 ,
+                        Protein == i,
+                        Strand == "both_strands")) +
+    geom_line(mapping = aes(x = Coordinates,
+                            y = Mean_Max_Normalized_Coverage)) +
+    labs(title = str_replace_all(i, "_", " ")) +
+      theme(legend.position="top",
+            plot.title = element_textbox_simple(hjust=0, size=10))
+   b <- ggplot(data = filter(aggregate_profiles$top_5000_plus_minus_2000,
+                        Protein == i,
+                        Strand != "both_strands")) +
+    geom_line(mapping = aes(x = Coordinates,
+                            y = Mean_Max_Normalized_Coverage,
+                            color = Strand)) +
+     theme(legend.position="top")
+  plot_grid(a,b)}
+  )
+```
+
+### X-nonPAR vs autosomal  
+This analysis and the ones following (at hotspots) are only shown for single stranded profiles.  
+Only one strand is shown at a set of 547 X-non-PAR hotspots and their (SPO11-intensity) matched autosomal counterparts.  
+```{r, include=!snakemake@params[['top_5000_and_ssDNA']]}
+"There are no single strande profiles in this dataset and hence X-nonPAR hotspot's aggregate profile is not performed. If you want to see this report you need to set 'get_single_strand' and 'top5000_HS_heatmap' as true"
+```
+```{r, eval=snakemake@params[['top_5000_and_ssDNA']], include=snakemake@params[['top_5000_and_ssDNA']]}
+# Get name of one of the strands (this changes whether the sequencing was SR or PE -). This is to filter by that strand and show only one strand.
+ss_prots <- levels(aggregate_profiles$xNonPar_autosomal$Protein)
+
+lapply(ss_prots,
+       function(i) {
+         normalized <- ggplot(data = filter(aggregate_profiles$xNonPar_autosomal,
+                              Protein == i,
+                              (Strand == "83-163") | Strand == "inc_16"),
+                              aes(x = Coordinates,
+                                  y = Mean_Max_Normalized_Coverage,
+                                  color = Region)) +
+           geom_line() +
+           labs(title = 
+                  str_c(
+                    str_replace_all(i, "_", " "), 
+                    " at X-non-PAR or autosomal")) +
+           theme(legend.position="top",
+                 plot.title = element_textbox_simple(hjust=0,
+                                                     size=10))
+         
+         not_normalized <- ggplot(data = filter(aggregate_profiles$xNonPar_autosomal,
+                              Protein == i,
+                              (Strand == "83-163") | Strand == "inc_16"),
+                              aes(x = Coordinates,
+                                  y = Average_signal,
+                                  color = Region)) +
+           geom_line() +
+           theme(legend.position="top")
+  plot_grid(normalized, not_normalized)}
+  )
+```
+
+### Asymetric Hotspots  
+The plots on the left are with each side, strong and weak, at different sides of the DSB (as they are). On the plot on the right, both sides are plotted on the same side of the DSB so that they can be directly compared.  
+```{r, include=!snakemake@params[['top_5000_and_ssDNA']]}
+"There are no single strand profiles in this dataset and hence asymetric hotspot's aggregate profile is not performed. If you want to see this report you need to set 'get_single_strand' and 'top5000_HS_heatmap' as true"
+```
+
+```{r, eval=snakemake@params[['top_5000_and_ssDNA']]}
+lapply(ss_prots,
+  function(i) {
+   on_diff_sides <- 
+     ggplot(data =
+              filter(aggregate_profiles$asymetric,
+                                    Protein == i)) +
+     geom_line(mapping = aes(x = Coordinates, 
+                             y = Average_signal,
+                             color = Strength)) +
+     labs(title = 
+            str_c(
+              str_replace_all(i, "_", " "),
+              " on asymetric HSs, strengths in different sides of DSB")) +
+     theme(legend.position="top",
+           plot.title = element_textbox_simple(hjust=0, size=10))
+   
+   on_same_sides <-  
+     ggplot(data = filter(aggregate_profiles$asymetric_flipped,
+                          Protein == i)) +
+     geom_line(mapping = aes(x = Coordinates, 
+                             y = Average_signal,
+                             color = Strength)) +
+     labs(title = str_c("strengths on same side of DSB")) +
+     theme(legend.position="top")
+   
+   plot_grid(on_diff_sides, on_same_sides)
+  })
+```
+
+# Export data  
+
+## Excel file for NGS_files.xlsx
+```{r}
+excel_col_names <- "experiment_name	protein	species	library	number_broad_peaks	number_narrow_peaks	%_broad_peaks_in_HS_+-_2000bp	%_narrow_peaks_in_HS_+-_2000bp	ra_synchronized	broad_meiotic_stage	specific_meiotic_stage	unique_q_filtered_reads[M]	sequencing_type	sequencing_length	sequencing_equipment	library_prep_method	Storage	Container	Full_path	file_name	narrow_peaks_in_HS_+-_2000bp	broad_peaks_in_HS_+-_2000bp" %>% str_split("\t") %>% unlist
+```
+```{r}
+table <- left_join(peaks_sorted,results_reads)
+
+table2 <- 
+  table %>% 
+  mutate(protein = "-",
+         species = "-",
+         library = "-",
+         ra_synchronized = "-",
+         broad_meiotic_stage = "-",
+         specific_meiotic_stage = "-",
+         sequencing_type = "-",
+         sequencing_length = "-",
+         sequencing_equipment = "-",
+         library_prep_method = "-",
+         Storage = "-",
+         Container = "-",
+         Full_path = "-",
+         file_name = "-") %>% 
+  rename("experiment_name" = "sample",
+         "number_broad_peaks" = "broad_all",
+         "number_narrow_peaks" = "narrow_all",
+         "%_broad_peaks_in_HS_+-_2000bp" = "% brd peaks at HS",
+         "%_narrow_peaks_in_HS_+-_2000bp" = "% nrw peaks at HS",
+         "unique_q_filtered_reads[M]" = "# R1 in filtered BAM",
+         "narrow_peaks_in_HS_+-_2000bp" = "narrow_hs",
+         "broad_peaks_in_HS_+-_2000bp" = "broad_hs") %>% 
+  dplyr::select(all_of(excel_col_names))
+
+# Create header style for excel file
+hs <- createStyle(
+  textDecoration = "BOLD", fontColour = "#FFFFFF", fontSize = 12,
+  fontName = "Arial Narrow", fgFill = "#4F80BD"
+)
+
+# Write excel file
+write.xlsx(table2,
+           file = str_c(snakemake@output$xlsx_table),
+           colNames = TRUE,
+           borders = "all",
+           firstRow = TRUE,
+           colWidths = "auto",
+           headerStyle = hs,
+           zoom = 150,
+           overwrite = T)
+```
+
+# Session Info  
+```{r session_info}
+utils::sessionInfo()
+```

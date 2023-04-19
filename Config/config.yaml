@@ -1,0 +1,79 @@
+library:
+  name: "Test_library"
+  general_info: "This library contains this and that, this samples were done in this particular way, this others in this other...whatever"
+  container: "agustin"
+
+genomes:
+    mm10: "/Volumes/hts_core/Shared/mus_musculus/mm10/bwa_0.7.12_indexed/mm10.fasta"
+    GRCh38: "path/GRCj38"
+    hg38: "path/hg38"
+    mm10_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drodophila6_mm10/final_files/dm6_mm10_fusion.fa"
+    GRCh38_f_d6: "path/GRCh38_f_d6"
+
+# suffix added to spike in chromosome-names
+spike_in_suffixes:
+  mm10_f_d6: "_d"
+  GRCh38_f_d6: "_d"
+  hg38_f_d6: "_d"
+
+min_mapping_qual: "30" # To filter BAM files
+
+coverage:
+  bin_size: "4" # The larger the bin, the smaller the file and the resolution
+  smooth: "1" # number of base pairs to smooth
+  extend_reads: "250" # How much to extend reads, for single read files only
+  normalization: "CPM" # Options are CPM RPKM BPM None. Check bamcoverage from deeptools
+
+MACS2:
+  gsize: # Efective genome sizes according to MACS. This approximate and will not make a huge difference to have the actual number (which depends on the actual genome build and the read length and technology -SR or PE)
+    hs: 2.7e9
+    mm: 1.87e9
+    ce: 9e7
+    dm: 1.2e8
+  broad_cutoff: "0.1" # 0.1 = MACS default.  This option is not available
+  qvalue: "0.05" # 0.5 = MACS default
+  control: # <techinque>_<species>_<frag._tech>_<library_tech>_<file_ID> # <chip|cyr|...>_<mm10_hg38...>_<sonic|mnase|...>_<accel|reg|...>_<1|2|...>
+    no_input: ""
+    chip_mm10_sonic_testes_regular_1: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib3SMARCAD1HP1RPA_DiVa/Results/mm10/Bams/Both_strands/Input_11-6-19.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib12_CHD4_BLM_HP1g/Results/mm10/Bams/Both_strands/2022_1_7_Input_zyg_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_adaptase_2: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib16_CyRs_Msh4_RPA-HP1s-KO_CHD4/3rd_deposit_of_data/Results/mm10/Bams/Both_strands/6-28-22_MSH4_8_di_laZYG_RMI2_WT.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_MNAse_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib12_CHD4_BLM_HP1g/Merged_files/Nodup/MitDel/2022_1_28_input_7dpp_MNAse_merged.filt.srt.nodup._filt.chr.bam"
+    cyr_mm10_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib14_H2az_H33_CyR_dmc1ko/Processed_old_way/Merged_files/Nodup/MitDel/RaG_IgG_merge_R4_and_R7_from_3-22_and_3-24_2022.filt.srt.nodup._filt.chr.bam"
+    chip_mm10_sonic_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib12_CHD4_BLM_HP1g/Processed_old_way/Merged_files/Nodup/MitDel/2022_1_24_input_7dpp_sonic_merged.filt.srt.nodup._filt.chr.bam"
+
+references:
+  mm10:
+    spo11:
+      top_5000_plus_minus_2000: "Resources/bed_files/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_TOP_5000_center_plus_minus_2000.bed"
+      all_plus_minus_2000: "Resources/bed_files/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_center_plus_inus_2000.bed"
+      asymetric_watson_strong: "Resources/bed_files/asymetric_hotspots_watson_strong.bed"
+      asymetric_crick_strong: "Resources/bed_files/asymetric_hotspots_crick_strong.bed" 
+      symetric_all: ""
+      symetric_asym_ctrl: ""
+      x_non_par: "Resources/bed_files/SPO11_X-nonPAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
+      autosomal_all: ""
+      autosomal_x_non_par_ctrl: "Resources/bed_files/SPO11_autosomal-MATCHED-TO-X_non_PAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
+    TSS: ""
+    blacklist: "Resources/bed_files/mm10.blacklist_merge1000.bed"
+    black_grey: "Resources/bed_files/GREYLIST_PE150_ZYG_sonic_ACELL.bed"
+  #     sonic:
+  #       PE_adaptase: ""
+  #     MNAse:
+  #       PE_adaptase: ""
+  hg38:
+    spo11:
+      top_5000_plus_minus_2000: "Resources/spo11/hg38/top5000.bed"
+      all_plus_minus_2000: "Resources/spo11/hg38/all.bed"
+    TSS: "Resources/grch38.bed"
+    blacklist: "Resources/blacklist_hg38."
+    black_grey: "path/black_grey_hg38"
+
+heatmaps:
+  before_region: "3000"
+  after_region: "3000"
+  bin_size: "1"
+
+aggregate_profiles:
+  process_outfile:
+    overwrite: "TRUE"
+    smooth: "TRUE"
