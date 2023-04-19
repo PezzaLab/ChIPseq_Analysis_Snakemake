@@ -9,3 +9,5 @@ Results/
 .Rhistory
 __pycache__/
 *samples_table_2.csv
+*samples.csv
+commands_develop*
