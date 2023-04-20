@@ -77,3 +77,18 @@ aggregate_profiles:
   process_outfile:
     overwrite: "TRUE"
     smooth: "TRUE"
+
+######################
+#### ENV. MODULES ####
+######################
+
+sambamba: "sambamba/0.8.2"
+fastp: "fastp/0.23.2"
+bwa: "bwa/0.7.15"
+samtools: "samtools/1.14"
+picard: "picard/2.21.2"
+deeptools: ""
+
+
+
+
