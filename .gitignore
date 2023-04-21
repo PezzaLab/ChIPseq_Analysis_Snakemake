@@ -1,4 +1,5 @@
 # .gitignore
+*samples_table_processed*
 *.DS_Store
 .snakemake/
 fastp*
