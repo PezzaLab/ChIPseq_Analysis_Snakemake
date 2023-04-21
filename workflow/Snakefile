@@ -31,7 +31,8 @@ smkf.check_sample_table_format(samples_table)
     # need to have been sequenced using the same technology (SR or PE).
 
 for sample in samples_table['sample_name']:
-    if not(samples_table.loc[sample,'merge_with'] == "-"):
+    if not(samples_table.loc[sample,'merge_with'] == "-" or 
+           samples_table.loc[sample,'merge_with'] == ""):
          new_row=samples_table.loc[sample,]
          new_row['sample_name'] = f"{new_row['sample_name']}_MERGED"
          new_row['merge_with']="-"
