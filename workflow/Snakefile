@@ -62,16 +62,18 @@ samples_table_2.to_csv("Config/samples_table_processed.csv")
 ##### Get list of files to call in rule all: ######
 ###################################################
 
-hs_agg_profs = []
-for region in ["top_5000_plus_minus_2000", "x_non_par", "autosomal_x_non_par_ctrl", "asymetric_watson_strong", "asymetric_crick_strong"]:
-    hs_agg_profs += [f"Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{region}.RData"]
+if samples_table['top5000_HS_heatmap'].any():
+    hs_agg_profs = ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"]
+    if samples_table['get_single_strand'].any():
+        for region in ["x_non_par", "autosomal_x_non_par_ctrl", "asymetric_watson_strong", "asymetric_crick_strong"]:
+            hs_agg_profs += [f"Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{region}.RData"]
 
 peak_summaries = []
 ref_genomes = samples_table['reference_genome'].unique().tolist()
 for genomes in ref_genomes:
     peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
 # Get single strand files (ss), black-list filtered peak lists (peak_bl),
-# FRIP values, drosophila deduplicated bam files, heatmaps
+# FRIP values, bigwigs, heatmaps
 files_df = samples_table_2.filter(regex="^(ss|peak_bl|FRIP|both|dros_dedup_bam|processed_flagstat_dros|merged_dedup|heatmap|dros_eq_).*") # Filter columns using regex to match name of column
 files_array = files_df.to_numpy().ravel()
 files_list = files_array[~pd.isnull(files_array)].tolist()
