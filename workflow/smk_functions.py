@@ -24,15 +24,16 @@ def check_sample_table_format(samples_table):
         exit_script = True
     
     # Check that "merge_with" reference is not a deduplicated/filtered file for spiked-in samples (it has to be raw bam)
-    if (
-    (samples_table['merge_with'].str.contains(".nodup.")) &
-    (samples_table['dros_spike_in'])
-    ).any():
-        exit_message += "* One or more samples' 'merge_with' parameter is a deduplicated/filtered " +\
-        "bam file AND has drosophila spike in. When sample is spiked, the 'merge_with' " +\
-        "file has to be the raw bam.\n"
-        exit_script = True
-    
+    if pd.notnull(samples_table['merge_with']).any():
+        if (
+            (samples_table['merge_with'].str.contains(".nodup.")) &
+            (samples_table['dros_spike_in'])
+        ).any():
+            exit_message += "* One or more samples' 'merge_with' parameter is a deduplicated/filtered " +\
+                "bam file AND has drosophila spike in. When sample is spiked, the 'merge_with' " +\
+                "file has to be the raw bam.\n"
+            exit_script = True
+
     # Check that there are 2 FASTQs when sample is PE and 1 when is not
     if (
     (samples_table['PE']) &

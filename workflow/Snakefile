@@ -16,7 +16,8 @@ samples_table = pd.read_csv(
     false_values = ["False", "FALSE", "F"],
     na_values= {"dros_equalization_group":"-",
                 "merge_with":"-",
-                "fastq2":"-"}).set_index("sample_name", drop=False) 
+                "fastq2":"-",
+                "peak_ctrl_file_alias":"-"}).set_index("sample_name", drop=False) 
     # "-" will be interpreted as NaN only at "dros_equalization_group" column
 
 smkf.check_sample_table_format(samples_table)
@@ -49,7 +50,7 @@ for sample in samples_table['sample_name']:
 ####################################################
 # All potentially generated files with their proper extensions will be added to 
 # a dataframe called "samples_table_2".
-# Files will be called using the samples_table_2 dataframe, which will be exported
+# Files will be called upon using the samples_table_2 dataframe, which will be exported
 # as an csv table on "Config/samples_table_processed.csv"
 
 samples_table_2 = sfxs.generate_samples_table_2(samples_table, config)
@@ -61,17 +62,22 @@ samples_table_2.to_csv("Config/samples_table_processed.csv")
 ###################################################
 ##### Get list of files to call in rule all: ######
 ###################################################
-
+hs_agg_profs = []
 if samples_table['top5000_HS_heatmap'].any():
     hs_agg_profs = ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"]
     if samples_table['get_single_strand'].any():
-        for region in ["x_non_par", "autosomal_x_non_par_ctrl", "asymetric_watson_strong", "asymetric_crick_strong"]:
+        for region in ["x_non_par", 
+                       "autosomal_x_non_par_ctrl", 
+                       "asymetric_watson_strong", 
+                       "asymetric_crick_strong"]:
             hs_agg_profs += [f"Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{region}.RData"]
 
 peak_summaries = []
-ref_genomes = samples_table['reference_genome'].unique().tolist()
-for genomes in ref_genomes:
-    peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
+if pd.notnull(samples_table['peak_ctrl_file_alias']).any():
+    ref_genomes = samples_table['reference_genome'].unique().tolist()
+    for genomes in ref_genomes:
+        peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
+
 # Get single strand files (ss), black-list filtered peak lists (peak_bl),
 # FRIP values, bigwigs, heatmaps
 files_df = samples_table_2.filter(regex="^(ss|peak_bl|FRIP|both|dros_dedup_bam|processed_flagstat_dros|merged_dedup|heatmap|dros_eq_).*") # Filter columns using regex to match name of column
