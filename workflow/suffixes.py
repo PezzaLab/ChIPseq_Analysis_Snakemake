@@ -366,8 +366,7 @@ def generate_samples_table_2(samples_table, config):
     
     # Merged files (same experiment sequenced more than once)
     samples_table_2['merged_dedup_bam'] = np.where(
-        ~((samples_table_2['merge_with'] == "") | (
-            samples_table_2['merge_with'] == "-")),
+        pd.notna(samples_table_2['merge_with']),
         "Results/" + samples_table_2['reference_genome'] +
         "/Bams/Both_strands/" + samples_table_2['sample_name'] + "_MERGED" + final_genomes +
         nodup_filt + ".bam",
