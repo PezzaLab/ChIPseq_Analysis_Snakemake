@@ -33,7 +33,7 @@ smkf.check_sample_table_format(samples_table)
     # need to have been sequenced using the same technology (SR or PE).
 
 for sample in samples_table['sample_name']:
-    if pd.notnull(samples_table.loc[sample,'merge_with']):
+    if pd.notna(samples_table.loc[sample,'merge_with']):
          new_row=samples_table.loc[sample,]
          new_row['sample_name'] = f"{new_row['sample_name']}_MERGED"
          new_row['merge_with']="-"
@@ -73,7 +73,7 @@ if samples_table['top5000_HS_heatmap'].any():
             hs_agg_profs += [f"Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{region}.RData"]
 
 peak_summaries = []
-if pd.notnull(samples_table['peak_ctrl_file_alias']).any():
+if pd.notna(samples_table['peak_ctrl_file_alias']).any():
     ref_genomes = samples_table['reference_genome'].unique().tolist()
     for genomes in ref_genomes:
         peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
