@@ -381,7 +381,7 @@ def generate_samples_table_2(samples_table, config):
         np.NaN)
     
     # Dros. normalized/equalized samples (bw)
-    samples_table_2['dros_eq_both_strand_cov'] = (
+    samples_table_2['dros_eq_both_strand_bw'] = (
         np.where(~samples_table['dros_equalization_group'].isna(),
                  "Results/" + samples_table['reference_genome'] +
                  "/Bigwigs/Coverage/Both_strands/" + cov_params +
@@ -396,7 +396,7 @@ def generate_samples_table_2(samples_table, config):
             ~samples_table_2['PE']) & (samples_table_2['get_single_strand'])
     ]
     
-    choices_ss_83_or_i16_cov = [
+    choices_ss_83_or_i16_bw = [
         "Results/" + samples_table_2['reference_genome'] +
         "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
         "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
@@ -407,7 +407,7 @@ def generate_samples_table_2(samples_table, config):
         samples_nodup_filt + ".inc_16.dros_norm.bw"
     ]
     
-    choices_ss_99_or_e16_cov = [
+    choices_ss_99_or_e16_bw = [
         "Results/" + samples_table_2['reference_genome'] +
         "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
         "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
@@ -417,14 +417,14 @@ def generate_samples_table_2(samples_table, config):
         "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
         samples_nodup_filt + ".exc_16.dros_norm.bw"]
     
-    samples_table_2['dros_eq_83_or_i16_cov'] = (
+    samples_table_2['dros_eq_83_or_i16_bw'] = (
         np.select(conditions_dros_eq,
                   choices_ss_83_or_i16_bam,
                   default=np.NaN)
     )
-    samples_table_2['dros_eq_99_or_e16_cov'] = (
+    samples_table_2['dros_eq_99_or_e16_bw'] = (
         np.select(conditions_dros_eq,
-                  choices_ss_99_or_e16_cov,
+                  choices_ss_99_or_e16_bw,
                   default=np.NaN)
     )
     return samples_table_2
