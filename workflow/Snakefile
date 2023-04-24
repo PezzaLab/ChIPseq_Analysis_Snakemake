@@ -80,12 +80,21 @@ if pd.notna(samples_table['peak_ctrl_file_alias']).any():
 
 # Get single strand files (ss), black-list filtered peak lists (peak_bl),
 # FRIP values, bigwigs, heatmaps
-files_df = samples_table_2.filter(regex="^(ss|peak_bl|FRIP|both|dros_dedup_bam|processed_flagstat_dros|merged_dedup|heatmap|dros_eq_).*") # Filter columns using regex to match name of column
+files_df = samples_table_2.filter(
+    regex="^(peak_bl|FRIP|processed_flagstat_dros|heatmap).*"
+    ) # Filter columns using regex
+
+files_df_2 = samples_table_2.filter(
+    regex=".*(_bw)$"
+    )
+
+files_df = files_df.join(files_df_2)
+
 files_array = files_df.to_numpy().ravel()
 files_list = files_array[~pd.isnull(files_array)].tolist()
 files_list += peak_summaries
 
-# pre_formed_strings (put this aside later)
+# pre_formed_strings (put this on smk_functions.py)
 cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
 #cov_param_clipped_string=f"{config['coverage']['normalization']}_bs1_sm1" # Not in use for now...
 
@@ -95,7 +104,7 @@ cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['cove
 # (otherwise those variables are not accesible to that module)
 smkf.samples_table = samples_table
 smkf.config = config
-smkf.cov_config_params_string = cov_config_params_string
+smkf.cov_config_params_string = cov_config_params_string # Remove this from here when move previous to smk_functions.py
 smkf.samples_table_2 = samples_table_2
 
 ###########################
