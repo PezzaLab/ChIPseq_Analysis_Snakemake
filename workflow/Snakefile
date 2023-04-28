@@ -180,7 +180,7 @@ rule index:
     #     "{sample}.index.log"
     threads: 2
     envmodules:
-        "sambamba/0.8.2"
+        config['sambamba']
     shell:
         """
         sambamba index {input}
@@ -207,10 +207,10 @@ rule align_fastq:
     #     "Results/Log_files/align_spiked_fastq/{sample}.{genomes_all}.log"
     threads: 2
     envmodules:
-        "fastp/0.23.2",
-        "bwa/0.7.15",
-        "sambamba/0.8.2",
-        "samtools/1.14"
+        config["fastp"],
+        config["bwa"],
+        config["sambamba"],
+        config["samtools"]
     shell: # I need to assemble the command as a string and the "eval" it, 
     # otherwise it doesn't work. Another workaround is to use wrappers (there is a wrapper that does this)
         """
@@ -257,8 +257,8 @@ rule filter_spiked_in_bam_int_genome:
         spike_suffix= lambda w: config['spike_in_suffixes'][w.fused_genome]
     threads: 2
     envmodules:
-        "samtools/1.14",
-        "sambamba/0.8.2"
+        config["samtools"],
+        config["sambamba"]
     shell:
         """
         int_chromsomes=$(samtools idxstats {input.bam} | \\
@@ -279,8 +279,8 @@ rule filter_spiked_in_bam_spike_in_genome:
         spike_suffix= lambda w: config['spike_in_suffixes'][w.fused_genome]
     threads: 2
     envmodules:
-        "sambamba/0.8.2",
-        "samtools/1.14"
+        config["sambamba"],
+        config["samtools"]
     shell:
         """
         spike_chromsomes=$(samtools idxstats {input.bam} | cut -f 1 | grep .*{params.spike_suffix} | grep -v \* | paste  -sd ' ')
@@ -301,7 +301,7 @@ rule dedup_bam:
     #     "Results/Log_files/dedup/{genomes_not_fused}{sample}.{genomes_final}.log"
     threads: 2
     envmodules:
-        "picard/2.21.2"
+        config["picard"]
     shell:
         """
         picard MarkDuplicates I={input.bam} O={output.bam} M={output.qctrl} VALIDATION_STRINGENCY=LENIENT ASSUME_SORTED=true REMOVE_DUPLICATES=TRUE VERBOSITY=INFO CREATE_INDEX=TRUE
@@ -320,8 +320,8 @@ rule filter_bam:
         PE = lambda w: str(samples_table.loc[w.sample, "PE"]).lower()
     threads: 2
     envmodules:
-        "samtools/1.14",
-        "sambamba/0.8.2"
+        config["samtools"],
+        config["sambamba"]
     shell:
         """
 chromsomes=$(samtools idxstats {input.bam} | cut -f 1 \\
@@ -365,7 +365,7 @@ rule get_strand_sep_pe_bams: # Do I need to separate 83 AND 163 or are the both 
     #     "Results/Log_files/get_strand_sep_pe_bams/{genomes_not_fused}/{sample_with_extensions}.{flag}.log"
     threads: 2
     envmodules:
-        "samtools/1.14"
+        config["samtools"]
     shell:
         """
         samtools view -b -f {wildcards.flag} {input.bam} > {output.bam}
@@ -387,7 +387,7 @@ rule merge_watson_or_crick: # If the next rule works for both SR and PE, erase t
     #     "Results/Log_files/merge_watson_or_crick/{genomes_not_fused}/{sample_with_extensions}.{flag1}-{flag2}.log"
     threads: 2
     envmodules:
-        "samtools/1.14"
+        config["samtools"]
     shell:
         """
         samtools merge {output} {input.flag1} {input.flag2}
@@ -405,7 +405,7 @@ rule get_rv_fw_strand:
     #     "Results/Log_files/get_rv_fw_strand/{genomes_not_fused}/{sample_with_extensions}.log"
     threads: 2
     envmodules:
-        "samtools/1.14"
+        config["samtools"]
     shell:
         """
         samtools view -b -f 16 {input} > {output.inc_16}
@@ -430,7 +430,7 @@ rule create_coverage_bw:
         extend_reads = config['coverage']['extend_reads']
     threads: 2
     envmodules:
-        "deeptools/3.4.3"
+        config["deeptools"]
     shell: # The coverage will be different depending on weather the bam's been clipped or not. If clipped, then cov smooth and bin  == 1, otherwise use config file parameters
         """
         if [ -z {wildcards.clip_condit} ] # Cannot do the test [[ curly_brace empty_variable curly_brace == "" ]], won't work
@@ -455,8 +455,8 @@ rule clip_1bp:
     #     "Results/Log_files/clip_1bp/{genomes_not_fused}/{sample_with_extensions}.{flag16}.log"
     threads: 2
     envmodules:
-        "samtools/1.14",
-        "bamutil/1.0.15"
+        config["samtools"],
+        config["bamutil"]
     shell:
         """
         set -x
@@ -505,7 +505,7 @@ rule call_peaks_macs2: # Check on the original script I get a file with the name
         extension = "(\.q_filt\.srt\.nodup\.mit_filt)?"
     threads: 2
     envmodules:
-        "macs2/2.2.7.1"
+        config["macs2"]
     shell:
         """
         directory=$(dirname {output})
@@ -526,7 +526,7 @@ rule filter_peaks_blk_grey_list:
     #     "Results/Log_files/filter_peaks_blk_grey_list/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{sample}.{genomes_final}{extension}.{peak_params}.log"
     threads: 1
     envmodules:
-        "bedtools/2.30.0"
+        config["bedtools"]
     params:
         blck_gry_lst = lambda w: config['references'][w.genomes_not_fused]['black_grey']
     shell:
@@ -543,7 +543,7 @@ rule annotate_peaks:
         genome_ontology = directory("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Genome_ontology/{sample}.{genomes_final}{extension}.{peak_type}")
     threads: 1
     envmodules:
-        "homer/4.7",
+        config["homer"],
     shell:
         """
         annotatePeaks.pl {input} {wildcards.genomes_not_fused} -genomeOntology {output.genome_ontology} > {output.anno_peaks}
@@ -556,8 +556,8 @@ rule modify_annotated_peaks:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Annotated_peaks/{sample}.{genomes_final}{extension}.{peak_type}Peak.annotated.tsv"
     threads: 1
     envmodules:
-        "R/4.1.2-mkl",
-        "bioconductor/3.14"
+        config["R"],
+        config["bioconductor"]
     script:
         "Scripts/modify_annotated_peaks.R"
 
@@ -572,7 +572,7 @@ rule merge_bams:
         temp("Results/{sample}_MERGED.{genomes_all}.bam")
     threads: 2
     envmodules:
-        "samtools/1.14"
+        config["samtools"]
     shell:
         """
 samtools merge -o {output} {input}
@@ -604,7 +604,7 @@ rule dros_normalization:
         extend_reads = config['coverage']['extend_reads']
     threads: 1
     envmodules:
-        "deeptools/3.4.3"
+        config["deeptools"]
     shell:
         """
 scaleFactor=$(awk 'BEGIN {{FS="\t"}} $1 == "{wildcards.sample}" {{print $4}}' {input.report})
@@ -637,8 +637,8 @@ rule FRIP_narrow:
     #     "Results/Log_files/FRIP/{genomes_not_fused}/Narrow/{sample}.{genomes_final}.{peak_params}{extension}.log"
     threads: 1
     envmodules:
-        "sambamba/0.8.2",
-        "samtools/1.14"
+        config["sambamba"],
+        config["samtools"]
     params:
         param1 = "1"
     shell:
@@ -671,8 +671,8 @@ rule FRIP_broad:
     #     "Results/Log_files/FRIP/{genomes_not_fused}/Broad/{sample}.{genomes_final}.{peak_params}{extension}.log"
     threads: 1
     envmodules:
-        "sambamba/0.8.2",
-        "samtools/1.14"
+        config["sambamba"],
+        config["samtools"]
     params:
         param1 = "1"
     shell:
@@ -704,11 +704,11 @@ rule crosscorrelation: # only processed bam
     #     "Results/Log_files/crosscorrelation/{genomes_not_fused}/{sample}.log"
     threads: 2
     envmodules:
-        "phantompeakqualtools/1.2",
-        "samtools/1.14",
-        "sambamba/0.8.2",
-        "picard/2.21.2",
-        "deeptools/3.4.3"
+        config["phantompeakqualtools"],
+        config["samtools"],
+        config["sambamba"],
+        config["picard"],
+        config["deeptools"]
     shell:
         """
     run_spp.R -c="{input}" -savp="{output.pdf}" -out="{output.tab}"
@@ -721,7 +721,7 @@ rule samstats:
         "Results/{genomes_not_fused}/Qctrl/{sample}/{bam_type}/{sample}.samstats.txt" # This file is actualy just a txt file, but to be able to use expand in multiqc I am using .tab
     threads: 2
     envmodules:
-        "samtools/1.14",
+        config["samtools"],
     shell:
         """
     samtools stats {input.bam} > {output}
@@ -734,7 +734,7 @@ rule samtools_flagstat:
         "Results/{genomes_not_fused}/Qctrl/{sample}/{bam_type}/{sample}.flagstat.txt"
     threads: 2
     envmodules:
-        "samtools/1.14",
+        config["samtools"],
     shell:
         """
     samtools flagstat {input.bam} > {output}
@@ -748,8 +748,8 @@ rule insert_size_picard: # Only processed bam and PE. I put {bam_type} wildcard 
         pdf = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/{sample}.insert_size_picard.pdf"
     threads: 2
     envmodules:
-        "picard/2.21.2",
-        "R/4.0.3-mkl"
+        config["picard"],
+        config["R"]
     shell:
         """
     	picard CollectInsertSizeMetrics M=0.25 I={input} O={output.tab} H={output.pdf} VALIDATION_STRINGENCY=LENIENT ASSUME_SORTED=true VERBOSITY=INFO
@@ -762,7 +762,7 @@ rule library_complexity_picard: # only raw bam and PE
         "Results/{genomes_not_fused}/Qctrl/{sample}/Raw_bam/{sample}.picard_library_complexity.tab"
     threads: 2
     envmodules:
-        "picard/2.21.2"
+        config["picard"]
     shell:
         """
     	picard EstimateLibraryComplexity I={input} O={output} VALIDATION_STRINGENCY=LENIENT VERBOSITY=INFO
@@ -797,7 +797,7 @@ rule multiqc:
         html = "Results/{genomes_not_fused}/Qctrl/multiqc_report_{library}.html"
     threads: 2
     envmodules:
-        "multiqc/1.8"
+        config["multiqc"]
     shell:
         """
 config_file_path="$(pwd)/Config/multiqc_config.yaml"
@@ -824,7 +824,7 @@ rule intersect_peaks_HSs_list:
     #     "Results/Log_files/intersect_peaks_HSs_list/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{peak_params}/{sample}.{genomes_final}.{extension}log"
     threads: 1
     envmodules:
-        "bedtools/2.30.0"
+        config["bedtools"]
     params:
         hs_list = lambda w: config['references'][w.genomes_not_fused]['spo11']['all_plus_minus_2000']
     shell:
@@ -842,7 +842,7 @@ rule compute_matrix_outfiles_hs:
     #     ""
     threads: 1
     envmodules:
-        "deeptools/3.4.3"
+        config["deeptools"]
     params:
         region = lambda w: config['references']['mm10']['spo11'][w.hs_region],
         before_region = config['heatmaps']['before_region'],
@@ -864,8 +864,8 @@ rule process_aggregate_profiles:
     #     ""
     threads: 1
     envmodules:
-        "R/4.1.2-mkl",
-        "bioconductor/3.14"
+        config["R"],
+        config["bioconductor"]
     params:
         genomes = config['genomes'].keys(),
         overwrite = config['aggregate_profiles']['process_outfile']['overwrite'],
@@ -886,8 +886,8 @@ rule wrangle_X_nonPAR_asymmetric_HS:
     #     ""
     threads: 1
     envmodules:
-        "R/4.1.2-mkl",
-        "bioconductor/3.14"
+        config["R"],
+        config["bioconductor"]
     script:
         "Scripts/wrangle_X_nonPAR_asymmetric_HS.R"
 
@@ -902,7 +902,7 @@ rule plot_heatmaps:
     #     ""
     threads: 1
     envmodules:
-        "deeptools/3.4.3"
+        config["deeptools"]
     params:
         region =  lambda w: config['references'][w.genomes_not_fused]['spo11'][w.hs_region],
 
@@ -937,8 +937,8 @@ rule markdown_report_aggregate_profiles:
         #RData = "Results/{genomes_not_fused}/Analysis/{lib_name}_aggregate_profile_data.RData" # --> How to make this output conditional? --Make another rule
     threads: 1
     envmodules:
-        "R/4.1.2-mkl",
-        "bioconductor/3.14"
+        config["R"],
+        config["bioconductor"]
     # log: "Results/Log_files/markdown_report_aggregate_profiles/{genomes_not_fused}/{lib_name}.log"
     params:
         top_5000_hs = lambda w: samples_table['top5000_HS_heatmap'].any(), # Is there any sample with heatmap on top5000 hs?
