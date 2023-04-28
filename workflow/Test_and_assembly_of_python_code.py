@@ -62,27 +62,3 @@ samples_table_2 = sfxs.generate_samples_table_2(samples_table, config)
 
 #%% Tests
 
-hs_agg_profs = []
-if samples_table['top5000_HS_heatmap'].any():
-    hs_agg_profs = ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"]
-    if samples_table['get_single_strand'].any():
-        for region in ["x_non_par", 
-                       "autosomal_x_non_par_ctrl", 
-                       "asymetric_watson_strong", 
-                       "asymetric_crick_strong"]:
-            hs_agg_profs += [f"Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{region}.RData"]
-
-if (samples_table['peak_ctrl_file_alias'] != "-").any():
-    print("yes")
-
-for sample in samples_table['sample_name']:
-    if pd.notnull(samples_table.loc[sample,'merge_with']):
-         new_row=samples_table.loc[sample,]
-         new_row['sample_name'] = f"{new_row['sample_name']}_MERGED"
-         new_row['merge_with']="-"
-         samples_table=pd.concat([samples_table, new_row.to_frame().T],axis=0, join='outer') 
-            # to concatenate a df with a series, I need to convert series to df, and to get
-            # the columns right I need to transpose the tabel  (.T). the axis=0 and join='outer'
-            # are not really necessary because those are the default values for concat.
-            # I put them just as a remininder and for learning purpose
-         samples_table=samples_table.set_index("sample_name", drop=False)
