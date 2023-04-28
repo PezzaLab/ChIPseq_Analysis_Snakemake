@@ -40,6 +40,8 @@ MACS2:
     chip_mm10_MNAse_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib12_CHD4_BLM_HP1g/Merged_files/Nodup/MitDel/2022_1_28_input_7dpp_MNAse_merged.filt.srt.nodup._filt.chr.bam"
     cyr_mm10_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib14_H2az_H33_CyR_dmc1ko/Processed_old_way/Merged_files/Nodup/MitDel/RaG_IgG_merge_R4_and_R7_from_3-22_and_3-24_2022.filt.srt.nodup._filt.chr.bam"
     chip_mm10_sonic_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib12_CHD4_BLM_HP1g/Processed_old_way/Merged_files/Nodup/MitDel/2022_1_24_input_7dpp_sonic_merged.filt.srt.nodup._filt.chr.bam"
+  # Single read arguments
+  extension: "300"
 
 references:
   mm10:

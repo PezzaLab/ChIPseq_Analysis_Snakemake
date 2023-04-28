@@ -123,9 +123,10 @@ def get_MACS2_params(w):
     if re.match (".*mm.*", w.genomes_not_fused):
         genome = "mm"
     elif re.match (".*hg.*", w.genomes_not_fused):
-        genome = "hs"
+        genome = "hs" # I could change this to an regex that extracts any of the genomes
 
     PE = ""
+    ext = ""
     parameters = w['peak_params'].split("__")
     bco_qv = parameters[0].split("_")
     
@@ -139,6 +140,8 @@ def get_MACS2_params(w):
     
     if samples_table.loc[w.sample, "PE"]:
         PE = "--format BAMPE"
+    else:
+        ext = f"--extsize {config['MACS2']['extension']}"
 
     if w.peak_type == "narrow":
         peak_type = "--call-summits"
@@ -150,6 +153,7 @@ def get_MACS2_params(w):
     return {
         "genome": genome,
         "PE": PE,
+        "extension": ext,
         "peak_type_options": peak_type,
         "qv_bco": q,
         "ctrl": ctrl}

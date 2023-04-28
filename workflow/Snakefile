@@ -509,7 +509,7 @@ rule call_peaks_macs2: # Check on the original script I get a file with the name
     shell:
         """
         directory=$(dirname {output})
-        macs2 callpeak --outdir $directory --name {wildcards.sample}.{wildcards.genomes_final}{wildcards.extension} -t {input.treat_bam} {params[0][ctrl]} -g {params[0][genome]} {params[0][qv_bco]} {params[0][PE]} {params[0][peak_type_options]}
+        macs2 callpeak --outdir $directory --name {wildcards.sample}.{wildcards.genomes_final}{wildcards.extension} -t {input.treat_bam} {params[0][ctrl]} -g {params[0][genome]} {params[0][qv_bco]} {params[0][PE]} {params[0][peak_type_options]} {params[0][extension]}
         """
 
 rule filter_peaks_blk_grey_list:
