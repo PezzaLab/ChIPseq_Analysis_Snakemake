@@ -2,7 +2,7 @@
 Snakemake pipeline to analyze ChIP-seq (and cut and run) experiments, with a focus on meiotic processes.  
 
 ## Pipeline output  
-Pipeline has the capability of delivering the following files:
+Pipeline has the capability of generating the following files:
 - Deduplicated and q-filtered (dqf) bam files
 - Single strand dqf bam files
 - 1 bp front-clipped-reads dqf bam files (for experiments such as END-seq or S1-seq
