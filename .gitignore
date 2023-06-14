@@ -9,3 +9,4 @@ Results/
 .Rhistory
 __pycache__/
 *samples_table_2.csv
+*commands*sh
