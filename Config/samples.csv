@@ -1,3 +1,0 @@
-sample_name,fastq1,fastq2,PE,library_technology,reference_genome,peak_ctrl_file_alias,dros_spike_in,get_single_strand,Clip_reads_to_1bp_on_5_prime,top5000_HS_heatmap,Size_DNA_top_5000_HS,qctrl,merge_with,dros_equalization_group
-New_FASTQ,Resources/test_FASTQs/sample1_R1.FASTQ.gz,Resources/test_FASTQs/sample1_R2.FASTQ.gz,TRUE,adaptase,mm10,chip_mm10_sonic_testes_adaptase_1,F,T,FALSE,T,-,TRUE,-,-
-SR_no_ss_no_HS,Resources/test_FASTQs/sample1_R1.FASTQ.gz,,FALSE,adaptase,mm10,no_input,FALSE,FALSE,FALSE,FALSE,-,TRUE,-,-
