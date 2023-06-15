@@ -1,4 +1,5 @@
 # .gitignore
+*samples_table_processed*
 *.DS_Store
 .snakemake/
 fastp*
@@ -10,3 +11,6 @@ Results/
 __pycache__/
 *samples_table_2.csv
 *commands*sh
+*samples.csv
+commands_develop*
+*.log

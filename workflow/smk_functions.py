@@ -3,6 +3,77 @@ import numpy as np
 import os
 import re
 
+def check_sample_table_format(samples_table):
+    exit_message = "\n\n One or more errors have been detected on your 'samples_table.xlsx' file.\nErrors:\n"
+    exit_script = False
+    # Check names of samples don't contain / or . or finish in "_MERGED"
+    if (
+    (samples_table['sample_name'].str.contains("\.")) |
+    (samples_table['sample_name'].str.contains("/")) |
+    (samples_table['sample_name'].str.contains(" ")) |
+    (samples_table['sample_name'].str.contains("_MERGED$"))).any():
+        exit_message += "* One or more sample names in samples table contain a dot " +\
+        "('.'), a slash ('/'), a space (' ') or ends with the word '_MERGED'. These are not allowed " +\
+        "in sample names. Modify names and try again\n"
+        exit_script = True
+    
+    # Check that none of the sample names is repeated
+    if samples_table['sample_name'].duplicated().any():
+        exit_message += "* One or more sample names in samples table is repeated.\n" +\
+        "Choose different names for all your samples.\n"
+        exit_script = True
+    
+    # Check that "merge_with" reference is not a deduplicated/filtered file for spiked-in samples (it has to be raw bam)
+    if pd.notnull(samples_table['merge_with']).any():
+        if (
+            (samples_table['merge_with'].str.contains(".nodup.")) &
+            (samples_table['dros_spike_in'])
+        ).any():
+            exit_message += "* One or more samples' 'merge_with' parameter is a deduplicated/filtered " +\
+                "bam file AND has drosophila spike in. When sample is spiked, the 'merge_with' " +\
+                "file has to be the raw bam.\n"
+            exit_script = True
+
+    # Check that there are 2 FASTQs when sample is PE and 1 when is not
+    if (
+    (samples_table['PE']) &
+    ( (samples_table['fastq1'] == "") | (samples_table['fastq2'] == "") )).any():
+        exit_message += "* At least one sample is set as PE but only contains one " +\
+        "FASTQ path. Interleaved FASTQs are not supported yet.\n"
+        exit_script = True
+    if ((~samples_table['PE']) & (~samples_table['fastq2'].isna())).any():
+        exit_message += "* At least one sample is set as SR (PE == False) but contains " +\
+        "a FASTQ path at column 'fastq2'. Please put it at column 'fastq1'\n"
+        exit_script = True
+    if "" in samples_table.drop(["fastq1","fastq2"], axis=1).values:
+        exit_message += "* There is a cell that  is empty. There cannot be any empty cell. Please fill empty cells with '-'\n"
+        exit_script = True
+    
+    # Check that the samples with a "dros_equalization_group" have "dros_spike_in" == T 
+    #(I don't do the complementary becuase you might have the sample to equalize on another library)
+    if (~samples_table['dros_equalization_group'].isnull() &
+    ~samples_table['dros_spike_in']).any():
+        exit_message += "* At least one of your samples has a 'dros_equalization_group' " +\
+        "assigned to it but has the field 'dros_spike_in' set as False.\n"
+        exit_script = True
+    
+    # Check that all columns with false-true are actually false true (check if col == bool)
+    booleans_check=samples_table[["PE","dros_spike_in",
+                     "get_single_strand",
+                     "Clip_reads_to_1bp_on_5_prime",
+                     "top5000_HS_heatmap"]].dtypes
+    if (booleans_check != "bool").any():
+        exit_message += "* One or more of the following columns has at lesat one row" +\
+        "filled with something different than 'T', 'F', 'True', 'False', 'TRUE' or 'FALSE'.\n" +\
+        "columns: 'PE','dros_spike_in', 'get_single_strand', 'Clip_reads_to_1bp_on_5_prime'," +\
+        "'top5000_HS_heatmap'\n"
+        exit_script = True
+    
+    # Exit if any previous condition is met
+    if exit_script:
+        print(exit_message)
+        quit()
+
 ##############################################################
 ############## Functions to get inputs/params ################
 ##############################################################
@@ -52,9 +123,10 @@ def get_MACS2_params(w):
     if re.match (".*mm.*", w.genomes_not_fused):
         genome = "mm"
     elif re.match (".*hg.*", w.genomes_not_fused):
-        genome = "hs"
+        genome = "hs" # I could change this to an regex that extracts any of the genomes
 
     PE = ""
+    ext = ""
     parameters = w['peak_params'].split("__")
     bco_qv = parameters[0].split("_")
     
@@ -68,6 +140,8 @@ def get_MACS2_params(w):
     
     if samples_table.loc[w.sample, "PE"]:
         PE = "--format BAMPE"
+    else:
+        ext = f"--extsize {config['MACS2']['extension']}"
 
     if w.peak_type == "narrow":
         peak_type = "--call-summits"
@@ -79,6 +153,7 @@ def get_MACS2_params(w):
     return {
         "genome": genome,
         "PE": PE,
+        "extension": ext,
         "peak_type_options": peak_type,
         "qv_bco": q,
         "ctrl": ctrl}

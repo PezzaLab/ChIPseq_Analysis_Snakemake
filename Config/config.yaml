@@ -40,6 +40,8 @@ MACS2:
     chip_mm10_MNAse_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib12_CHD4_BLM_HP1g/Merged_files/Nodup/MitDel/2022_1_28_input_7dpp_MNAse_merged.filt.srt.nodup._filt.chr.bam"
     cyr_mm10_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib14_H2az_H33_CyR_dmc1ko/Processed_old_way/Merged_files/Nodup/MitDel/RaG_IgG_merge_R4_and_R7_from_3-22_and_3-24_2022.filt.srt.nodup._filt.chr.bam"
     chip_mm10_sonic_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib12_CHD4_BLM_HP1g/Processed_old_way/Merged_files/Nodup/MitDel/2022_1_24_input_7dpp_sonic_merged.filt.srt.nodup._filt.chr.bam"
+  # Single read arguments
+  extension: "300"
 
 references:
   mm10:
@@ -77,3 +79,26 @@ aggregate_profiles:
   process_outfile:
     overwrite: "TRUE"
     smooth: "TRUE"
+
+######################
+#### ENV. MODULES ####
+######################
+
+sambamba: "sambamba/0.8.2"
+fastp: "fastp/0.23.2"
+bwa: "bwa/0.7.15"
+samtools: "samtools/1.14"
+picard: "picard/2.21.2"
+deeptools: "deeptools/3.4.3"
+multiqc: "multiqc/1.8"
+bedtools: "bedtools/2.30.0"
+homer: "homer/4.7"
+R: "R/4.1.2-mkl"
+bioconductor: "bioconductor/3.14"
+phantompeakqualtools: "phantompeakqualtools/1.2"
+macs2: "macs2/2.2.7.1"
+bamutil: "bamutil/1.0.15"
+
+
+
+
