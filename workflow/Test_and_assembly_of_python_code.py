@@ -5,19 +5,19 @@ Created on Thu Sep 22 20:22:21 2022
 
 @author: quio
 """
+import os
 # Set current wd (I cannot get Spyder IDE to set wd as file's path...)
 os.chdir("/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow")
+# from snakemake.utils import Paramspace
 
 import pandas as pd
 import numpy as np
-import os
 import re
 import yaml
 import functools as ft
 import smk_functions as smkf
 import suffixes as sfxs
 
-# from snakemake.utils import Paramspace
 
 ## TEST FOLDER sample table
 # samples_table = pd.read_csv(
@@ -60,5 +60,21 @@ with open("../Config/config.yaml", 'r') as stream:
          
 samples_table_2 = sfxs.generate_samples_table_2(samples_table, config)
 
-#%% Tests
+cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
 
+############################################
+#####   Add variables to smkf module   #####
+############################################
+# (otherwise those variables are not accesible to that module)
+smkf.samples_table = samples_table
+smkf.config = config
+smkf.cov_config_params_string = cov_config_params_string # Remove this from here when move previous to smk_functions.py
+smkf.samples_table_2 = samples_table_2
+
+# Create wildcards to test code
+    # How do i do this?
+
+#%% Tests
+#Error in list(, both_strands_top_5000_plus_minus_2000 = c()) :
+
+smkf.get_hs_agg_profs_inputs(w)
