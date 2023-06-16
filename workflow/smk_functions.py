@@ -194,7 +194,7 @@ def get_hs_agg_profs_inputs(w):
                     )
 
     all_files[f"both_strands_{w.hs_region}"] = []
-    if {w.hs_region} != "top_5000_plus_minus_2000":
+    if w.hs_region != "top_5000_plus_minus_2000":
         for sample in samples["both_strands_with_ss"]:
             sample_full_name=os.path.splitext(os.path.basename(sample))[0]
             all_files[f"both_strands_{w.hs_region}"] += (
