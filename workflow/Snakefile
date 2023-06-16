@@ -62,6 +62,7 @@ samples_table_2.to_csv("Config/samples_table_processed.csv")
 ###################################################
 ##### Get list of files to call in rule all: ######
 ###################################################
+# Aggregate profiles
 hs_agg_profs = []
 if samples_table['top5000_HS_heatmap'].any():
     hs_agg_profs = ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"]
@@ -72,18 +73,20 @@ if samples_table['top5000_HS_heatmap'].any():
                        "asymetric_crick_strong"]:
             hs_agg_profs += [f"Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{region}.RData"]
 
+# Peak summaries
 peak_summaries = []
 if pd.notna(samples_table['peak_ctrl_file_alias']).any():
     ref_genomes = samples_table['reference_genome'].unique().tolist()
     for genomes in ref_genomes:
         peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
 
-# Get single strand files (ss), black-list filtered peak lists (peak_bl),
-# FRIP values, bigwigs, heatmaps
+# black-list filtered peak lists (peak_bl), FRIP values, heatmaps
+# First we get the column names and then the file names from the table
 files_df = samples_table_2.filter(
     regex="^(peak_bl|FRIP|processed_flagstat_dros|heatmap).*"
     ) # Filter columns using regex
 
+# Bigwigs
 files_df_2 = samples_table_2.filter(
     regex=".*(_bw)$"
     )
@@ -110,11 +113,6 @@ smkf.samples_table_2 = samples_table_2
 ###########################
 ######### RULES  ##########
 ###########################
-# To be able to produce different early-products of processing, I either have to
-# set differnt names in all final products according to those early changes (and 
-#restrict regex of following rules to use right products) or, I can set up the initial 
-# rule (where change happens) according to parameters... the problem with the later 
-# methodology is that I would have to put many steps in one rule...
 
 rule all: # Call for cov files ()
     input:
