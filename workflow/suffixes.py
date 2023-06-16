@@ -418,7 +418,7 @@ def generate_samples_table_2(samples_table, config):
     
     samples_table_2['dros_eq_83_or_i16_bw'] = (
         np.select(conditions_dros_eq,
-                  choices_ss_83_or_i16_bam,
+                  choices_ss_83_or_i16_bw,
                   default=np.NaN)
     )
     samples_table_2['dros_eq_99_or_e16_bw'] = (
