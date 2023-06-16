@@ -609,6 +609,11 @@ rule dros_normalization:
         """
 scaleFactor=$(awk 'BEGIN {{FS="\t"}} $1 == "{wildcards.sample}" {{print $4}}' {input.report})
 
+if [ -z "${{scaleFactor}}" ]; then
+    echo "Empty/non-existent scale factor. Most likely there were no drosophila reads on your sample"
+    exit 1
+fi
+
 echo -e "scaleFactor = $scaleFactor \n"
 
 if (( $(echo "$scaleFactor < 1" | bc -l) )); then
