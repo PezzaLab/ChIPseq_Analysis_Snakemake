@@ -220,20 +220,22 @@ def all_peaks(w):
     genome_filtered = samples_table_2[
     samples_table_2['reference_genome'] == w.genomes_not_fused
     ]
-    peaks = {
-    "narrow_all": genome_filtered.loc[
-        genome_filtered['peak_bl_gr_flt_nrw'].notnull(),
-        "peak_bl_gr_flt_nrw"].values.tolist(),
-    "broad_all": genome_filtered.loc[
-        genome_filtered['peak_bl_gr_flt_brd'].notnull(),
-        "peak_bl_gr_flt_brd"].values.tolist(),
-    "narrow_hs": genome_filtered.loc[
-        genome_filtered['peak_bl_gr_flt_hs_int_nrw'].notnull(),
-        "peak_bl_gr_flt_hs_int_nrw"].values.tolist(),
-    "broad_hs": genome_filtered.loc[
-        genome_filtered['peak_bl_gr_flt_hs_int_brd'].notnull(),
-        "peak_bl_gr_flt_hs_int_brd"].values.tolist()
-        }
+    peaks = {}
+    if pd.notna(samples_table['peak_ctrl_file_alias']).any():
+        peaks = {
+        "narrow_all": genome_filtered.loc[
+            genome_filtered['peak_bl_gr_flt_nrw'].notnull(),
+            "peak_bl_gr_flt_nrw"].values.tolist(),
+        "broad_all": genome_filtered.loc[
+            genome_filtered['peak_bl_gr_flt_brd'].notnull(),
+            "peak_bl_gr_flt_brd"].values.tolist(),
+        "narrow_hs": genome_filtered.loc[
+            genome_filtered['peak_bl_gr_flt_hs_int_nrw'].notnull(),
+            "peak_bl_gr_flt_hs_int_nrw"].values.tolist(),
+        "broad_hs": genome_filtered.loc[
+            genome_filtered['peak_bl_gr_flt_hs_int_brd'].notnull(),
+            "peak_bl_gr_flt_hs_int_brd"].values.tolist()
+            }
     return peaks
 
 def get_qctrl_bams_bais(w):
@@ -256,11 +258,16 @@ def get_qctrl_bams_bais(w):
     }
 
 def hmlt_report_input(w): # I need to add here the fastp files (now I am looking for them within the markdown file)
+    if pd.notna(samples_table['peak_ctrl_file_alias']).any():
+        peak_summary = f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv",
+    else:
+        peak_summary = []
+
     if ( ((samples_table['top5000_HS_heatmap']) &
      (samples_table['get_single_strand'])).any() ):
         return {
         "agg_profiles": f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{config['library']['name']}_aggregate_profiles_data.RData",
-        "peaks_summary": f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv",
+        "peaks_summary": peak_summary,
         "bamfiles_reads": samples_table_2['processed_flagstat'].values.tolist()
         }
         # input = [f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"] + \
@@ -270,7 +277,7 @@ def hmlt_report_input(w): # I need to add here the fastp files (now I am looking
     elif (samples_table['top5000_HS_heatmap'].any()):
         return{
         "top_5000_ag_profs": f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData",
-        "peaks_summary": f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv",
+        "peaks_summary": peak_summary,
         "bamfiles_reads": samples_table_2['processed_flagstat'].values.tolist()
         }
         # input = [f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"] + \
@@ -278,7 +285,7 @@ def hmlt_report_input(w): # I need to add here the fastp files (now I am looking
         # samples_table_2['processed_flagstat'].values.tolist()
     else:
         return {
-        "peaks_summary": f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv",
+        "peaks_summary": peak_summary,
         "bamfiles_reads": samples_table_2['processed_flagstat'].values.tolist()
         }
         # input = [f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv"] + \

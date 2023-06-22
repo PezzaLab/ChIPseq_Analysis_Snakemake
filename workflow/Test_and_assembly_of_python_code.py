@@ -75,6 +75,4 @@ smkf.samples_table_2 = samples_table_2
     # How do i do this?
 
 #%% Tests
-#Error in list(, both_strands_top_5000_plus_minus_2000 = c()) :
-
-smkf.get_hs_agg_profs_inputs(w)
+if pd.notna(samples_table['peak_ctrl_file_alias']).any(): 

@@ -54,8 +54,8 @@ for sample in samples_table['sample_name']:
 # as an csv table on "Config/samples_table_processed.csv"
 
 samples_table_2 = sfxs.generate_samples_table_2(samples_table, config)
-# Save table for debugging
 
+# Save table for debugging
 samples_table_2.to_csv("Config/samples_table_processed.csv")
 
 
@@ -97,6 +97,11 @@ files_array = files_df.to_numpy().ravel()
 files_list = files_array[~pd.isnull(files_array)].tolist()
 files_list += peak_summaries
 
+# Save list of files for debugging purposes
+file = open("List_of_files_for_rule_all.txt","w")
+file.writelines(files_list)
+file.close()
+
 # pre_formed_strings (put this on smk_functions.py)
 cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
 #cov_param_clipped_string=f"{config['coverage']['normalization']}_bs1_sm1" # Not in use for now...
@@ -114,7 +119,7 @@ smkf.samples_table_2 = samples_table_2
 ######### RULES  ##########
 ###########################
 
-rule all: # Call for cov files ()
+rule all: 
     input:
         files_list,
         expand(
@@ -614,15 +619,8 @@ fi
 
 echo -e "scaleFactor = $scaleFactor \n"
 
-if (( $(echo "$scaleFactor < 1" | bc -l) )); then
-  echo "Sample will be scaled down with a scale factor of $scaleFactor"
-  bamCoverage --numberOfProcessors max -b {input.bam} -bs {params.bin} --smoothLength {params.smooth} --normalizeUsing {params.normalize} -o {output} --scaleFactor $scaleFactor
-else
-  unscaled_bw=$(readlink -f {input.unscaled_bw})
-  echo "sample will not be re-scaled, creating symbolic link to original coverage bigwig file (${{unscaled_bw}})"
-  ln --symbolic --relative "${{unscaled_bw}}" "{output}"
-  # --relative : create symbolic links relative to link location
-fi
+echo "Sample will be scaled down with a scale factor of $scaleFactor"
+bamCoverage --numberOfProcessors max -b {input.bam} -bs {params.bin} --smoothLength {params.smooth} -o {output} --scaleFactor $scaleFactor
         """
 
 #############
