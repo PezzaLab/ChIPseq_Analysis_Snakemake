@@ -98,9 +98,9 @@ files_list = files_array[~pd.isnull(files_array)].tolist()
 files_list += peak_summaries
 
 # Save list of files for debugging purposes
-file = open("List_of_files_for_rule_all.txt","w")
-file.writelines(files_list)
-file.close()
+# file = open("List_of_files_for_rule_all.txt","w")
+# file.writelines(files_list)
+# file.close()
 
 # pre_formed_strings (put this on smk_functions.py)
 cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"

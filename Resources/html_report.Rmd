@@ -188,6 +188,7 @@ if (is.null(snakemake@input[["peaks_summary"]])){
 ```{r, eval=snakemake@params[['top_5000_hs']]}
 lapply(levels(aggregate_profiles$top_5000_plus_minus_2000$Protein),
   function(i) {
+    strands_n <- aggregate_profiles$top_5000_plus_minus_2000$Strand %>% unique %>% length
     a <- ggplot(data = filter(aggregate_profiles$top_5000_plus_minus_2000 ,
                         Protein == i,
                         Strand == "both_strands")) +
@@ -203,7 +204,12 @@ lapply(levels(aggregate_profiles$top_5000_plus_minus_2000$Protein),
                             y = Mean_Max_Normalized_Coverage,
                             color = Strand)) +
      theme(legend.position="top")
-  plot_grid(a,b)}
+   if (strands_n > 1){
+     plot_grid(a,b)
+   } else {
+     a
+   }
+  }
   )
 ```
 
