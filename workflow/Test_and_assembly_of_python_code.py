@@ -74,5 +74,50 @@ smkf.samples_table_2 = samples_table_2
 # Create wildcards to test code
     # How do i do this?
 
+#%% Rule all inputs
+# Aggregate profiles
+hs_agg_profs = []
+if samples_table['top5000_HS_heatmap'].any():
+    hs_agg_profs = ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"]
+    if samples_table['get_single_strand'].any():
+        for region in ["x_non_par", 
+                       "autosomal_x_non_par_ctrl", 
+                       "asymetric_watson_strong", 
+                       "asymetric_crick_strong"]:
+            hs_agg_profs += [f"Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{region}.RData"]
+
+# Peak summaries
+peak_summaries = []
+if pd.notna(samples_table['peak_ctrl_file_alias']).any():
+    ref_genomes = samples_table['reference_genome'].unique().tolist()
+    for genomes in ref_genomes:
+        peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
+
+# black-list filtered peak lists (peak_bl), FRIP values, heatmaps
+# First we get the column names and then the file names from the table
+files_df = samples_table_2.filter(
+    regex="^(peak_bl|FRIP|processed_flagstat_dros|heatmap).*"
+    ) # Filter columns using regex
+
+# Bigwigs
+files_df_2 = samples_table_2.filter(
+    regex=".*(_bw)$"
+    )
+
+files_df = files_df.join(files_df_2)
+
+files_array = files_df.to_numpy().ravel()
+files_list = files_array[~pd.isnull(files_array)].tolist()
+files_list += peak_summaries
+
+# pre_formed_strings (put this on smk_functions.py)
+cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
+#cov_param_clipped_string=f"{config['coverage']['normalization']}_bs1_sm1" # Not in use for now...
+
+
 #%% Tests
-if pd.notna(samples_table['peak_ctrl_file_alias']).any(): 
+peak_summaries = []
+if pd.notna(samples_table['peak_ctrl_file_alias']).any():
+    ref_genomes = samples_table['reference_genome'].unique().tolist()
+    for genomes in ref_genomes:
+        peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
