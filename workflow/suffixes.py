@@ -40,6 +40,7 @@ def generate_samples_table_2(samples_table, config):
     )
     
     cov_params = f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}/"
+    dros_norm_cov_config_params_string=f"drosNormalized_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}/"
     
     if pd.notna(samples_table['peak_ctrl_file_alias']).any():
         peak_nrw_params = (
@@ -384,8 +385,8 @@ def generate_samples_table_2(samples_table, config):
     samples_table_2['dros_eq_both_strand_bw'] = (
         np.where(~samples_table['dros_equalization_group'].isna(),
                  "Results/" + samples_table['reference_genome'] +
-                 "/Bigwigs/Coverage/Both_strands/" + cov_params +
-                 "Drosophila_normalized/" + samples_table['dros_equalization_group'] +
+                 "/Bigwigs/Coverage/Both_strands/" + dros_norm_cov_config_params_string + 
+                 samples_table['dros_equalization_group'] +
                  "/" + samples_nodup_filt + ".dros_norm.bw",
                  np.NaN))
     
@@ -398,22 +399,22 @@ def generate_samples_table_2(samples_table, config):
     
     choices_ss_83_or_i16_bw = [
         "Results/" + samples_table_2['reference_genome'] +
-        "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
-        "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
+        "/Bigwigs/Coverage/Single_strand/Full_length_reads/" +
+        dros_norm_cov_config_params_string + samples_table['dros_equalization_group'] + "/" +
         samples_nodup_filt + ".83-163.dros_norm.bw",
         "Results/" + samples_table_2['reference_genome'] +
-        "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
-        "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
+        "/Bigwigs/Coverage/Single_strand/Full_length_reads/" +
+        dros_norm_cov_config_params_string + samples_table['dros_equalization_group'] + "/" +
         samples_nodup_filt + ".inc_16.dros_norm.bw"
     ]
     
     choices_ss_99_or_e16_bw = [
         "Results/" + samples_table_2['reference_genome'] +
-        "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
-        "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
+        "/Bigwigs/Coverage/Single_strand/Full_length_reads/" +
+        dros_norm_cov_config_params_string + samples_table['dros_equalization_group'] + "/" +
         samples_nodup_filt + ".99-147.dros_norm.bw",
         "Results/" + samples_table_2['reference_genome'] +
-        "/Bigwigs/Coverage/Single_strand/Full_length_reads/" + cov_params +
+        "/Bigwigs/Coverage/Single_strand/Full_length_reads/" +
         "Drosophila_normalized/" + samples_table['dros_equalization_group'] + "/" +
         samples_nodup_filt + ".exc_16.dros_norm.bw"]
     

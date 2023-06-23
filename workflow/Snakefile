@@ -104,6 +104,7 @@ files_list += peak_summaries
 
 # pre_formed_strings (put this on smk_functions.py)
 cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
+dros_norm_cov_config_params_string=f"drosNormalized_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
 #cov_param_clipped_string=f"{config['coverage']['normalization']}_bs1_sm1" # Not in use for now...
 
 ############################################
@@ -114,20 +115,6 @@ smkf.samples_table = samples_table
 smkf.config = config
 smkf.cov_config_params_string = cov_config_params_string # Remove this from here when move previous to smk_functions.py
 smkf.samples_table_2 = samples_table_2
-
-############################################
-#####   Erase index files when done   ######
-############################################
-# onsuccess:
-#     shell(
-#         """
-#         rm Results/*.bai
-#         rm Results/{{mm10,hg38,d6}}/*.bai
-#         #rm Results/
-#         """
-#         )
-        
-
 
 ###########################
 ######### RULES  ##########
@@ -164,7 +151,7 @@ wildcard_constraints: # Automate constrain expression depending on config or sam
     genomes_not_fused="mm10|d6|hg19|hg38",
     genomes_all="mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6",
     fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6)",
-    cov_params="(CPM|RPKM|none)_bs[0-9]+_sm[0-9]+",
+    cov_params="(CPM|RPKM|none|drosNormalized)_bs[0-9]+_sm[0-9]+",
     genomes_final="(?<=\.)(?P<interest_genome>mm10|hg19|hg38)+(_f_d6\.((?P=interest_genome)|d6))?(?=\.)",
     ss_PE="83-163|99-147",
     clipped_1bp_PE="((inc|exc)_16\.clipped_1_bp\.)?",
@@ -176,6 +163,7 @@ wildcard_constraints: # Automate constrain expression depending on config or sam
     strand = "(\.(83-163|99-147|inc_16|exc_16))?",
     library_name = config['library']['name'],
     dros_eq_group="[^./ ]+"
+
 
 ruleorder: get_strand_sep_pe_bams > dedup_bam > index
 ruleorder: merge_bams > align_fastq
@@ -613,7 +601,7 @@ rule dros_normalization:
     input:
         unpack(smkf.dros_norm_input)
     output:
-        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/Drosophila_normalized/{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}.dros_norm.bw",
+        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}.dros_norm.bw",
     params:
         smooth = config['coverage']['smooth'],
         bin = config['coverage']['bin_size'],

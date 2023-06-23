@@ -315,32 +315,13 @@ def dros_norm_report_input(w):
 
 def dros_norm_input(w):
     if w.strand == "":
-        unscaled_bw = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bw']
         bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
     elif ("83-163" in w.strand) | ("inc_16" in w.strand):
-        unscaled_bw = samples_table_2.loc[w.sample, 'ss_83_or_i16_bw']
         bam = samples_table_2.loc[w.sample, 'ss_83_or_i16_bam']
     elif ("99-147" in w.strand) | ("exc_16" in w.strand):
-        unscaled_bw = samples_table_2.loc[w.sample, 'ss_99_or_e16_bw']
         bam = samples_table_2.loc[w.sample, 'ss_99_or_e16_bam']
 
     return {
     "report" : f"Results/d6/Analysis/drosophila_normalization/{w.dros_eq_group}/drosophila_equalization_report.tsv",
     "bam" : bam,
-    "unscaled_bw" : unscaled_bw
     }
-    # df=samples_table_2.loc[samples_table_2['dros_equalization_group'].str.match(w.dros_eq_group, na=False), :]
-    # both_strands_bams = df.loc[: , 'dedup_flt_both_strds_bam'].tolist()
-    # both_strands_bais = (df.loc[: , 'dedup_flt_both_strds_bam'] + ".bai").tolist()
-    # ss_bams =  df.loc[: , 'ss_83_or_i16_bam'].tolist() + df.loc[:,'ss_99_or_e16_bam'].tolist()
-    # ss_bais = (df.loc[:,'ss_83_or_i16_bam'] + ".bai").tolist() + (df.loc[:,'ss_99_or_e16_bam'] + ".bai").tolist()
-    #
-    # norm_report=[f"Results/{w.genomes_not_fused}/d6/Analysis/{w.dros_eq_group}/drosophila_equalization_report.tsv"]
-    # # Files to be returned in any case:
-    #
-    # default_files = both_strands_bams + both_strands_bais + norm_report
-    #
-    # if df['get_single_strand'].all():
-    #     return default_files + ss_bams + ss_bais
-    # else:
-    #     return default_files
