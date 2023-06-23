@@ -5,7 +5,7 @@
 fastp*
 logs/
 slurm*.out
-snakemake_dry_run.txt
+*dry_run*.txt
 Results/
 .Rhistory
 __pycache__/
