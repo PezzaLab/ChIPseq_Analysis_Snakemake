@@ -293,13 +293,20 @@ def hmlt_report_input(w): # I need to add here the fastp files (now I am looking
     # return input
 
 def input_merge_bams(w):
-    if re.search("/",samples_table.loc[w.sample,'merge_with']):
-        samples=samples_table_2.loc[w.sample, ['raw_bam', 'merge_with']].values.tolist()
-    else:
-        second_bam_name=samples_table_2.loc[w.sample, 'merge_with']
-        second_bam=samples_table_2.loc[second_bam_name, 'raw_bam']
-        first_bam=samples_table_2.loc[w.sample, 'raw_bam']
-        samples=[second_bam] + [first_bam]
+    # Information on the merge is on the 'merge_with' column from samples table,
+    # and it should be a space-separated list of: the name of another sample on 
+    # the samples table, or a path to a file.
+    samples_orig = samples_table.loc[w.sample,'merge_with'].split()
+
+    samples=[samples_table_2.loc[w.sample, 'raw_bam']]
+    # If sample to merge with is a path, use it as is, otherwise look for the
+    # raw bam file on samples_table_2
+    for sample in samples_orig:
+        if re.search("/", sample):
+            samples+=[sample]
+        else:
+            second_bam=samples_table_2.loc[sample, 'raw_bam']
+            samples+=[second_bam]
     return samples
 
 def dros_norm_report_input(w):

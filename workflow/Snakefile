@@ -41,7 +41,7 @@ for sample in samples_table['sample_name']:
             # to concatenate a df with a series, I need to convert series to df, and to get
             # the columns right I need to transpose the tabel  (.T). the axis=0 and join='outer'
             # are not really necessary because those are the default values for concat.
-            # I put them just as a remininder and for learning purpos
+            # I put them just as a remininder and for learning purpose
          samples_table=samples_table.set_index("sample_name", drop=False)
 
 
