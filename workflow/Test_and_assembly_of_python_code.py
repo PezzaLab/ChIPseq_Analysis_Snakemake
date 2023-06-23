@@ -114,10 +114,26 @@ files_list += peak_summaries
 cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
 #cov_param_clipped_string=f"{config['coverage']['normalization']}_bs1_sm1" # Not in use for now...
 
+############################################
+#####   Add variables to smkf module   #####
+############################################
+# (otherwise those variables are not accesible to that module)
+smkf.samples_table = samples_table
+smkf.config = config
+smkf.cov_config_params_string = cov_config_params_string # Remove this from here when move previous to smk_functions.py
+smkf.samples_table_2 = samples_table_2
 
 #%% Tests
-peak_summaries = []
-if pd.notna(samples_table['peak_ctrl_file_alias']).any():
-    ref_genomes = samples_table['reference_genome'].unique().tolist()
-    for genomes in ref_genomes:
-        peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
+# Create wildcards to test code
+class Wildcard():
+    def __init__(self):
+        self
+
+
+w = Wildcard()
+
+setattr(w, 'hs_region', "top_5000_plus_minus_2000")
+setattr(w, "genomes_not_fused", "mm10")
+
+
+samples_table_2['dros_eq_both_strand_bw'][1]
