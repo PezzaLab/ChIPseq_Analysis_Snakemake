@@ -115,6 +115,20 @@ smkf.config = config
 smkf.cov_config_params_string = cov_config_params_string # Remove this from here when move previous to smk_functions.py
 smkf.samples_table_2 = samples_table_2
 
+############################################
+#####   Erase index files when done   ######
+############################################
+# onsuccess:
+#     shell(
+#         """
+#         rm Results/*.bai
+#         rm Results/{{mm10,hg38,d6}}/*.bai
+#         #rm Results/
+#         """
+#         )
+        
+
+
 ###########################
 ######### RULES  ##########
 ###########################
@@ -125,7 +139,7 @@ rule all:
         expand(
         "Results/{genomes}/Qctrl/multiqc_report_{lib_name}.html",
         genomes = samples_table["reference_genome"].unique().tolist(),
-        lib_name = config['library']['name']
+        lib_name = config['library']['name']    
         ),
         expand(
         "Results/{genomes}/Analysis/{lib_name}.html",
@@ -196,7 +210,7 @@ rule align_fastq:
     input:
         unpack(smkf.get_input_align)
     output:
-        bam = "Results/{sample}.{genomes_all}.bam",  # How do I use scratch temp dir here?  # Make this output temp? #
+        bam = temp("Results/{sample}.{genomes_all}.bam"),  # How do I use scratch temp dir here? 
         fastp_json = "Results/{genomes_all}/Qctrl/{sample}/Raw_FASTQ/{sample}_fastp.json", 
         # This is actually not right, the fastp report is on the FASTQ file, not "raw bam", 
         # and should be placed on final genomes, not all genemos (drosophila fusions not included). 
