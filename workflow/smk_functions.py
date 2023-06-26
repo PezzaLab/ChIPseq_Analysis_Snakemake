@@ -320,8 +320,10 @@ def dros_norm_input(w):
         bam = samples_table_2.loc[w.sample, 'ss_83_or_i16_bam']
     elif ("99-147" in w.strand) | ("exc_16" in w.strand):
         bam = samples_table_2.loc[w.sample, 'ss_99_or_e16_bam']
-
+    
+    bai = bam + "bai"
     return {
     "report" : f"Results/d6/Analysis/drosophila_normalization/{w.dros_eq_group}/drosophila_equalization_report.tsv",
     "bam" : bam,
+    "bai" : bai
     }
