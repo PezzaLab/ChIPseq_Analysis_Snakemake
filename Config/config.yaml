@@ -5,10 +5,12 @@ library:
 
 genomes:
     mm10: "/Volumes/hts_core/Shared/mus_musculus/mm10/bwa_0.7.12_indexed/mm10.fasta"
-    GRCh38: "path/GRCj38"
-    hg38: "path/hg38"
+    mm10CAST_EiJ: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10cast/mm10.CAST_EiJ.fasta"
     mm10_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drodophila6_mm10/final_files/dm6_mm10_fusion.fa"
-    GRCh38_f_d6: "path/GRCh38_f_d6"
+    mm10CAST_EiJ_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10cast/dm6_mm10_fusion.CAST_EiJ.fasta"
+    GRCh38: ""
+    hg38: ""
+    GRCh38_f_d6: ""
 
 # suffix added to spike in chromosome-names
 spike_in_suffixes:
@@ -20,7 +22,7 @@ min_mapping_qual: "30" # To filter BAM files
 
 coverage:
   bin_size: "4" # The larger the bin, the smaller the file and the resolution
-  smooth: "1" # number of base pairs to smooth
+  smooth: "1" # number of base pairs to smooth, 1=no smooth
   extend_reads: "250" # How much to extend reads, for single read files only
   normalization: "CPM" # Options are CPM RPKM BPM None. Check bamcoverage from deeptools
 
