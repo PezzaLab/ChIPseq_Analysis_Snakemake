@@ -42,6 +42,8 @@ for sample in samples_table['sample_name']:
          new_row=samples_table.loc[sample,]
          new_row['sample_name'] = f"{new_row['sample_name']}_MERGED"
          new_row['merge_with']="-"
+         new_row['fastq1']= np.nan
+         new_row['fastq2']= np.nan
          samples_table=pd.concat([samples_table, new_row.to_frame().T],axis=0, join='outer') 
             # to concatenate a df with a series, I need to convert series to df, and to get
             # the columns right I need to transpose the tabel  (.T). the axis=0 and join='outer'
@@ -59,6 +61,7 @@ with open("../Config/config.yaml", 'r') as stream:
         stream.close()
          
 samples_table_2 = sfxs.generate_samples_table_2(samples_table, config)
+# samples_table_2.to_csv("Config/samples_table_processed.csv")
 
 cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
 
@@ -70,9 +73,6 @@ smkf.samples_table = samples_table
 smkf.config = config
 smkf.cov_config_params_string = cov_config_params_string # Remove this from here when move previous to smk_functions.py
 smkf.samples_table_2 = samples_table_2
-
-# Create wildcards to test code
-    # How do i do this?
 
 #%% Rule all inputs
 # Aggregate profiles
