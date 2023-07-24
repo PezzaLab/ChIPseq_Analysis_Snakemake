@@ -5,9 +5,10 @@ library:
 
 genomes:
     mm10: "/Volumes/hts_core/Shared/mus_musculus/mm10/bwa_0.7.12_indexed/mm10.fasta"
-    mm10CAST_EiJ: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10cast/mm10.CAST_EiJ.fasta"
     mm10_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drodophila6_mm10/final_files/dm6_mm10_fusion.fa"
-    mm10CAST_EiJ_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10cast/dm6_mm10_fusion.CAST_EiJ.fasta"
+    mm10CAST_EiJ: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10cast/mm10.CAST_EiJ.fasta"
+    mm10_x_CAST_EiJ: "/Volumes/Pezza/hpc-nobackup/References/Genomes/mm10_CAST_plus_B6/mm10_B6plusCAST.fasta"
+    mm10_x_CAST_EiJ_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10_CAST_plus_B6/dm6_mm10_fusion.B6plusCAST.fasta"
     GRCh38: ""
     hg38: ""
     GRCh38_f_d6: ""
@@ -17,15 +18,23 @@ spike_in_suffixes:
   mm10_f_d6: "_d"
   GRCh38_f_d6: "_d"
   hg38_f_d6: "_d"
+  mm10_x_CAST_EiJ_f_d6: "_d"
 
+# suffix added to variant reference genome
+variant_suffixes:
+  CAST_EiJL: "_cast"
+
+# MAPQ threshold
 min_mapping_qual: "30" # To filter BAM files
 
+# Coverage options
 coverage:
   bin_size: "4" # The larger the bin, the smaller the file and the resolution
   smooth: "1" # number of base pairs to smooth, 1=no smooth
   extend_reads: "250" # How much to extend reads, for single read files only
   normalization: "CPM" # Options are CPM RPKM BPM None. Check bamcoverage from deeptools
 
+# Peaks
 MACS2:
   gsize: # Efective genome sizes according to MACS. This approximate and will not make a huge difference to have the actual number (which depends on the actual genome build and the read length and technology -SR or PE)
     hs: 2.7e9
@@ -45,6 +54,7 @@ MACS2:
   # Single read arguments
   extension: "300"
 
+# Reference genomes
 references:
   mm10:
     spo11:
