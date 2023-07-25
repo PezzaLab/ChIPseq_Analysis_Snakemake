@@ -17,8 +17,8 @@ def check_sample_table_format(samples_table):
         "in sample names. Modify names and try again\n"
         exit_script = True
     
-    # Check that none of the sample names is repeated
-    if samples_table['sample_name'].duplicated().any():
+    # Check that there is no sample_name:genome combination repeated
+    if samples_table.loc[:,['sample_name', 'reference_genome']].duplicated().any():
         exit_message += "* One or more sample names in samples table is repeated.\n" +\
         "Choose different names for all your samples.\n"
         exit_script = True
@@ -327,3 +327,13 @@ def dros_norm_input(w):
     "bam" : bam,
     "bai" : bai
     }
+
+def intersect_peaks_HSs_list(w):
+    if samples_table.loc[w.sample, 'B6xCAST']:
+        hotspots = config['references']['mm10']['dmc1']['B6xCAST_common_top_5000_pm_1000bp']
+    else:
+        hotspots = config['references']['mm10']['spo11']['top_5000_plus_minus_2000']
+    return{
+        "hotspots" : hotspots,
+        "sample_peaks" : f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type_folder}/{w.peak_params}/Black-grey_filtered/{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"
+        }

@@ -148,13 +148,13 @@ wildcard_constraints: # Automate constrain expression depending on config or sam
     sample="[^./ ]+", # Name of files cannot contain . or / or space
     sample_with_extensions="[^/]+",
     strands="Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)",
-    int_genome="mm10|hg19|hg38",
+    int_genome="mm10|hg19|hg38|mm10_x_CAST_EiJ",
     spike_genome="d6",
-    genomes_not_fused="mm10|d6|hg19|hg38",
-    genomes_all="mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6",
-    fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6)",
+    genomes_not_fused="mm10|d6|hg19|hg38|mm10_x_CAST_EiJ",
+    genomes_all="mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6",
+    fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6)",
     cov_params="(CPM|RPKM|none|drosNormalized)_bs[0-9]+_sm[0-9]+",
-    genomes_final="(?<=\.)(?P<interest_genome>mm10|hg19|hg38)+(_f_d6\.((?P=interest_genome)|d6))?(?=\.)",
+    genomes_final="(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+(_f_d6\.((?P=interest_genome)|d6))?(?=\.)",
     ss_PE="83-163|99-147",
     clipped_1bp_PE="((inc|exc)_16\.clipped_1_bp\.)?",
     ss_SR="(inc|exc)_16",
@@ -296,7 +296,7 @@ command="sambamba view --nthreads $SLURM_CPUS_PER_TASK --format bam -o {output} 
         eval $command
         """
 
-rule dedup_bam:
+rule dedup_bam: # Either not index by piccard, or change index file name to .bam.bai (so it can be used by next steps), or change next step inputs to .bai
     input:
         bam = "Results/{sample}.{genomes_final}.bam",
         bai = "Results/{sample}.{genomes_final}.bam.bai" # Is this necessary?
@@ -819,7 +819,7 @@ multiqc --dirs --dirs-depth 1 --filename "multiqc_report_{wildcards.library}.htm
 #################
 rule intersect_peaks_HSs_list:
     input:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak"
+        unpack(smkf.intersect_peaks_HSs_list)
     output:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/{sample}.{genomes_final}{extension}.{peak_type}Peak"
     wildcard_constraints:
@@ -830,11 +830,11 @@ rule intersect_peaks_HSs_list:
     threads: 1
     envmodules:
         config["bedtools"]
-    params:
-        hs_list = lambda w: config['references'][w.genomes_not_fused]['spo11']['all_plus_minus_2000']
+    # params:
+    #     hs_list = lambda w: config['references'][w.genomes_not_fused]['spo11']['all_plus_minus_2000']
     shell:
         """
-        bedtools intersect -wa -a {input} -b {params.hs_list} > {output}
+        bedtools intersect -wa -a {input.sample_peaks} -b {input.hotspots} > {output} # comment
         """
 
 rule compute_matrix_outfiles_hs:
