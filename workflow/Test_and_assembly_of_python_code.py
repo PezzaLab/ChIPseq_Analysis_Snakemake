@@ -73,10 +73,10 @@ smkf.samples_table = samples_table
 smkf.config = config
 smkf.cov_config_params_string = cov_config_params_string # Remove this from here when move previous to smk_functions.py
 smkf.samples_table_2 = samples_table_2
-
-#%% Rule all inputs
-# Aggregate profiles
-hs_agg_profs = []
+    
+    #%% Rule all inputs
+    # Aggregate profiles
+    hs_agg_profs = []
 if samples_table['top5000_HS_heatmap'].any():
     hs_agg_profs = ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"]
     if samples_table['get_single_strand'].any():
@@ -132,8 +132,16 @@ class Wildcard():
 
 w = Wildcard()
 
-setattr(w, 'hs_region', "top_5000_plus_minus_2000")
+setattr(w, 'sample', "01_28_2023_ChIPseq_p_Trim28_BL6_CAST_WT_A300_767A_20_ug_dros_8Di_whole_tt_douncer")
+
 setattr(w, "genomes_not_fused", "mm10")
 
+get_input_align(w)
 
-samples_table_2['dros_eq_both_strand_bw'][1]
+samples_table.loc["DMC1_SSDS_B6_mm_ChIP-Seq_1", "fastq1"]
+
+
+samples_table.loc[:,['sample_name', 'reference_genome']].duplicated().any()
+samples_table.columns
+
+

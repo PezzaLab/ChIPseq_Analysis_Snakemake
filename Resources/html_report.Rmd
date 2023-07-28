@@ -55,9 +55,10 @@ if (snakemake@params[['top_5000_and_ssDNA']]) {
   load(snakemake@input[["agg_profiles"]])
 } else if (snakemake@params[['top_5000_hs']]){
   load(snakemake@input[["top_5000_ag_profs"]])
+  # Change name of object to matcb the name of same object when 'qgg_profiles' is loaded
   aggregate_profiles <- list()
   aggregate_profiles[["top_5000_plus_minus_2000"]] <- 
-    final_table
+    final_table 
 }
 ```
 
