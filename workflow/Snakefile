@@ -22,6 +22,10 @@ samples_table = pd.read_csv(
 
 smkf.check_sample_table_format(samples_table)
 
+# Pre formed strings
+cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
+dros_norm_cov_config_params_string=f"drosNormalized_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
+
 ############################################################
 ########## Add merged samples to samples table #############
 ############################################################
@@ -60,62 +64,12 @@ samples_table_2 = sfxs.generate_samples_table_2(samples_table, config)
 # Save table for debugging
 samples_table_2.to_csv("Config/samples_table_processed.csv", index=False)
 
-
-###################################################
-##### Get list of files to call in rule all: ######
-###################################################
-# Aggregate profiles
-hs_agg_profs = []
-if samples_table['top5000_HS_heatmap'].any():
-    hs_agg_profs = ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"]
-    if samples_table['get_single_strand'].any():
-        for region in ["x_non_par", 
-                       "autosomal_x_non_par_ctrl", 
-                       "asymetric_watson_strong", 
-                       "asymetric_crick_strong"]:
-            hs_agg_profs += [f"Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{region}.RData"]
-
-# Peak summaries
-peak_summaries = []
-if pd.notna(samples_table['peak_ctrl_file_alias']).any():
-    ref_genomes = samples_table['reference_genome'].unique().tolist()
-    for genomes in ref_genomes:
-        peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
-
-# black-list filtered peak lists (peak_bl), FRIP values, heatmaps
-# First we get the column names and then the file names from the table
-files_df = samples_table_2.filter(
-    regex="^(peak_bl|FRIP|processed_flagstat_dros|heatmap).*"
-    ) # Filter columns using regex
-
-# Bigwigs
-files_df_2 = samples_table_2.filter(
-    regex=".*(_bw)$"
-    )
-
-files_df = files_df.join(files_df_2)
-
-files_array = files_df.to_numpy().ravel()
-files_list = files_array[~pd.isnull(files_array)].tolist()
-files_list += peak_summaries
-
-# Save list of files for debugging purposes
-# file = open("List_of_files_for_rule_all.txt","w")
-# file.writelines(files_list)
-# file.close()
-
-# pre_formed_strings (put this on smk_functions.py)
-cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
-dros_norm_cov_config_params_string=f"drosNormalized_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
-#cov_param_clipped_string=f"{config['coverage']['normalization']}_bs1_sm1" # Not in use for now...
-
 ############################################
 #####   Add variables to smkf module   #####
 ############################################
 # (otherwise those variables are not accesible to that module)
 smkf.samples_table = samples_table
 smkf.config = config
-smkf.cov_config_params_string = cov_config_params_string # Remove this from here when move previous to smk_functions.py
 smkf.samples_table_2 = samples_table_2
 
 ###########################
@@ -124,7 +78,6 @@ smkf.samples_table_2 = samples_table_2
 
 rule all: 
     input:
-        files_list,
         expand(
         "Results/{genomes}/Qctrl/multiqc_report_{lib_name}.html",
         genomes = samples_table["reference_genome"].unique().tolist(),
@@ -207,7 +160,7 @@ rule align_fastq:
         # So, it should be on: "Results/{final_genomes}/Qctrl/{sample}/FASTQ/{sample}_fastp.json"
         fastp_html = "Results/{genomes_all}/Qctrl/{sample}/Raw_FASTQ/{sample}_fastp.html"
     params:
-        genome_path = lambda w: config['genomes'][w.genomes_all],
+        genome_path = lambda w: config['genomes'][w.genomes_all], # Put this on input
         library_tech = lambda w: samples_table.loc[w.sample, "library_technology"],
         PE = lambda w: str(samples_table.loc[w.sample, "PE"]).lower()
     # log:
@@ -401,6 +354,7 @@ rule merge_watson_or_crick: # If the next rule works for both SR and PE, erase t
         """
 
 rule get_rv_fw_strand:
+# This rule only applies to single read samples with strand information (ENDseq and such)
     input:
         smkf.get_rv_fw_strand_input
         #"Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.bam",

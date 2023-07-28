@@ -3,6 +3,7 @@ import numpy as np
 import os
 import re
 
+# Functions
 def check_sample_table_format(samples_table):
     exit_message = "\n\n One or more errors have been detected on your 'samples_table.xlsx' file.\nErrors:\n"
     exit_script = False
