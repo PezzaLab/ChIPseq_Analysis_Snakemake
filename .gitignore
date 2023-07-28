@@ -16,4 +16,4 @@ commands_develop*
 List_of_files_for_rule_all.txt
 Test_code/*
 dag*
-process_outfile_matrix_image.RData
+process_outfile_matrix_image*
