@@ -1,7 +1,12 @@
 # For debugging:
-  # save.image(file = paste0("process_outfile_matrix_image.", 
-  #                          runif(n=1,min=0, max = 9999),
-  #                          ".RData"))
+file_name <- paste0(
+  "process_outfile_matrix_image.",
+  runif(n = 1, min = 0, max = 9999),
+  ".RData")
+save.image(file = file_name)
+
+print(paste("File name:", file_name))
+  
 
 # Load libraries -----------
 library(tidyverse)
@@ -22,6 +27,16 @@ get_strands <-
   }
 
 get_file_name <- function(path) basename(path) %>% str_remove("\\..*") %>% as.factor
+
+get_role <- function(path) {
+  role <- path %>%
+    str_extract("(?<=B6xCAST_PRDM9_assymetric_hs_)invading|receiving") %>%
+    as.factor
+  if (is.na(role)) {
+    role <- "invading_and_receiving"
+  }
+  return(role)
+  }
 
 average_signal_per_coordinate <- 
   function(matrix_file) {
@@ -102,36 +117,41 @@ strands <- lapply(snakemake@input, get_strands)
 file_names <- 
   lapply(snakemake@input, get_file_name)
 
-# Get averages per coordinate
+role <- get_role(snakemake@wildcards[["hs_region"]])
+
+## Get averages per coordinate --------------------------------
 averages <- 
   lapply(snakemake@input, average_signal_per_coordinate)
 
-# Smooth
+## Smooth --------------------------------
 if (tolower(snakemake@params[["smooth"]]) == "true") {
   averages <-
     lapply(averages,smooth_fun)
   }
 
-# Add prot, strand, hotspot region and library info
-for (matrix in seq_along(averages)) {
-    averages[[matrix]][["Protein"]] <- 
-      file_names[[matrix]]
+## Add prot, strand, hotspot region, library and role metadata -------------
+for (i in seq_along(averages)) {
+    averages[[i]][["Protein"]] <- 
+      file_names[[i]]
     
-    averages[[matrix]][["Strand"]] <- 
-      strands[[matrix]]
+    averages[[i]][["Strand"]] <- 
+      strands[[i]]
     
-    averages[[matrix]][["Region"]] <- 
+    averages[[i]][["Region"]] <- 
       as.factor(snakemake@wildcards[["hs_region"]])
     
-    averages[[matrix]][["Library"]] <- 
+    averages[[i]][["Library"]] <- 
       as.factor(snakemake@config$library$name)
+    
+    averages[[i]][["Role"]] <- 
+      role
     }
 
-# Join all tables
+## Join all tables --------------------------------
 table_all <- 
   reduce(averages,bind_rows)
 
-# Normalize
+## Normalize --------------------------------
 final_table_dsDNA <- 
   normalize(table_all %>% filter(Strand == "Both_strands"))
 
@@ -142,15 +162,15 @@ final_table <-
   bind_rows(final_table_dsDNA,
             final_table_ssDNA)
 
-# Save
+## Save --------------------------------
 save(final_table,
      file = snakemake@output[[1]])
 
 
 # Debugging plot ----
-ggplot(final_table,
-       aes(x = Coordinates,
-           y = Mean_Max_Normalized_Coverage,
-           color = Strand)) +
-  geom_line() +
-  facet_wrap(~Protein)
+# ggplot(final_table,
+#        aes(x = Coordinates,
+#            y = Mean_Max_Normalized_Coverage,
+#            color = Strand)) +
+#   geom_line() +
+#   facet_wrap(~Protein)

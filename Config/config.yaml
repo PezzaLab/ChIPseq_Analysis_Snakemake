@@ -8,7 +8,7 @@ genomes:
     mm10_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drodophila6_mm10/final_files/dm6_mm10_fusion.fa"
     mm10CAST_EiJ: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10cast/mm10.CAST_EiJ.fasta"
     mm10_x_CAST_EiJ: "/Volumes/Pezza/hpc-nobackup/References/Genomes/mm10_CAST_plus_B6/mm10_B6plusCAST.fasta"
-    mm10_x_CAST_EiJ_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10_CAST_plus_B6/dm6_mm10_fusion.B6plusCAST.fasta"
+    mm10_x_CAST_EiJ_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10_CAST_plus_B6/d6_mm10_fusion.B6plusCAST.fasta"
     GRCh38: ""
     hg38: ""
     GRCh38_f_d6: ""
@@ -68,9 +68,9 @@ references:
       autosomal_all: ""
       autosomal_x_non_par_ctrl: "Resources/bed_files/SPO11_autosomal-MATCHED-TO-X_non_PAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
     dmc1:
-      B6xCAST_common_top_5000_pm_1000bp: "Resources/bed_files/B6xCAST_CASTxB6_common_HSs_autosomal_top_5000.bed"
-      B6xCAST_PRDM9_assymetric_hs_invading_strand: ""
-      B6xCAST_PRDM9_assymetric_hs_receiving_strand: ""
+      B6xCAST_top_5000_pm_1000bp: "Resources/bed_files/B6xCAST_CASTxB6_common_HSs_autosomal_top_5000.bed"
+      B6xCAST_PRDM9_assymetric_hs_invading_strand: "Resources/bed_files/B6xCAST_PRDM9_assymetric.autosomal.initiating.bed"
+      B6xCAST_PRDM9_assymetric_hs_receiving_strand: "Resources/bed_files/B6xCAST_PRDM9_assymetric.autosomal.receiving.bed"
     TSS: ""
     blacklist: "Resources/bed_files/mm10.blacklist_merge1000.bed"
     black_grey: "Resources/bed_files/GREYLIST_PE150_ZYG_sonic_ACELL.bed"
@@ -89,7 +89,7 @@ references:
 heatmaps:
   before_region: "3000"
   after_region: "3000"
-  bin_size: "1"
+  bin_size: "2"
 
 aggregate_profiles:
   process_outfile:
@@ -114,7 +114,4 @@ bioconductor: "bioconductor/3.14"
 phantompeakqualtools: "phantompeakqualtools/1.2"
 macs2: "macs2/2.2.7.1"
 bamutil: "bamutil/1.0.15"
-
-
-
 

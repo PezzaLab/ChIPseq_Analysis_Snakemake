@@ -5,6 +5,8 @@ Created on Thu Sep 22 20:22:21 2022
 
 @author: quio
 """
+
+#%% Loading and processing
 import os
 # Set current wd (I cannot get Spyder IDE to set wd as file's path...)
 os.chdir("/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow")
@@ -73,56 +75,6 @@ smkf.samples_table = samples_table
 smkf.config = config
 smkf.cov_config_params_string = cov_config_params_string # Remove this from here when move previous to smk_functions.py
 smkf.samples_table_2 = samples_table_2
-    
-    #%% Rule all inputs
-    # Aggregate profiles
-    hs_agg_profs = []
-if samples_table['top5000_HS_heatmap'].any():
-    hs_agg_profs = ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"]
-    if samples_table['get_single_strand'].any():
-        for region in ["x_non_par", 
-                       "autosomal_x_non_par_ctrl", 
-                       "asymetric_watson_strong", 
-                       "asymetric_crick_strong"]:
-            hs_agg_profs += [f"Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{region}.RData"]
-
-# Peak summaries
-peak_summaries = []
-if pd.notna(samples_table['peak_ctrl_file_alias']).any():
-    ref_genomes = samples_table['reference_genome'].unique().tolist()
-    for genomes in ref_genomes:
-        peak_summaries += [f"Results/{genomes}/Analysis/Peaks_summary.tsv"]
-
-# black-list filtered peak lists (peak_bl), FRIP values, heatmaps
-# First we get the column names and then the file names from the table
-files_df = samples_table_2.filter(
-    regex="^(peak_bl|FRIP|processed_flagstat_dros|heatmap).*"
-    ) # Filter columns using regex
-
-# Bigwigs
-files_df_2 = samples_table_2.filter(
-    regex=".*(_bw)$"
-    )
-
-files_df = files_df.join(files_df_2)
-
-files_array = files_df.to_numpy().ravel()
-files_list = files_array[~pd.isnull(files_array)].tolist()
-files_list += peak_summaries
-
-# pre_formed_strings (put this on smk_functions.py)
-cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
-#cov_param_clipped_string=f"{config['coverage']['normalization']}_bs1_sm1" # Not in use for now...
-
-############################################
-#####   Add variables to smkf module   #####
-############################################
-# (otherwise those variables are not accesible to that module)
-smkf.samples_table = samples_table
-smkf.config = config
-smkf.cov_config_params_string = cov_config_params_string # Remove this from here when move previous to smk_functions.py
-smkf.samples_table_2 = samples_table_2
-
 #%% Tests
 # Create wildcards to test code
 class Wildcard():
@@ -132,16 +84,30 @@ class Wildcard():
 
 w = Wildcard()
 
-setattr(w, 'sample', "01_28_2023_ChIPseq_p_Trim28_BL6_CAST_WT_A300_767A_20_ug_dros_8Di_whole_tt_douncer")
+setattr(w, 'hs_region', "B6xCAST_top_5000_pm_1000bp")
 
 setattr(w, "genomes_not_fused", "mm10")
 
-get_input_align(w)
+def process_aggregate_profiles_inputs(w):
+    # Available wildcards: 'genomes_not_fused' and 'hs_region'.
+    # w.hs_region can be one of the following:
+        # 'top_5000_plus_minus_2000', 'x_non_par', 'autosomal_x_non_par_ctrl', 
+        # 'asymetric_watson_strong', 'asymetric_crick_strong', 'top_5000_plus_minus_2000'
+        #  or 'B6xCAST_common_top_5000_pm_1000bp'
+    
+    # This rule will process all matrixes that come from the same list of HS
+    matrixes_df = samples_table_2.filter(
+        regex=f"^{w.hs_region}.*matrix"
+        )
+    matrixes_array = matrixes_df.to_numpy().ravel()
+    matrixes_list = matrixes_array[~pd.isnull(matrixes_array)].tolist()
+    return matrixes_list
 
-samples_table.loc["DMC1_SSDS_B6_mm_ChIP-Seq_1", "fastq1"]
+process_aggregate_profiles_inputs(w)
 
+samples_table_2.columns
+samples_table_2.filter(regex=f"^.*matrix$").columns
 
-samples_table.loc[:,['sample_name', 'reference_genome']].duplicated().any()
-samples_table.columns
+samples_table_2['B6xCAST_PRDM9_assymetric_hs_receiving_strand_83-163_matrix'][1]
 
-
+# %%

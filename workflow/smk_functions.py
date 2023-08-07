@@ -164,11 +164,12 @@ def process_aggregate_profiles_inputs(w):
     # w.hs_region can be one of the following:
         # 'top_5000_plus_minus_2000', 'x_non_par', 'autosomal_x_non_par_ctrl', 
         # 'asymetric_watson_strong', 'asymetric_crick_strong', 'top_5000_plus_minus_2000'
-        #  or 'B6xCAST_common_top_5000_pm_1000bp'
+        # 'B6xCAST_top_5000_pm_1000bp', 'B6xCAST_PRDM9_assymetric_hs_invading_strand'
+        # or 'B6xCAST_PRDM9_assymetric_hs_receiving_strand'
     
     # This rule will process all matrixes that come from the same list of HS
     matrixes_df = samples_table_2.filter(
-        regex=f"^{w.hs_region}.*matrix"
+        regex=f"^{w.hs_region}.*matrix$"
         )
     matrixes_array = matrixes_df.to_numpy().ravel()
     matrixes_list = matrixes_array[~pd.isnull(matrixes_array)].tolist()
@@ -236,19 +237,21 @@ def markdown_report_aggregate_profiles_input(w): # I need to add here the fastp 
     elif ( (samples_table['top5000_HS_heatmap'] & ~samples_table['B6xCAST']).any() ):
         mm10_agg_profiles={
             "mm10_top_5000_ag_profs": f"Results/{w.genomes_not_fused}/Analysis"
-            "/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"
+            "/Heatmaps_and_aggregate_profiles/Hotspots/"
+            f"{config['library']['name']}_top_5000_plus_minus_2000.RData"
                             }
     
     if ( (samples_table['top5000_HS_heatmap'] & samples_table['B6xCAST']).any() ):
             B6xCAST_agg_profiles={
-                "B6xCAST_top_5000_ag_profs": f"Results/{w.genomes_not_fused}/Analysis"
-                "/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_B6xCAST.RData",
-                "b6_x_cast_invading_strand": "Results/"
+                "B6xCAST_top_5000_pm_1000bp": f"Results/{w.genomes_not_fused}/Analysis"
+                "/Heatmaps_and_aggregate_profiles/Hotspots/"
+                f"{config['library']['name']}_B6xCAST_top_5000_pm_1000bp.RData",
+                "B6xCAST_PRDM9_assymetric_hs_invading_strand": "Results/"
                 "mm10_x_CAST_EiJ/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{config['library']['name']}_PRDM9_assymetric_HSs_invading_strand.RData",
-                "b6_x_cast_receiving_strand": "Results/"
+                f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_invading_strand.RData",
+                "B6xCAST_PRDM9_assymetric_hs_receiving_strand": "Results/"
                 "mm10_x_CAST_EiJ/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{config['library']['name']}_PRDM9_assymetric_HSs_receiving_strand.RData"
+                f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_receiving_strand.RData"
                                 }
         # input = [f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv"] + \
         # samples_table_2['processed_flagstat'].values.tolist()
@@ -296,7 +299,7 @@ def dros_norm_input(w):
 
 def intersect_peaks_HSs_list(w):
     if samples_table.loc[w.sample, 'B6xCAST']:
-        hotspots = config['references']['mm10']['dmc1']['B6xCAST_common_top_5000_pm_1000bp']
+        hotspots = config['references']['mm10']['dmc1']['B6xCAST_top_5000_pm_1000bp']
     else:
         hotspots = config['references']['mm10']['spo11']['top_5000_plus_minus_2000']
     return{
@@ -305,13 +308,11 @@ def intersect_peaks_HSs_list(w):
         }
 
 def compute_matrix_outfiles_hs_input(w):
-    # For B6xCAST there is only 1 set of loci. For mm10 there are potentially 4 
-    # (top 5000, assymetric, autosomal and XnonPAR)
+    hotspot_protein="spo11"
     if samples_table.loc[w.sample, 'B6xCAST']:
-        hotspots = config['references']['mm10']['dmc1']['B6xCAST_common_top_5000_pm_1000bp']
-    else:
-        hotspots = config['references']['mm10']['spo11'][w.hs_region]
+        hotspot_protein="dmc1"
     
+    hotspots = config['references']['mm10'][hotspot_protein][w.hs_region]
     bigwig = f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/{w.cov_params}/{w.sample}.{w.genomes_final}{w.extension}{w.strand}.bw"
     
     return {"region": hotspots,

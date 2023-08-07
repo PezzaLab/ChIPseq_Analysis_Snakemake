@@ -1,15 +1,17 @@
-# For debugging
-# save.image(file = paste0(runif(n=1, min=0, max = 9999),
-#                          "wragle_X_nonPAR_asymmetric_HS_image.RData"))
-
+# For debugging 
+save.image(file = paste0("wragle_X_nonPAR_asymmetric_HS_image.",
+                         runif(n=1, min=0, max = 9999),
+                         ".RData"))
+# Load library ----
 library(tidyverse)
 
-# Load aggregate profiles   
+# Load aggregate profiles ----
 file_names <-  
   snakemake@input %>% 
   unlist %>% 
   basename %>% 
-  str_remove(".RData")
+  str_remove(".RData") %>% 
+  str_remove(paste0(snakemake@wildcards$libary, "_"))
 
 results <- list()
 
@@ -22,12 +24,12 @@ top_5000_plus_minus_2000 <-
   results$top_5000_plus_minus_2000 %>% 
   mutate("Region" = "Top_5000_HSs")
 
-# Join both datasets
+# Join autosomal and XnonPAR ----
 xNonPar_autosomal <- 
   bind_rows(results$autosomal_x_non_par_ctrl %>% mutate("Region" = "Autosomal"),
             results$x_non_par %>% mutate("Region" = "X-nonPAR"))
 
-### Asymetric  
+# Asymetric  ----
 # Both strands are averaged to get one single, smoother profile.  
 # There are 766 Watson sites, and 768 Crick sites, hence a weighted mean is done for each side.
 
@@ -41,7 +43,7 @@ results$asymetric_crick_strong <-
   mutate("Region" = "asymetric",
          "strong_strand" = "crick")
 
-# Merge both watson and crick
+## Merge both watson and crick ----
 asymetric <- 
   bind_rows(results$asymetric_watson_strong, results$asymetric_crick_strong)
 
@@ -52,7 +54,7 @@ asymetric <-
                                    Average_signal * 768/1534))
 # Strong strand is always on the right side (no need to flip anything) and **83-163 & crick** or **99-147 & watson** are weak.
 
-# Separate weak from strong
+## Separate weak from strong ----
 weak_side_a <-
   filter(asymetric,
          Strand == "83-163",
@@ -76,7 +78,7 @@ strong_side_b <-
 
 strong_side <- bind_rows(strong_side_a, strong_side_b) %>% 
   mutate(Strength = "strong")
-# Merge all weaks/strongs
+## Merge all weaks/strongs ----
 weak_side_merged <- 
   weak_side %>% 
   group_by(Protein, Coordinates, Strength, Library) %>% 
@@ -91,11 +93,13 @@ strong_side_merged <-
     Average_signal = mean(Average_signal)
   )
 
-# Re-join weak and strong
+## Re-join weak and strong ----
 asymetric <- 
   bind_rows(strong_side_merged, weak_side_merged)
 
-# Prepare a set in which strong and weak are on the same side of DSB, for direct comparison. Flip strong side so both are on leeft side of DSB
+## Flip strong side ----
+# Prepare a set in which strong and weak are on the same side of DSB, for direct 
+# comparison. Flip strong side so both are on leeft side of DSB
 strong_flipped <- 
   filter(asymetric, Strength == "strong") %>% 
   mutate(Coordinates = Coordinates * -1)
@@ -104,8 +108,9 @@ asymetric_flipped <-
   filter(asymetric, Strength == "weak") %>% 
   bind_rows(strong_flipped)
 
-# Save 
-  # I use "lst()" from tidyverse because it keeps the original name of the object when creating the list. With list() you loose the objects name.
+# Save ----
+  # I use "lst()" from tidyverse because it keeps the original name of the 
+ # object when creating the list. With list() you loose the objects name.
 aggregate_profiles <- 
   lst(asymetric,
        asymetric_flipped,
