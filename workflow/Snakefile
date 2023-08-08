@@ -35,21 +35,21 @@ dros_norm_cov_config_params_string=f"drosNormalized_bs{config['coverage']['bin_s
     # as one more sample. Parameters for the merged sample will be taken from the
     # sample from this library that will be merged. Hence, both samples to be merged
     # need to have been sequenced using the same technology (SR or PE).
-
-for sample in samples_table['sample_name']:
-    if pd.notna(samples_table.loc[sample,'merge_with']):
-         new_row=samples_table.loc[sample,]
-         new_row['sample_name'] = f"{new_row['sample_name']}_MERGED"
-         new_row['merge_with']="-"
-         # new_row['fastq1']= ""  # Cannot implement this because the script is using align rule to resolve a MERGED sample
-         # new_row['fastq2']= ""
-         samples_table=pd.concat([samples_table, new_row.to_frame().T],axis=0, join='outer') 
-            # to concatenate a df with a series, I need to convert series to df, and to get
-            # the columns right I need to transpose the tabel  (.T). the axis=0 and join='outer'
-            # are not really necessary because those are the default values for concat.
-            # I put them just as a remininder and for learning purpose
-         samples_table=samples_table.set_index("sample_name", drop=False)
-
+# Subset samples_table and keep only those samples that provide the base of the
+# merged samples' names
+new_rows = samples_table.loc[pd.notna(samples_table['merge_with'])]
+# Generate the new names
+new_rows_names = new_rows['sample_name'] + "_MERGED"
+# Replace name with new name
+new_rows= new_rows.assign(sample_name = new_rows_names)
+# Replace `merge_with` field with '-'
+new_rows= new_rows.assign(merge_with = "-")
+# new_rows= new_rows.assign(fastq1 = np.nan)
+# new_rows= new_rows.assign(fastq2 = np.nan)
+# Re-index using new names
+new_rows.set_index('sample_name', drop=False, inplace=True, verify_integrity=True)
+# Add new rows to samples table
+samples_table = pd.concat([samples_table, new_rows], verify_integrity=True)
 
 ####################################################
 ##### Add samples names with suffixes to table #####
@@ -104,7 +104,7 @@ wildcard_constraints: # Automate constrain expression depending on config or sam
     int_genome="mm10|hg19|hg38|mm10_x_CAST_EiJ",
     spike_genome="d6",
     genomes_not_fused="mm10|d6|hg19|hg38|mm10_x_CAST_EiJ",
-    genomes_all="mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6",
+    genomes_all="mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|mm10_x_CAST_EiJ",
     fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6)",
     cov_params="(CPM|RPKM|none|drosNormalized)_bs[0-9]+_sm[0-9]+",
     genomes_final="(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+(_f_d6\.((?P=interest_genome)|d6))?(?=\.)",
