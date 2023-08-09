@@ -24,7 +24,7 @@ save.image("html_report_image.RData")
 
 ```{r, libraries, message=F, error=F}
 library(tidyverse)
-library(cowplot) # to put plots side by side using plot_grid()
+library(patchwork) # to arrange plots side by side, in grid, etc
 library(rjson)
 library(ggtext) # To fit long text in ggplot
 library(openxlsx) # To write xls files (with format and everything)
@@ -218,7 +218,10 @@ if (is.null(snakemake@input[["peaks_summary"]])){
 ```
 
 ```{r, eval = b6_profile, include = b6_profile}
-lapply(levels(aggregate_profiles$top_5000_plus_minus_2000$Protein),
+prots <- levels(aggregate_profiles$top_5000_plus_minus_2000$Protein)
+names(prots) <- prots # So that name of each protein is printed (in the next loop) and can be searched in the web browser as text
+
+lapply(prots,
   function(i) {
     strands_n <- aggregate_profiles$top_5000_plus_minus_2000$Strand %>% unique %>% length
     a <- ggplot(data = filter(aggregate_profiles$top_5000_plus_minus_2000 ,
@@ -226,18 +229,16 @@ lapply(levels(aggregate_profiles$top_5000_plus_minus_2000$Protein),
                         Strand == "Both_strands")) +
     geom_line(mapping = aes(x = Coordinates,
                             y = Mean_Max_Normalized_Coverage)) +
-    labs(title = str_replace_all(i, "_", " ")) +
-      theme(legend.position="top",
-            plot.title = element_textbox_simple(hjust=0, size=10))
-   b <- ggplot(data = filter(aggregate_profiles$top_5000_plus_minus_2000,
+      theme(legend.position="top")
+   if (strands_n > 1){
+     b <- ggplot(data = filter(aggregate_profiles$top_5000_plus_minus_2000,
                         Protein == i,
                         Strand != "Both_strands")) +
     geom_line(mapping = aes(x = Coordinates,
                             y = Mean_Max_Normalized_Coverage,
                             color = Strand)) +
      theme(legend.position="top")
-   if (strands_n > 1){
-     plot_grid(a,b)
+     a|b
    } else {
      a
    }
@@ -254,6 +255,7 @@ Only one strand is shown at a set of 547 X-non-PAR hotspots and their (SPO11-int
 ```{r, eval=!is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs), include=!is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs)}
 # Get name of one of the strands (this changes whether the sequencing was SR or PE -). This is to filter by that strand and show only one strand.
 ss_prots <- levels(aggregate_profiles$xNonPar_autosomal$Protein)
+names(ss_prots) <- ss_prots
 
 lapply(ss_prots,
        function(i) {
@@ -264,10 +266,6 @@ lapply(ss_prots,
                                   y = Mean_Max_Normalized_Coverage,
                                   color = Region)) +
            geom_line() +
-           labs(title = 
-                  str_c(
-                    str_replace_all(i, "_", " "), 
-                    " at X-non-PAR or autosomal")) +
            theme(legend.position="top",
                  plot.title = element_textbox_simple(hjust=0,
                                                      size=10))
@@ -280,7 +278,7 @@ lapply(ss_prots,
                                   color = Region)) +
            geom_line() +
            theme(legend.position="top")
-  plot_grid(normalized, not_normalized)}
+  normalized | not_normalized}
   )
 ```
 
@@ -302,10 +300,8 @@ lapply(ss_prots,
                              color = Strength)) +
      labs(title = 
             str_c(
-              str_replace_all(i, "_", " "),
-              " on asymetric HSs, strengths in different sides of DSB")) +
-     theme(legend.position="top",
-           plot.title = element_textbox_simple(hjust=0, size=10))
+              "Strengths in different sides of DSB")) +
+     theme(legend.position="top")
    
    on_same_sides <-  
      ggplot(data = filter(aggregate_profiles$asymetric_flipped,
@@ -313,13 +309,13 @@ lapply(ss_prots,
      geom_line(mapping = aes(x = Coordinates, 
                              y = Average_signal,
                              color = Strength)) +
-     labs(title = str_c("strengths on same side of DSB")) +
+     labs(title = str_c("Strengths on same side of DSB")) +
      theme(legend.position="top")
    
-   plot_grid(on_diff_sides, on_same_sides)
+   plots <- on_diff_sides | on_same_sides 
+   plots + plot_annotation(title = "Left-right assymetric hotspots")
   })
 ```
-
 
 ### B6xCAST hotspots  
 
@@ -329,7 +325,10 @@ Hotspot list was taken from DMC1 ChIP-seq done with kinetic enrichement by [Smag
 "No B6xCAST experiments were done on this library"
 ```
 ```{r, eval=!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)}
-lapply(levels(B6xCAST_top_5000_pm_1000bp$Protein),
+prots <- levels(B6xCAST_top_5000_pm_1000bp$Protein)
+names(prots) <- prots
+
+lapply(prots,
   function(i) {
     strands_n <- B6xCAST_top_5000_pm_1000bp$Strand %>% nlevels
     a <- ggplot(data = filter(B6xCAST_top_5000_pm_1000bp ,
@@ -337,20 +336,18 @@ lapply(levels(B6xCAST_top_5000_pm_1000bp$Protein),
                         Strand == "Both_strands")) +
     geom_line(mapping = aes(x = Coordinates,
                             y = Mean_Max_Normalized_Coverage)) +
-    labs(title = str_replace_all(i, "_", " ")) +
-      theme(legend.position="top",
-            plot.title = element_textbox_simple(hjust=0, size=10))
-   b <- ggplot(data = filter(B6xCAST_top_5000_pm_1000bp,
+      theme(legend.position="top")
+   if (strands_n > 1){
+     b <- ggplot(data = filter(B6xCAST_top_5000_pm_1000bp,
                         Protein == i,
                         Strand != "Both_strands")) +
     geom_line(mapping = aes(x = Coordinates,
                             y = Mean_Max_Normalized_Coverage,
                             color = Strand)) +
      theme(legend.position="top")
-   if (strands_n > 1){
-     plot_grid(a,b)
+     (a | b) + plot_annotation(title="B6xCAST top 5000 hotspots")
    } else {
-     a
+     a + plot_annotation(title="B6xCAST top 5000 hotspots")
    }
   }
   )
@@ -367,6 +364,7 @@ We refer to the strand that gets preferentially cut as the **invading strand**, 
 ```{r, include=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand), eval=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
 
 prots <- levels(B6xCAST_top_5000_pm_1000bp$Protein)
+names(prots) <- prots
 
 map(
   prots,
@@ -379,7 +377,7 @@ map(
   ) +
     geom_line() +
     facet_wrap( ~ Role, scales = "free") +
-    ggtitle(.x)
+     theme(legend.position="top")
 )
 ```
 
@@ -389,18 +387,21 @@ map(
 map(
   prots,
   ~ ggplot(
-    B6xCAST_PRDM9_assymetric_hs %>% filter(Protein == .x),
+    B6xCAST_PRDM9_assymetric_hs %>% filter(Protein == .x,
+                                           Strand != "Both_strands"),
     aes(x = Coordinates,
         y = Average_signal,
         color = Role)
   ) +
     geom_line() +
-    facet_wrap( ~ Strand, scales = "free") +
-    ggtitle(.x)
+    facet_wrap( ~ Strand) +
+    ggtitle(.x) +
+     theme(legend.position="top")
 )
 ```
 
 # Export data  
+Ignore this part, it will soon be removed from the report.  
 
 ## Excel file for NGS_files.xlsx
 ```{r}
