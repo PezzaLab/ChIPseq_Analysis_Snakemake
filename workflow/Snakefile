@@ -470,7 +470,8 @@ rule call_peaks_macs2: # Check on the original script I get a file with the name
 
 rule filter_peaks_blk_grey_list:
     input:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak"
+        peaks="Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak",
+        blck_gry_lst=lambda w: config['references'][w.genomes_not_fused]['black_grey']
     output:
         final="Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak",
         temp=temp("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.temp")
@@ -483,11 +484,9 @@ rule filter_peaks_blk_grey_list:
     threads: 1
     envmodules:
         config["bedtools"]
-    params:
-        blck_gry_lst = lambda w: config['references'][w.genomes_not_fused]['black_grey']
     shell:
         """
-        bedtools intersect -wa -v -a {input} -b {params.blck_gry_lst} > {output.temp}
+        bedtools intersect -wa -v -a {input.peaks} -b {input.blck_gry_lst} > {output.temp}
         awk 'BEGIN {{ OFS = "\t"}} {{print $0, ($1 ":" $2 "-" $3)}}' {output.temp} > {output.final}
         """
 
