@@ -474,7 +474,6 @@ rule filter_peaks_blk_grey_list:
         blck_gry_lst=lambda w: config['references'][w.genomes_not_fused]['black_grey']
     output:
         final="Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak",
-        temp=temp("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.temp")
     wildcard_constraints:
         peak_type="broad|narrow",
         peak_type_folder="Broad|Narrow",
@@ -486,8 +485,8 @@ rule filter_peaks_blk_grey_list:
         config["bedtools"]
     shell:
         """
-        bedtools intersect -wa -v -a {input.peaks} -b {input.blck_gry_lst} > {output.temp}
-        awk 'BEGIN {{ OFS = "\t"}} {{print $0, ($1 ":" $2 "-" $3)}}' {output.temp} > {output.final}
+        bedtools intersect -wa -v -a {input.peaks} -b {input.blck_gry_lst} | \
+        awk 'BEGIN {{ OFS = "\t"}} {{print $0, ($1 ":" $2 "-" $3)}}' - > {output.final}
         """
 
 rule annotate_peaks:
@@ -774,8 +773,6 @@ rule intersect_peaks_HSs_list:
     threads: 1
     envmodules:
         config["bedtools"]
-    # params:
-    #     hs_list = lambda w: config['references'][w.genomes_not_fused]['spo11']['all_plus_minus_2000']
     shell:
         """
         bedtools intersect -wa -a {input.sample_peaks} -b {input.hotspots} > {output} # comment
@@ -858,7 +855,6 @@ rule plot_heatmaps:
         config["deeptools"]
     params:
         region =  lambda w: config['references'][w.genomes_not_fused]['spo11'][w.hs_region],
-
     shell:
         """
 plotHeatmap --matrixFile {input} --sortRegions keep --plotTitle "{wildcards.sample}, {wildcards.strand} at {wildcards.hs_region}" -out {output} \
