@@ -592,8 +592,6 @@ rule FRIP_narrow:
     envmodules:
         config["sambamba"],
         config["samtools"]
-    params:
-        param1 = "1"
     shell:
         """
         echo "Getting total number of reads"
@@ -626,8 +624,6 @@ rule FRIP_broad:
     envmodules:
         config["sambamba"],
         config["samtools"]
-    params:
-        param1 = "1"
     shell:
         """
         echo "Getting total number of reads"
