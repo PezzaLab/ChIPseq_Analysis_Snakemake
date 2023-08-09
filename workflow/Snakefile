@@ -147,7 +147,7 @@ rule align_fastq:
 # the species of interest, the spike in, and the technology used to do the library
 #  (adaptase or regular). For now I'll forget about o3.
     input:
-        unpack(smkf.align_input)
+        unpack(smkf.align_fastq_input)
     output:
         bam = temp("Results/{sample}.{genomes_all}.bam"),  # How do I use scratch temp dir here? 
         fastp_json = "Results/{genomes_all}/Qctrl/{sample}/Raw_FASTQ/{sample}_fastp.json", 
@@ -156,7 +156,6 @@ rule align_fastq:
         # So, it should be on: "Results/{final_genomes}/Qctrl/{sample}/FASTQ/{sample}_fastp.json"
         fastp_html = "Results/{genomes_all}/Qctrl/{sample}/Raw_FASTQ/{sample}_fastp.html"
     params:
-        genome_path = lambda w: config['genomes'][w.genomes_all], # Put this on input
         library_tech = lambda w: samples_table.loc[w.sample, "library_technology"],
         PE = lambda w: str(samples_table.loc[w.sample, "PE"]).lower()
     # log:
@@ -193,7 +192,7 @@ fastp \\
 --html {output.fastp_html} \\
 --json {output.fastp_json} \\
 --stdout | $PE_adaptase \\
-bwa mem -v 1 -M -p -t $SLURM_CPUS_ON_NODE {params.genome_path} - \\
+bwa mem -v 1 -M -p -t $SLURM_CPUS_ON_NODE {input.genome_path} - \\
 | samtools sort -@ $SLURM_CPUS_ON_NODE -O bam -o {output.bam}"
 
 #sambamba sort --nthreads $SLURM_CPUS_ON_NODE -o {output.bam} /dev/stdin # --. Apparently sambamba sort only takes bam files

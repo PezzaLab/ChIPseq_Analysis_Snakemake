@@ -81,17 +81,20 @@ def check_sample_table_format(samples_table):
 # Function to get input
     # Cannot return fastq2="" because then snakemake looks for "" file.
     # And if I return only fastq1, then in the shell I am searching for input.fastq2, which is not there
-def align_input(w):
+def align_fastq_input(w):
+    inpt = {"genome_path":config['genomes'][w.genomes_all]}
+    
     if samples_table.loc[w.sample, "PE"]:
-        return {
+        inpt|= {
         "fastq1":samples_table.loc[w.sample, "fastq1"],
-        "fastq2":samples_table.loc[w.sample, "fastq2"]
+        "fastq2":samples_table.loc[w.sample, "fastq2"],
         }
     else:
-        return {
+        inpt|= {
         "fastq1":samples_table.loc[w.sample, "fastq1"],
         "fastq2":[]} # Cannot use "" here because snakemake will look for "" file
         # and give a "missing input" error. Instead, I give it an empty list
+    return inpt
 
 
 # Function for input/ctrl for peak calling rule
