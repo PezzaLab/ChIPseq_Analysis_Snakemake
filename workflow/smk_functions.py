@@ -98,7 +98,7 @@ def align_fastq_input(w):
 
 
 # Function for input/ctrl for peak calling rule
-def MACS2_peak_calling_files(w):
+def call_peaks_macs2_input(w):
     ctrl_alias = w.peak_params.split("__") # "bco_1_qv_05__alias"
     ctrl_alias = ctrl_alias[1] # "alias"
     if ctrl_alias == "no_input":
@@ -178,7 +178,7 @@ def process_aggregate_profiles_inputs(w):
     matrixes_list = matrixes_array[~pd.isnull(matrixes_array)].tolist()
     return matrixes_list
 
-def all_peaks(w):
+def sumarize_peak_count_input(w):
     genome_filtered = samples_table_2[
     samples_table_2['reference_genome'] == w.genomes_not_fused
     ]
@@ -201,6 +201,7 @@ def all_peaks(w):
     return peaks
 
 def get_qctrl_bams_bais(w):
+    # This function gets input for rules 'samstats' and 'samtools_flagstat'
     sample = w.sample # If I don't convert the wildcards to set, it returns a warning when I use it within loc (next line)
     genome = samples_table.loc[sample, 'reference_genome']
     if f"{w.bam_type}" == 'Raw_bam':
@@ -264,7 +265,7 @@ def markdown_report_aggregate_profiles_input(w): # I need to add here the fastp 
         "bamfiles_reads": samples_table_2['processed_flagstat'].values.tolist(),
         } | mm10_agg_profiles | B6xCAST_agg_profiles # The '|' is to concat. dictionaries
 
-def input_merge_bams(w):
+def merge_bams_input(w):
     # Information on the merge is on the 'merge_with' column from samples table,
     # and it should be a space-separated list of: the name of another sample on 
     # the samples table, or a path to a file.
@@ -280,11 +281,11 @@ def input_merge_bams(w):
             samples+=[second_bam]
     return samples
 
-def dros_norm_report_input(w):
+def dros_normalization_report_input(w):
     df=samples_table_2.loc[samples_table_2['dros_equalization_group'].str.match(w.dros_eq_group, na=False), :]
     return df['processed_flagstat_dros'].tolist()
 
-def dros_norm_input(w):
+def dros_normalization_input(w):
     if w.strand == "":
         bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
     elif ("83-163" in w.strand) | ("inc_16" in w.strand):
@@ -299,7 +300,7 @@ def dros_norm_input(w):
     "bai" : bai
     }
 
-def intersect_peaks_HSs_list(w):
+def intersect_peaks_HSs_list_input(w):
     if samples_table.loc[w.sample, 'B6xCAST']:
         hotspots = config['references']['mm10']['dmc1']['B6xCAST_top_5000_pm_1000bp']
     else:

@@ -448,7 +448,7 @@ rule clip_1bp:
 
 rule call_peaks_macs2: # Check on the original script I get a file with the name "._peaks.broadPeak". Should take out that ._peaks.
     input:
-        unpack(smkf.MACS2_peak_calling_files)
+        unpack(smkf.call_peaks_macs2_input)
     output:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak" # Check the file name
     params:
@@ -521,7 +521,7 @@ rule modify_annotated_peaks:
 
 rule merge_bams:
     input:
-        smkf.input_merge_bams
+        smkf.merge_bams_input
     output:
         temp("Results/{sample}_MERGED.{genomes_all}.bam")
     threads: 2
@@ -537,7 +537,7 @@ samtools merge -o {output} {input}
 ####################################
 rule dros_normalization_report:
     input:
-        smkf.dros_norm_report_input
+        smkf.dros_normalization_report_input
     output:
         "Results/d6/Analysis/drosophila_normalization/{dros_eq_group}/drosophila_equalization_report.tsv"
     params:
@@ -548,7 +548,7 @@ rule dros_normalization_report:
 
 rule dros_normalization:
     input:
-        unpack(smkf.dros_norm_input)
+        unpack(smkf.dros_normalization_input)
     output:
         "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}.dros_norm.bw",
     params:
@@ -762,7 +762,7 @@ multiqc --dirs --dirs-depth 1 --filename "multiqc_report_{wildcards.library}.htm
 #################
 rule intersect_peaks_HSs_list:
     input:
-        unpack(smkf.intersect_peaks_HSs_list)
+        unpack(smkf.intersect_peaks_HSs_list_input)
     output:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/{sample}.{genomes_final}{extension}.{peak_type}Peak"
     wildcard_constraints:
@@ -867,7 +867,7 @@ plotHeatmap --matrixFile {input} --sortRegions keep --plotTitle "{wildcards.samp
 
 rule sumarize_peak_count:
     input:
-        unpack(smkf.all_peaks)
+        unpack(smkf.sumarize_peak_count_input)
     output:
         "Results/{genomes_not_fused}/Analysis/Peaks_summary.tsv"
     threads: 1
