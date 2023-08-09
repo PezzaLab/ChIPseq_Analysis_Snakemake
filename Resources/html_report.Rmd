@@ -18,7 +18,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = F,
                       warning = F)
 ```
-```{r,include=F, eval=F}
+```{r,include=F, eval=T}
 save.image("html_report_image.RData")
 ```
 
@@ -51,13 +51,42 @@ library(readxl) # To read exel files (I think this can also be done with the pac
 
 ## Aggregate profiles   
 ```{r, load_agg_profs}
-if (snakemake@params[['top_5000_and_ssDNA']]) {
-  load(snakemake@input[["agg_profiles"]])
-} else if (snakemake@params[['top_5000_hs']]){
-  load(snakemake@input[["top_5000_ag_profs"]])
+# for debugging
+  # setwd("..")
+
+# Set paramter
+b6_profile <- !is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs) |
+                  !is.null(snakemake@input$mm10_top_5000_ag_profs)
+
+# Load B6
+if (!is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs)) {
+  load(snakemake@input[["mm10_top5000_asmtric_auto_XnonPAR_ag_profs"]])
+} else if (!is.null(snakemake@input$mm10_top_5000_ag_profs) ) {
+  load(snakemake@input$mm10_top_5000_ag_profs)
+  # Change name of object to match the name of same object when 'agg_profiles' is loaded
   aggregate_profiles <- list()
   aggregate_profiles[["top_5000_plus_minus_2000"]] <- 
-    final_table
+    final_table 
+}
+
+# Load B6xCAST
+if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
+  load(snakemake@input$B6xCAST_top_5000_pm_1000bp)
+  B6xCAST_top_5000_pm_1000bp <- final_table
+  
+  load(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)
+  B6xCAST_PRDM9_assymetric_hs_invading_strand <- final_table
+  
+  load(snakemake@input$B6xCAST_PRDM9_assymetric_hs_receiving_strand)
+  B6xCAST_PRDM9_assymetric_hs_receiving_strand <- final_table
+  rm(final_table)
+  
+  B6xCAST_PRDM9_assymetric_hs <- 
+    bind_rows(B6xCAST_PRDM9_assymetric_hs_invading_strand, 
+              B6xCAST_PRDM9_assymetric_hs_receiving_strand)
+  
+  rm(B6xCAST_PRDM9_assymetric_hs_receiving_strand,
+     B6xCAST_PRDM9_assymetric_hs_invading_strand)
 }
 ```
 
@@ -180,18 +209,21 @@ if (is.null(snakemake@input[["peaks_summary"]])){
 
 ## Hotspots  
 
-### Top 5000 Hotspots
-```{r, include=!snakemake@params[['top_5000_hs']]}
+### B6 hotspots  
+
+#### Top 5000 Hotspots  
+
+```{r, include=!b6_profile}
 "Aggregate profiles were not requested for any of the samples"
 ```
 
-```{r, eval=snakemake@params[['top_5000_hs']]}
+```{r, eval = b6_profile, include = b6_profile}
 lapply(levels(aggregate_profiles$top_5000_plus_minus_2000$Protein),
   function(i) {
     strands_n <- aggregate_profiles$top_5000_plus_minus_2000$Strand %>% unique %>% length
     a <- ggplot(data = filter(aggregate_profiles$top_5000_plus_minus_2000 ,
                         Protein == i,
-                        Strand == "both_strands")) +
+                        Strand == "Both_strands")) +
     geom_line(mapping = aes(x = Coordinates,
                             y = Mean_Max_Normalized_Coverage)) +
     labs(title = str_replace_all(i, "_", " ")) +
@@ -199,7 +231,7 @@ lapply(levels(aggregate_profiles$top_5000_plus_minus_2000$Protein),
             plot.title = element_textbox_simple(hjust=0, size=10))
    b <- ggplot(data = filter(aggregate_profiles$top_5000_plus_minus_2000,
                         Protein == i,
-                        Strand != "both_strands")) +
+                        Strand != "Both_strands")) +
     geom_line(mapping = aes(x = Coordinates,
                             y = Mean_Max_Normalized_Coverage,
                             color = Strand)) +
@@ -213,13 +245,13 @@ lapply(levels(aggregate_profiles$top_5000_plus_minus_2000$Protein),
   )
 ```
 
-### X-nonPAR vs autosomal  
+#### X-nonPAR vs autosomal  
 This analysis and the ones following (at hotspots) are only shown for single stranded profiles.  
 Only one strand is shown at a set of 547 X-non-PAR hotspots and their (SPO11-intensity) matched autosomal counterparts.  
-```{r, include=!snakemake@params[['top_5000_and_ssDNA']]}
+```{r, include = is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs)}
 "There are no single strande profiles in this dataset and hence X-nonPAR hotspot's aggregate profile is not performed. If you want to see this report you need to set 'get_single_strand' and 'top5000_HS_heatmap' as true"
 ```
-```{r, eval=snakemake@params[['top_5000_and_ssDNA']], include=snakemake@params[['top_5000_and_ssDNA']]}
+```{r, eval=!is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs), include=!is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs)}
 # Get name of one of the strands (this changes whether the sequencing was SR or PE -). This is to filter by that strand and show only one strand.
 ss_prots <- levels(aggregate_profiles$xNonPar_autosomal$Protein)
 
@@ -252,13 +284,13 @@ lapply(ss_prots,
   )
 ```
 
-### Asymetric Hotspots  
+#### Asymetric Hotspots  
 The plots on the left are with each side, strong and weak, at different sides of the DSB (as they are). On the plot on the right, both sides are plotted on the same side of the DSB so that they can be directly compared.  
-```{r, include=!snakemake@params[['top_5000_and_ssDNA']]}
+```{r, include=is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs)}
 "There are no single strand profiles in this dataset and hence asymetric hotspot's aggregate profile is not performed. If you want to see this report you need to set 'get_single_strand' and 'top5000_HS_heatmap' as true"
 ```
 
-```{r, eval=snakemake@params[['top_5000_and_ssDNA']]}
+```{r, eval=!is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs), include=!is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs)}
 lapply(ss_prots,
   function(i) {
    on_diff_sides <- 
@@ -286,6 +318,86 @@ lapply(ss_prots,
    
    plot_grid(on_diff_sides, on_same_sides)
   })
+```
+
+
+### B6xCAST hotspots  
+
+#### Top 5000 hotspots  
+Hotspot list was taken from DMC1 ChIP-seq done with kinetic enrichement by [Smagulova *et al*](http://genesdev.cshlp.org/content/30/3/266) on B6xCAST mix.  
+```{r, include=is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)}
+"No B6xCAST experiments were done on this library"
+```
+```{r, eval=!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)}
+lapply(levels(B6xCAST_top_5000_pm_1000bp$Protein),
+  function(i) {
+    strands_n <- B6xCAST_top_5000_pm_1000bp$Strand %>% nlevels
+    a <- ggplot(data = filter(B6xCAST_top_5000_pm_1000bp ,
+                        Protein == i,
+                        Strand == "Both_strands")) +
+    geom_line(mapping = aes(x = Coordinates,
+                            y = Mean_Max_Normalized_Coverage)) +
+    labs(title = str_replace_all(i, "_", " ")) +
+      theme(legend.position="top",
+            plot.title = element_textbox_simple(hjust=0, size=10))
+   b <- ggplot(data = filter(B6xCAST_top_5000_pm_1000bp,
+                        Protein == i,
+                        Strand != "Both_strands")) +
+    geom_line(mapping = aes(x = Coordinates,
+                            y = Mean_Max_Normalized_Coverage,
+                            color = Strand)) +
+     theme(legend.position="top")
+   if (strands_n > 1){
+     plot_grid(a,b)
+   } else {
+     a
+   }
+  }
+  )
+```
+
+#### PRDM9-binding assymetric hotspots    
+The list of hotpots used here corresponds to a subset of B6xCAST mix hotspots in which PRDM9 binding is asymmetric between CAST and B6 DNA, binding with more affinity in one than the other. Knowing which strand  binds PRDM9 with highest affinity allows us to determing which strand is going to get cut (preferentially), and which one is going to serve as template for repair.    
+We refer to the strand that gets preferentially cut as the **invading strand**, and the one that works as template as the **receiving strand**.    
+```{r, include=is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
+"No B6xCAST experiments were done on this library"
+```
+
+##### Invading or receiving  
+```{r, include=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand), eval=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
+
+prots <- levels(B6xCAST_top_5000_pm_1000bp$Protein)
+
+map(
+  prots,
+  ~ ggplot(
+    B6xCAST_PRDM9_assymetric_hs %>% filter(Strand != "Both_strands",
+                                           Protein == .x),
+    aes(x = Coordinates,
+        y = Average_signal,
+        color = Strand)
+  ) +
+    geom_line() +
+    facet_wrap( ~ Role, scales = "free") +
+    ggtitle(.x)
+)
+```
+
+##### Invading vs receiving  
+```{r, include=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand), eval=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
+
+map(
+  prots,
+  ~ ggplot(
+    B6xCAST_PRDM9_assymetric_hs %>% filter(Protein == .x),
+    aes(x = Coordinates,
+        y = Average_signal,
+        color = Role)
+  ) +
+    geom_line() +
+    facet_wrap( ~ Strand, scales = "free") +
+    ggtitle(.x)
+)
 ```
 
 # Export data  
