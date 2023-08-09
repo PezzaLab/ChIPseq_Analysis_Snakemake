@@ -29,6 +29,7 @@ library(rjson)
 library(ggtext) # To fit long text in ggplot
 library(openxlsx) # To write xls files (with format and everything)
 library(readxl) # To read exel files (I think this can also be done with the package above)
+library(ggrastr) 
 ```
 ```{r, libraries_not_in_use,include=F, message=F, error=F}
 # library(clipr) # to copy text to the clipboard
@@ -238,9 +239,9 @@ lapply(prots,
                             y = Mean_Max_Normalized_Coverage,
                             color = Strand)) +
      theme(legend.position="top")
-     a|b
+     rasterize(a|b)
    } else {
-     a
+     rasterize(a)
    }
   }
   )
@@ -259,27 +260,39 @@ names(ss_prots) <- ss_prots
 
 lapply(ss_prots,
        function(i) {
-         normalized <- ggplot(data = filter(aggregate_profiles$xNonPar_autosomal,
-                              Protein == i,
-                              (Strand == "83-163") | Strand == "inc_16"),
-                              aes(x = Coordinates,
-                                  y = Mean_Max_Normalized_Coverage,
-                                  color = Region)) +
+         normalized <-
+           ggplot(
+             data = filter(
+               aggregate_profiles$xNonPar_autosomal,
+               Protein == i,
+               (Strand == "83-163") |
+                 Strand == "inc_16"
+             ),
+             aes(x = Coordinates,
+                 y = Mean_Max_Normalized_Coverage,
+                 color = Region)
+           ) +
            geom_line() +
-           theme(legend.position="top",
-                 plot.title = element_textbox_simple(hjust=0,
-                                                     size=10))
+           theme(legend.position = "top",
+                 plot.title = element_textbox_simple(hjust = 0,
+                                                     size = 10))
          
-         not_normalized <- ggplot(data = filter(aggregate_profiles$xNonPar_autosomal,
-                              Protein == i,
-                              (Strand == "83-163") | Strand == "inc_16"),
-                              aes(x = Coordinates,
-                                  y = Average_signal,
-                                  color = Region)) +
+         not_normalized <-
+           ggplot(
+             data = filter(
+               aggregate_profiles$xNonPar_autosomal,
+               Protein == i,
+               (Strand == "83-163") |
+                 Strand == "inc_16"
+             ),
+             aes(x = Coordinates,
+                 y = Average_signal,
+                 color = Region)
+           ) +
            geom_line() +
-           theme(legend.position="top")
-  normalized | not_normalized}
-  )
+           theme(legend.position = "top")
+         rasterize(normalized | not_normalized)
+       })
 ```
 
 #### Asymetric Hotspots  
@@ -313,7 +326,7 @@ lapply(ss_prots,
      theme(legend.position="top")
    
    plots <- on_diff_sides | on_same_sides 
-   plots + plot_annotation(title = "Left-right assymetric hotspots")
+   rasterize(plots + plot_annotation(title = "Left-right assymetric hotspots"))
   })
 ```
 
@@ -345,9 +358,9 @@ lapply(prots,
                             y = Mean_Max_Normalized_Coverage,
                             color = Strand)) +
      theme(legend.position="top")
-     (a | b) + plot_annotation(title="B6xCAST top 5000 hotspots")
+     rasterize((a | b) + plot_annotation(title="B6xCAST top 5000 hotspots"))
    } else {
-     a + plot_annotation(title="B6xCAST top 5000 hotspots")
+     rasterize(a + plot_annotation(title="B6xCAST top 5000 hotspots"))
    }
   }
   )
@@ -366,38 +379,37 @@ We refer to the strand that gets preferentially cut as the **invading strand**, 
 prots <- levels(B6xCAST_top_5000_pm_1000bp$Protein)
 names(prots) <- prots
 
-map(
-  prots,
-  ~ ggplot(
-    B6xCAST_PRDM9_assymetric_hs %>% filter(Strand != "Both_strands",
-                                           Protein == .x),
-    aes(x = Coordinates,
-        y = Average_signal,
-        color = Strand)
-  ) +
-    geom_line() +
-    facet_wrap( ~ Role, scales = "free") +
-     theme(legend.position="top")
-)
+map(prots,
+    ~ rasterize(
+      ggplot(
+        B6xCAST_PRDM9_assymetric_hs %>% filter(Strand != "Both_strands",
+                                               Protein == .x),
+        aes(x = Coordinates,
+            y = Average_signal,
+            color = Strand)
+      ) +
+        geom_line() +
+        facet_wrap(~ Role, scales = "free") +
+        theme(legend.position = "top")
+    ))
 ```
 
 ##### Invading vs receiving  
 ```{r, include=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand), eval=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
 
-map(
-  prots,
-  ~ ggplot(
-    B6xCAST_PRDM9_assymetric_hs %>% filter(Protein == .x,
-                                           Strand != "Both_strands"),
-    aes(x = Coordinates,
-        y = Average_signal,
-        color = Role)
-  ) +
-    geom_line() +
-    facet_wrap( ~ Strand) +
-    ggtitle(.x) +
-     theme(legend.position="top")
-)
+map(prots,
+    ~ rasterize(
+      ggplot(
+        B6xCAST_PRDM9_assymetric_hs %>% filter(Protein == .x,
+                                               Strand != "Both_strands"),
+        aes(x = Coordinates,
+            y = Average_signal,
+            color = Role)
+      ) +
+        geom_line() +
+        facet_wrap(~ Strand) +
+        theme(legend.position = "top")
+    ))
 ```
 
 # Export data  
