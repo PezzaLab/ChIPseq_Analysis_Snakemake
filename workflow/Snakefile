@@ -61,7 +61,7 @@ samples_table = pd.concat([samples_table, new_rows], verify_integrity=True)
 
 samples_table_2 = sfxs.generate_samples_table_2(samples_table, config)
 
-# Save table for debugging
+# Save table for debugging and exploring file names and paths
 samples_table_2.to_csv("Config/samples_table_processed.csv", index=False)
 
 ############################################
@@ -89,10 +89,6 @@ rule all:
         lib_name = config['library']['name']
         ),
 
-
-        # Cov. Dedup merged
-            # This should probably go on a separate folder (not the library folder, 
-            # since it does not correspond to any library in particular by definition)
         # IDR Analysis
             # Same as merged files analysis since most of the times both files 
             # do not belong to the same library
