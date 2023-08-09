@@ -265,16 +265,15 @@ def input_merge_bams(w):
     # Information on the merge is on the 'merge_with' column from samples table,
     # and it should be a space-separated list of: the name of another sample on 
     # the samples table, or a path to a file.
-    samples_orig = samples_table.loc[w.sample,'merge_with'].split()
-
-    samples=[samples_table_2.loc[w.sample, 'raw_bam']]
+    samples_orig = samples_table.loc[w.sample, 'merge_with'].split()
+    samples = [f"Results/{w.sample}.{w.genomes_all}.bam"]
     # If sample to merge with is a path, use it as is, otherwise look for the
     # raw bam file on samples_table_2
     for sample in samples_orig:
         if re.search("/", sample):
             samples+=[sample]
         else:
-            second_bam=samples_table_2.loc[sample, 'raw_bam']
+            second_bam=f"Results/{sample}.{w.genomes_all}.bam"
             samples+=[second_bam]
     return samples
 
