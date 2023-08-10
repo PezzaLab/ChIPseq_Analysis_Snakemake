@@ -180,24 +180,19 @@ def process_aggregate_profiles_inputs(w):
 
 def sumarize_peak_count_input(w):
     genome_filtered = samples_table_2[
-    samples_table_2['reference_genome'] == w.genomes_not_fused
+        samples_table_2['reference_genome'] == w.genomes_not_fused
     ]
+    peak_types=["narrow", "broad"]
     peaks = {}
-    if pd.notna(samples_table['peak_ctrl_file_alias']).any():
-        peaks = {
-        "narrow_all": genome_filtered.loc[
-            genome_filtered['peak_bl_gr_flt_nrw'].notnull(),
-            "peak_bl_gr_flt_nrw"].values.tolist(),
-        "broad_all": genome_filtered.loc[
-            genome_filtered['peak_bl_gr_flt_brd'].notnull(),
-            "peak_bl_gr_flt_brd"].values.tolist(),
-        "narrow_hs": genome_filtered.loc[
-            genome_filtered['peak_bl_gr_flt_hs_int_nrw'].notnull(),
-            "peak_bl_gr_flt_hs_int_nrw"].values.tolist(),
-        "broad_hs": genome_filtered.loc[
-            genome_filtered['peak_bl_gr_flt_hs_int_brd'].notnull(),
-            "peak_bl_gr_flt_hs_int_brd"].values.tolist()
-            }
+    for peak_type in peak_types:
+        peaks |= {
+        f"{peak_type}_all": genome_filtered.loc[
+            genome_filtered[f'{peak_type}_peak_bl_gr_flt'].notnull(),
+            f'{peak_type}_peak_bl_gr_flt'].values.tolist(),
+        f"{peak_type}_hs": genome_filtered.loc[
+            genome_filtered[f'{peak_type}_peak_bl_gr_flt_hs_int'].notnull(),
+            f'{peak_type}_peak_bl_gr_flt_hs_int'].values.tolist(),
+        }
     return peaks
 
 def get_qctrl_bams_bais(w):
@@ -307,7 +302,7 @@ def intersect_peaks_HSs_list_input(w):
         hotspots = config['references']['mm10']['spo11']['top_5000_plus_minus_2000']
     return{
         "hotspots" : hotspots,
-        "sample_peaks" : f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type_folder}/{w.peak_params}/Black-grey_filtered/{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"
+        "sample_peaks" : f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type}/{w.peak_params}/Black-grey_filtered/{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"
         }
 
 def compute_matrix_outfiles_hs_input(w):

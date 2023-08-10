@@ -66,17 +66,6 @@ def generate_samples_table_2(samples_table, config):
     cov_params = f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}/"
     dros_norm_cov_config_params_string=f"drosNormalized_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}/"
     
-    if pd.notna(samples_table['peak_ctrl_file_alias']).any():
-        peak_nrw_params = (
-            "qv_" + (config['MACS2']['qvalue'].split("."))[1] +
-            "__" + samples_table_2['peak_ctrl_file_alias']
-        )    
-        peak_brd_params = (
-            "bco_" + (config['MACS2']['broad_cutoff'].split("."))[1] + "_qv_" +
-            (config['MACS2']['qvalue'].split("."))[1] + "__" +
-            samples_table_2['peak_ctrl_file_alias']
-        )
-    
     #### Create columns with file names #####
     # Dros bam
     samples_table_2['dros_dedup_bam'] = (
@@ -323,55 +312,51 @@ def generate_samples_table_2(samples_table, config):
     
     # Peak files
     if pd.notna(samples_table['peak_ctrl_file_alias']).any(): 
-        samples_table_2['peak_bl_gr_flt_nrw'] = np.where(
-            samples_table['peak_ctrl_file_alias'] != "-",
-            "Results/" + samples_table_2['reference_genome'] + "/Peaks/MACS2/Narrow/" +
-            peak_nrw_params + "/Black-grey_filtered/" + samples_nodup_filt +
-            ".narrowPeak",
-            np.NaN
-        )
-        
-        samples_table_2['peak_bl_gr_flt_brd'] = np.where(
-            samples_table['peak_ctrl_file_alias'] != "-",
-            "Results/" + samples_table_2['reference_genome'] + "/Peaks/MACS2/Broad/" +
-            peak_brd_params + "/Black-grey_filtered/" + samples_nodup_filt +
-            ".broadPeak",
-            np.NaN
-        )
-        
-        samples_table_2['peak_bl_gr_flt_hs_int_brd'] = np.where(
-            (samples_table_2["reference_genome"] == "mm10") & (
-                samples_table['peak_ctrl_file_alias'] != "-"),
-            ("Results/" + samples_table_2['reference_genome'] + "/Peaks/MACS2/Broad/" +
-             peak_brd_params + "/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/" +
-             samples_nodup_filt + ".broadPeak"),
-            np.NaN)
-        
-        samples_table_2['peak_bl_gr_flt_hs_int_nrw'] = np.where(
-            (samples_table_2["reference_genome"] == "mm10") & (
-                samples_table['peak_ctrl_file_alias'] != "-"),
-            ("Results/" + samples_table_2['reference_genome'] + "/Peaks/MACS2/Narrow/" +
-             peak_nrw_params + "/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/" +
-             samples_nodup_filt +
-             ".narrowPeak"),
-            np.NaN)
+       peak_types=["narrow","broad"]
+       peak_params = (
+           "qv_" + (config['MACS2']['qvalue'].split("."))[1] +
+           "__" + samples_table_2['peak_ctrl_file_alias']
+       )
+       
+       for peak_type in peak_types:
+               # Strings
+
+               # Modify default values accordingly
+               if peak_type == "broad":
+                   peak_params = (
+                       "bco_" + (config['MACS2']['broad_cutoff'].split("."))[1] + "_qv_" +
+                       (config['MACS2']['qvalue'].split("."))[1] + "__" +
+                       samples_table_2['peak_ctrl_file_alias']
+                   )
+               
+               # Generate column name and content   
+               samples_table_2[f'{peak_type}_peak_bl_gr_flt'] = np.where(
+                   samples_table['peak_ctrl_file_alias'] != "-",
+                   "Results/" + samples_table_2['reference_genome'] + 
+                   f"/Peaks/MACS2/{peak_type}/" + peak_params + 
+                   "/Black-grey_filtered/" + samples_nodup_filt + f".{peak_type}Peak",
+                   np.NaN
+               )
+               samples_table_2[f'{peak_type}_peak_bl_gr_flt_hs_int'] = np.where(
+                   (samples_table_2["reference_genome"] == "mm10") & (
+                       samples_table['peak_ctrl_file_alias'] != "-"),
+                   "Results/" + samples_table_2['reference_genome'] + 
+                   f"/Peaks/MACS2/{peak_type}/" + peak_params + 
+                   "/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/" +
+                    samples_nodup_filt + f".{peak_type}Peak", 
+               np.NaN)
+
+               # FRIP
+               samples_table_2[f'{peak_type}_blk_gr_flt_FRIP'] = np.where(
+                   samples_table['peak_ctrl_file_alias'] != "-",
+                   ("Results/" + samples_table_2['reference_genome'] +
+                    "/Qctrl/" + samples_table_2['sample_name'] + 
+                    f"/Processed_bam/FRIP/MACS2_{peak_type}_" +
+                    peak_params + "_bl-gr_flt/" + samples_nodup_filt + ".FRIP.txt"),
+                   np.NaN
+               )
     
-        # Qctrl files
-        # FRIP
-        samples_table_2['FRIP_nrw_blk_gr_flt'] = np.where(
-            samples_table['peak_ctrl_file_alias'] != "-",
-            ("Results/" + samples_table_2['reference_genome'] +
-             "/Qctrl/" + samples_table_2['sample_name'] + "/Processed_bam/FRIP/MACS2_Narrow_" +
-             peak_nrw_params + "_bl-gr_flt/" + samples_nodup_filt + ".FRIP.txt"),
-            np.NaN
-        )
-        samples_table_2['FRIP_brd_blk_gr_flt'] = np.where(
-            samples_table['peak_ctrl_file_alias'] != "-",
-            ("Results/" + samples_table_2['reference_genome'] +
-             "/Qctrl/" + samples_table_2['sample_name'] + "/Processed_bam/FRIP/MACS2_Broad_" +
-             peak_brd_params + "_bl-gr_flt/" + samples_nodup_filt + ".FRIP.txt"),
-            np.NaN
-        )
+        
     # samtools flagstat
     samples_table_2['raw_flagstat'] = (
         "Results/" + samples_table_2['reference_genome'] +

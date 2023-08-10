@@ -116,6 +116,7 @@ wildcard_constraints: # Automate constrain expression depending on config or sam
     clipped_1bp_PE="((inc|exc)_16\.clipped_1_bp\.)?",
     ss_SR="(inc|exc)_16",
     peak_params="(bco_[0-9]+_)?qv_[0-9]+__[^/]*",
+    peak_type="narrow|broad",
     hs_region = "B6xCAST_top_5000_pm_1000bp|B6xCAST_PRDM9_assymetric_hs_invading_strand|B6xCAST_PRDM9_assymetric_hs_receiving_strand|top_5000_plus_minus_2000|asymetric_watson_strong|asymetric_crick_strong|x_non_par|autosomal_x_non_par_ctrl|",
     bam_type = "Raw_bam|Processed_bam",
     extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
@@ -458,14 +459,10 @@ rule call_peaks_macs2: # Check on the original script I get a file with the name
     input:
         unpack(smkf.call_peaks_macs2_input)
     output:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak" # Check the file name
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak" # Check the file name
     params:
         smkf.get_MACS2_params # Within params, `unpack` is not allowed, instead return a dictionary and access it via {params[0][mykey]}. Not sure why the [0]. Appaerently params is a list, and the first item is the dict...
-    # log:
-    #     "Results/Log_files/call_peaks_macs2/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{sample}.{genomes_final}{extension}.{peak_params}.log"
     wildcard_constraints:
-        peak_type="broad|narrow",
-        peak_type_folder="Broad|Narrow",
         extension = "(\.q_filt\.srt\.nodup\.mit_filt)?"
     threads: 2
     envmodules:
@@ -478,16 +475,12 @@ rule call_peaks_macs2: # Check on the original script I get a file with the name
 
 rule filter_peaks_blk_grey_list:
     input:
-        peaks="Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak",
+        peaks="Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak",
         blck_gry_lst=lambda w: config['references'][w.genomes_not_fused]['black_grey']
     output:
-        final="Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak",
+        final="Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak",
     wildcard_constraints:
-        peak_type="broad|narrow",
-        peak_type_folder="Broad|Narrow",
         extension = "(\.q_filt\.srt\.nodup\.mit_filt)?"
-    # log:
-    #     "Results/Log_files/filter_peaks_blk_grey_list/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{sample}.{genomes_final}{extension}.{peak_params}.log"
     threads: 1
     envmodules:
         config["bedtools"]
@@ -499,10 +492,10 @@ rule filter_peaks_blk_grey_list:
 
 rule annotate_peaks:
     input:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak"
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak"
     output:
-        anno_peaks = temp("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.homer_anotated.tsv"),
-        genome_ontology = directory("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Genome_ontology/{sample}.{genomes_final}{extension}.{peak_type}")
+        anno_peaks = temp("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.homer_anotated.tsv"),
+        genome_ontology = directory("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/Black-grey_filtered/Genome_ontology/{sample}.{genomes_final}{extension}.{peak_type}")
     threads: 1
     envmodules:
         config["homer"],
@@ -513,9 +506,9 @@ rule annotate_peaks:
 
 rule modify_annotated_peaks:
     input:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.homer_anotated.tsv"
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.homer_anotated.tsv"
     output:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Annotated_peaks/{sample}.{genomes_final}{extension}.{peak_type}Peak.annotated.tsv"
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/Black-grey_filtered/Annotated_peaks/{sample}.{genomes_final}{extension}.{peak_type}Peak.annotated.tsv"
     threads: 1
     envmodules:
         config["R"],
@@ -586,47 +579,15 @@ bamCoverage --numberOfProcessors max -b {input.bam} -bs {params.bin} --smoothLen
 ### Qctrl ###
 #############
 
-rule FRIP_narrow:
+rule FRIP:
     input:
-        peak = "Results/{genomes_not_fused}/Peaks/MACS2/Narrow/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.narrowPeak",
+        peak = "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak",
         bam = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"],
         bai = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"] + ".bai"
     output:
-        "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/MACS2_Narrow_{peak_params}_bl-gr_flt/{sample}.{genomes_final}{extension}.FRIP.txt"
+        "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/MACS2_{peak_type}_{peak_params}_bl-gr_flt/{sample}.{genomes_final}{extension}.FRIP.txt"
     # log:
     #     "Results/Log_files/FRIP/{genomes_not_fused}/Narrow/{sample}.{genomes_final}.{peak_params}{extension}.log"
-    threads: 1
-    envmodules:
-        config["sambamba"],
-        config["samtools"]
-    shell:
-        """
-        echo "Getting total number of reads"
-        total_reads=$( sambamba view -c {input.bam} )
-
-        # Get reads in peak list
-        echo "Getting number of reads in peaks"
-        peak_reads=$( samtools view -L {input.peak} -c {input.bam} )
-
-        FRIP=$( echo "scale=2; 100 * $peak_reads / $total_reads" | bc )
-
-        echo "
-        Sample name: $(basename {input.bam} bam)
-        Total reads: $total_reads
-        Reads in peaks: $peak_reads
-        FRIP (%): $FRIP
-        Anything below 1% is not good..." > {output}
-        """
-
-rule FRIP_broad:
-    input:
-        peak = "Results/{genomes_not_fused}/Peaks/MACS2/Broad/{peak_params}/{sample}.{genomes_final}{extension}_peaks.broadPeak",
-        bam = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"],
-        bai = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"] + ".bai"
-    output:
-        "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/MACS2_Broad_{peak_params}_bl-gr_flt/{sample}.{genomes_final}{extension}.FRIP.txt"
-    # log:
-    #     "Results/Log_files/FRIP/{genomes_not_fused}/Broad/{sample}.{genomes_final}.{peak_params}{extension}.log"
     threads: 1
     envmodules:
         config["sambamba"],
@@ -772,12 +733,7 @@ rule intersect_peaks_HSs_list:
     input:
         unpack(smkf.intersect_peaks_HSs_list_input)
     output:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/{sample}.{genomes_final}{extension}.{peak_type}Peak"
-    wildcard_constraints:
-        peak_type="broad|narrow",
-        peak_type_folder="Broad|Narrow"
-    # log:
-    #     "Results/Log_files/intersect_peaks_HSs_list/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{peak_params}/{sample}.{genomes_final}.{extension}log"
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/{sample}.{genomes_final}{extension}.{peak_type}Peak"
     threads: 1
     envmodules:
         config["bedtools"]
