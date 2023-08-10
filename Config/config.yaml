@@ -80,11 +80,11 @@ references:
   #       PE_adaptase: ""
   hg38:
     spo11:
-      top_5000_plus_minus_2000: "Resources/spo11/hg38/top5000.bed"
-      all_plus_minus_2000: "Resources/spo11/hg38/all.bed"
-    TSS: "Resources/grch38.bed"
-    blacklist: "Resources/blacklist_hg38."
-    black_grey: "path/black_grey_hg38"
+      top_5000_plus_minus_2000: ""
+      all_plus_minus_2000: ""
+    TSS: ""
+    blacklist: ""
+    black_grey: ""
 
 heatmaps:
   before_region: "3000"

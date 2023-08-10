@@ -397,11 +397,18 @@ def generate_samples_table_2(samples_table, config):
         "/Bams/Both_strands/" + samples_table_2['sample_name'] + "_MERGED" + final_genomes +
         nodup_filt + ".bam",
         np.NaN)
+    
     # Hotspot heatmaps (only for top 5000 hs, both strands)
     samples_table_2['heatmap_top_5000_hs'] = np.where(
         samples_table_2["top5000_HS_heatmap"] & ~samples_table_2["B6xCAST"],
         ("Results/" + samples_table_2['reference_genome'] +
          "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000/Both_strands/" +
+         cov_params + "Heatmaps/" + samples_nodup_filt + ".png"),
+        np.NaN)
+    samples_table_2['heatmap_B6xCAST_top_5000_hs'] = np.where(
+        samples_table_2["top5000_HS_heatmap"] & samples_table_2["B6xCAST"],
+        ("Results/" + samples_table_2['reference_genome'] +
+         "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/B6xCAST_top_5000_pm_1000bp/Both_strands/" +
          cov_params + "Heatmaps/" + samples_nodup_filt + ".png"),
         np.NaN)
     

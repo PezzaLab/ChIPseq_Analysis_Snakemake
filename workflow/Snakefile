@@ -72,6 +72,13 @@ smkf.samples_table = samples_table
 smkf.config = config
 smkf.samples_table_2 = samples_table_2
 
+#####################################################
+#####   Get list of files to call in rule all   #####
+#####################################################
+heatmaps=samples_table_2.filter(regex="^heatmap.*").values.flatten().tolist()
+heatmaps=[x for x in heatmaps if x==x] # 'nan == nan' is false, therefore doing x==x will filter out nan values
+
+
 ###########################
 ######### RULES  ##########
 ###########################
@@ -88,6 +95,7 @@ rule all:
         genomes = samples_table["reference_genome"].unique().tolist(),
         lib_name = config['library']['name']
         ),
+        heatmaps,
 
         # IDR Analysis
             # Same as merged files analysis since most of the times both files 
@@ -853,8 +861,6 @@ rule plot_heatmaps:
     threads: 1
     envmodules:
         config["deeptools"]
-    params:
-        region =  lambda w: config['references'][w.genomes_not_fused]['spo11'][w.hs_region],
     shell:
         """
 plotHeatmap --matrixFile {input} --sortRegions keep --plotTitle "{wildcards.sample}, {wildcards.strand} at {wildcards.hs_region}" -out {output} \
