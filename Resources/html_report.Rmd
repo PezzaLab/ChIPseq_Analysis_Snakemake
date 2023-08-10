@@ -46,7 +46,7 @@ library(ggrastr)
 # <br/><br/>    ---> That is to insert a break in the page so that the text don't wrap the images when they don't occupy the whole width
 ```
 # General information  
-`r snakemake@params[['general_info']]`
+`r snakemake@config[['library']][['general_info']]`
 
 # Load data  
 

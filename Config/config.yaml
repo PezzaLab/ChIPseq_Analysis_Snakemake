@@ -1,6 +1,6 @@
 library:
   name: "Test_library"
-  general_info: "This library contains this and that, this samples were done in this particular way, this others in this other...whatever"
+  general_info: "Whatever info you want to add about this library"
   container: "agustin"
 
 genomes:
