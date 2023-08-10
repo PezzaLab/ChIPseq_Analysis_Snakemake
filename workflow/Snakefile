@@ -75,10 +75,11 @@ smkf.samples_table_2 = samples_table_2
 #####################################################
 #####   Get list of files to call in rule all   #####
 #####################################################
-heatmaps=samples_table_2.filter(regex="^heatmap.*").values.flatten().tolist()
-heatmaps=[x for x in heatmaps if x==x] # 'nan == nan' is false, therefore doing x==x will filter out nan values
+heatmaps = samples_table_2.filter(regex="^heatmap.*").values.flatten().tolist()
+heatmaps = [x for x in heatmaps if x==x] # 'nan == nan' is false, therefore doing x==x will filter out nan values
 
-
+annotated_peaks = samples_table_2.filter(regex=".*(narrow|broad)Peak.*annotated$").values.flatten().tolist()
+annotated_peaks = [x for x in annotated_peaks if x==x]
 ###########################
 ######### RULES  ##########
 ###########################
@@ -96,6 +97,7 @@ rule all:
         lib_name = config['library']['name']
         ),
         heatmaps,
+        annotated_peaks
 
         # IDR Analysis
             # Same as merged files analysis since most of the times both files 

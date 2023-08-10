@@ -349,13 +349,21 @@ def generate_samples_table_2(samples_table, config):
                # FRIP
                samples_table_2[f'{peak_type}_blk_gr_flt_FRIP'] = np.where(
                    samples_table['peak_ctrl_file_alias'] != "-",
-                   ("Results/" + samples_table_2['reference_genome'] +
-                    "/Qctrl/" + samples_table_2['sample_name'] + 
-                    f"/Processed_bam/FRIP/MACS2_{peak_type}_" +
-                    peak_params + "_bl-gr_flt/" + samples_nodup_filt + ".FRIP.txt"),
+                   "Results/" + samples_table_2['reference_genome'] +
+                   "/Qctrl/" + samples_table_2['sample_name'] + 
+                   f"/Processed_bam/FRIP/MACS2_{peak_type}_" +
+                   peak_params + "_bl-gr_flt/" + samples_nodup_filt + ".FRIP.txt",
                    np.NaN
                )
-    
+               
+               # Annotated peaks
+               samples_table_2[f'{peak_type}Peak_blk_gr_flt_annotated'] = np.where(
+                   samples_table['peak_ctrl_file_alias'] != "-",
+                   "Results/" + samples_table_2['reference_genome'] +
+                   f"/Peaks/MACS2/{peak_type}/" + peak_params + 
+                   "/Black-grey_filtered/Annotated_peaks/" +
+                   samples_nodup_filt + f".{peak_type}Peak.annotated.tsv", 
+                   np.NaN)
         
     # samtools flagstat
     samples_table_2['raw_flagstat'] = (
