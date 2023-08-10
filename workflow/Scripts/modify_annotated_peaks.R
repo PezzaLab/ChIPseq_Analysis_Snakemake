@@ -1,5 +1,5 @@
 library(tidyverse)
-save.image("image_modify_annotated_peaks_script.RData")
+# save.image("image_modify_annotated_peaks_script.RData")
 annotated_table <- 
   read_tsv(snakemake@input[[1]]) %>% 
   mutate("Genomic_feature" = str_extract(Annotation,

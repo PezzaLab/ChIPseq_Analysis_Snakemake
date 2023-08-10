@@ -1,11 +1,43 @@
 # For debugging:
-  # save.image(file = paste0("process_outfile_matrix_image.RData", runif(n=1,min=0, max = 9999)))
+file_name <- paste0(
+  "process_outfile_matrix_image.",
+  runif(n = 1, min = 0, max = 9999),
+  ".RData")
+save.image(file = file_name)
+
+print(paste("File name:", file_name))
+  
 
 # Load libraries -----------
 library(tidyverse)
-# --------------------------------------------------------------------
 # Functions ----------------------------------------------------------
-# --------------------------------------------------------------------
+get_strands <- 
+  function(path){
+    file_name <- 
+      path %>% 
+      basename
+    if (grepl("mit_filt\\.matrix$", file_name)) {
+      strand <- as.factor("Both_strands")
+    } else {
+      strand <- 
+        as.factor(str_extract(
+          file_name,"(?<=mit_filt\\.)83-163|99-147|inc_16|exc_16(?=\\.matrix)"))
+    }
+    strand
+  }
+
+get_file_name <- function(path) basename(path) %>% str_remove("\\..*") %>% as.factor
+
+get_role <- function(path) {
+  role <- path %>%
+    str_extract("(?<=B6xCAST_PRDM9_assymetric_hs_)invading|receiving") %>%
+    as.factor
+  if (is.na(role)) {
+    role <- "invading_and_receiving"
+  }
+  return(role)
+  }
+
 average_signal_per_coordinate <- 
   function(matrix_file) {
     # Read file
@@ -79,78 +111,66 @@ normalize <-
     return(final_table_norm)
   }
 
-# --------------------------------------------------------------------
 # Process reads ------------------------------------------------------
-# --------------------------------------------------------------------
-files_grouped_by_strand <- 
-  tail(snakemake@input, 3) # snakemake object has all objects individually, and then 3 lists with each of the groups (strands in this case), which makes everything very difficult...
+strands <- lapply(snakemake@input, get_strands)
 
 file_names <- 
-  lapply(
-    files_grouped_by_strand,
-    function(strand_group){
-      lapply(strand_group, 
-             function(file) {
-               basename(file) %>% str_remove("\\..*")
-             }
-      )}
-  )
+  lapply(snakemake@input, get_file_name)
 
-# Get averages per coordinate
+role <- get_role(snakemake@wildcards[["hs_region"]])
+
+## Get averages per coordinate --------------------------------
 averages <- 
-  lapply(
-    tail(snakemake@input, 3),
-    function(input){
-      lapply(input, 
-             average_signal_per_coordinate
-             )}
-    )
+  lapply(snakemake@input, average_signal_per_coordinate)
 
-# Smooth
+## Smooth --------------------------------
 if (tolower(snakemake@params[["smooth"]]) == "true") {
   averages <-
-    lapply(averages,
-           function(strand_group){
-             lapply(strand_group,
-                    smooth_fun)
-           })
+    lapply(averages,smooth_fun)
   }
 
-# Add prot, strand, hotspot region and library info
-for (strand in seq_along(averages)) {
-  for (file in seq_along(averages[[strand]])) {
-    averages[[strand]][[file]][["Protein"]] <- 
-      as.factor(file_names[[strand]][[file]])
+## Add prot, strand, hotspot region, library and role metadata -------------
+for (i in seq_along(averages)) {
+    averages[[i]][["Protein"]] <- 
+      file_names[[i]]
     
-    averages[[strand]][[file]][["Strand"]] <- 
-      as.factor(names(averages)[[strand]] %>% 
-      str_extract("83-163|99-147|both_strands"))
+    averages[[i]][["Strand"]] <- 
+      strands[[i]]
     
-    averages[[strand]][[file]][["Region"]] <- 
+    averages[[i]][["Region"]] <- 
       as.factor(snakemake@wildcards[["hs_region"]])
     
-    averages[[strand]][[file]][["Library"]] <- 
+    averages[[i]][["Library"]] <- 
       as.factor(snakemake@config$library$name)
-  }
-}
+    
+    averages[[i]][["Role"]] <- 
+      role
+    }
 
-# Join all tables
+## Join all tables --------------------------------
 table_all <- 
-  map_df(averages, 
-         ~reduce(.,bind_rows)
-  )
+  reduce(averages,bind_rows)
 
-# Normalize
+## Normalize --------------------------------
 final_table_dsDNA <- 
-  normalize(table_all %>% filter(Strand == "both_strands"))
+  normalize(table_all %>% filter(Strand == "Both_strands"))
 
 final_table_ssDNA <- 
-  normalize(table_all %>% filter(Strand != "both_strands"))
+  normalize(table_all %>% filter(Strand != "Both_strands"))
 
 final_table <- 
   bind_rows(final_table_dsDNA,
             final_table_ssDNA)
 
-# Save
+## Save --------------------------------
 save(final_table,
      file = snakemake@output[[1]])
+
+
+# Debugging plot ----
+# ggplot(final_table,
+#        aes(x = Coordinates,
+#            y = Mean_Max_Normalized_Coverage,
+#            color = Strand)) +
+#   geom_line() +
+#   facet_wrap(~Protein)

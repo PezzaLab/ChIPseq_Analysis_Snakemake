@@ -3,6 +3,7 @@ import numpy as np
 import os
 import re
 
+# Functions
 def check_sample_table_format(samples_table):
     exit_message = "\n\n One or more errors have been detected on your 'samples_table.xlsx' file.\nErrors:\n"
     exit_script = False
@@ -17,8 +18,8 @@ def check_sample_table_format(samples_table):
         "in sample names. Modify names and try again\n"
         exit_script = True
     
-    # Check that none of the sample names is repeated
-    if samples_table['sample_name'].duplicated().any():
+    # Check that there is no sample_name:genome combination repeated
+    if samples_table.loc[:,['sample_name', 'reference_genome']].duplicated().any():
         exit_message += "* One or more sample names in samples table is repeated.\n" +\
         "Choose different names for all your samples.\n"
         exit_script = True
@@ -80,21 +81,24 @@ def check_sample_table_format(samples_table):
 # Function to get input
     # Cannot return fastq2="" because then snakemake looks for "" file.
     # And if I return only fastq1, then in the shell I am searching for input.fastq2, which is not there
-def get_input_align(w):
+def align_fastq_input(w):
+    inpt = {"genome_path":config['genomes'][w.genomes_all]}
+    
     if samples_table.loc[w.sample, "PE"]:
-        return {
+        inpt|= {
         "fastq1":samples_table.loc[w.sample, "fastq1"],
-        "fastq2":samples_table.loc[w.sample, "fastq2"]
+        "fastq2":samples_table.loc[w.sample, "fastq2"],
         }
     else:
-        return {
+        inpt|= {
         "fastq1":samples_table.loc[w.sample, "fastq1"],
         "fastq2":[]} # Cannot use "" here because snakemake will look for "" file
         # and give a "missing input" error. Instead, I give it an empty list
+    return inpt
 
 
 # Function for input/ctrl for peak calling rule
-def MACS2_peak_calling_files(w):
+def call_peaks_macs2_input(w):
     ctrl_alias = w.peak_params.split("__") # "bco_1_qv_05__alias"
     ctrl_alias = ctrl_alias[1] # "alias"
     if ctrl_alias == "no_input":
@@ -158,85 +162,46 @@ def get_MACS2_params(w):
         "qv_bco": q,
         "ctrl": ctrl}
 
-def get_hs_agg_profs_inputs(w):
-    samples = {}
-    samples['both_strands'] = samples_table_2.loc[samples_table['top5000_HS_heatmap'],
-                                'dedup_flt_both_strds_bw'].values.tolist()
-    samples['both_strands_with_ss'] = samples_table_2.loc[samples_table['top5000_HS_heatmap'] &
-                                samples_table['get_single_strand'],
-                            'dedup_flt_both_strds_bw'].values.tolist() 
-        # Here we get the "both strand" big wig, but only from samples that have
-        # a single strand profile as well. This is because for all regions other
-        # than top 5000 HS, we only do them when they have a single strand profile as well
-    samples['83-163_or_i16'] = samples_table_2.loc[samples_table['top5000_HS_heatmap'] &
-                                   samples_table['get_single_strand'],
-                                   'ss_83_or_i16_bw'].values.tolist()
-    samples['99-147_or_e16'] = samples_table_2.loc[samples_table['top5000_HS_heatmap'] &
-                                   samples_table['get_single_strand'],
-                                   'ss_99_or_e16_bw'].values.tolist()
-    # Get list names
-    all_files = {} # It is adviced to use dicts to make dinamically names "lists" 
-    # (https://stackoverflow.com/questions/14819849/create-lists-of-unique-names-in-a-for-loop-in-python)
+def process_aggregate_profiles_inputs(w):
+    # Available wildcards: 'genomes_not_fused' and 'hs_region'.
+    # w.hs_region can be one of the following:
+        # 'top_5000_plus_minus_2000', 'x_non_par', 'autosomal_x_non_par_ctrl', 
+        # 'asymetric_watson_strong', 'asymetric_crick_strong', 'top_5000_plus_minus_2000'
+        # 'B6xCAST_top_5000_pm_1000bp', 'B6xCAST_PRDM9_assymetric_hs_invading_strand'
+        # or 'B6xCAST_PRDM9_assymetric_hs_receiving_strand'
     
-    # Get sample name from the lists above, assemble the path for the matrix file and add it
-    # To the dictionary 'all_files', on the entry named as {strnd}_{hs_region}.  
-    # There is 2 both strand lists because depending on the hs_region, we use one or the other.
-    if len(samples['99-147_or_e16']) != 0:
-        for strnd in ["83-163_or_i16", "99-147_or_e16"]:
-            all_files[f"{strnd}_{w.hs_region}"] = []
-            for sample in samples[strnd]:
-                sample_full_name=os.path.splitext(os.path.basename(sample))[0] 
-                    # basename gets filename with ext, splittext[0] takes away extension
-                all_files[f"{strnd}_{w.hs_region}"] += (
-                    ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-                    f"{w.hs_region}/Single_strand/Full_length_reads/{cov_config_params_string}/"
-                    f"matrixes/{sample_full_name}.matrix"]
-                    )
+    # This rule will process all matrixes that come from the same list of HS
+    matrixes_df = samples_table_2.filter(
+        regex=f"^{w.hs_region}.*matrix$"
+        )
+    matrixes_array = matrixes_df.to_numpy().ravel()
+    matrixes_list = matrixes_array[~pd.isnull(matrixes_array)].tolist()
+    return matrixes_list
 
-    all_files[f"both_strands_{w.hs_region}"] = []
-    if w.hs_region != "top_5000_plus_minus_2000":
-        for sample in samples["both_strands_with_ss"]:
-            sample_full_name=os.path.splitext(os.path.basename(sample))[0]
-            all_files[f"both_strands_{w.hs_region}"] += (
-                ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{w.hs_region}/Both_strands/{cov_config_params_string}/"
-                f"matrixes/{sample_full_name}.matrix"]
-                )
-    else:
-        for sample in samples["both_strands"]:
-            sample_full_name=os.path.splitext(os.path.basename(sample))[0] 
-            all_files[f"both_strands_{w.hs_region}"] += (
-                ["Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{w.hs_region}/Both_strands/{cov_config_params_string}/"
-                f"matrixes/{sample_full_name}.matrix"]
-                )
-    if (all_files == None) | (all_files == []) :
-        Print("'All files' empty")
-        exit(1)
-        
-    return all_files
-
-def all_peaks(w):
+def sumarize_peak_count_input(w):
     genome_filtered = samples_table_2[
     samples_table_2['reference_genome'] == w.genomes_not_fused
     ]
-    peaks = {
-    "narrow_all": genome_filtered.loc[
-        genome_filtered['peak_bl_gr_flt_nrw'].notnull(),
-        "peak_bl_gr_flt_nrw"].values.tolist(),
-    "broad_all": genome_filtered.loc[
-        genome_filtered['peak_bl_gr_flt_brd'].notnull(),
-        "peak_bl_gr_flt_brd"].values.tolist(),
-    "narrow_hs": genome_filtered.loc[
-        genome_filtered['peak_bl_gr_flt_hs_int_nrw'].notnull(),
-        "peak_bl_gr_flt_hs_int_nrw"].values.tolist(),
-    "broad_hs": genome_filtered.loc[
-        genome_filtered['peak_bl_gr_flt_hs_int_brd'].notnull(),
-        "peak_bl_gr_flt_hs_int_brd"].values.tolist()
-        }
+    peaks = {}
+    if pd.notna(samples_table['peak_ctrl_file_alias']).any():
+        peaks = {
+        "narrow_all": genome_filtered.loc[
+            genome_filtered['peak_bl_gr_flt_nrw'].notnull(),
+            "peak_bl_gr_flt_nrw"].values.tolist(),
+        "broad_all": genome_filtered.loc[
+            genome_filtered['peak_bl_gr_flt_brd'].notnull(),
+            "peak_bl_gr_flt_brd"].values.tolist(),
+        "narrow_hs": genome_filtered.loc[
+            genome_filtered['peak_bl_gr_flt_hs_int_nrw'].notnull(),
+            "peak_bl_gr_flt_hs_int_nrw"].values.tolist(),
+        "broad_hs": genome_filtered.loc[
+            genome_filtered['peak_bl_gr_flt_hs_int_brd'].notnull(),
+            "peak_bl_gr_flt_hs_int_brd"].values.tolist()
+            }
     return peaks
 
 def get_qctrl_bams_bais(w):
+    # This function gets input for rules 'samstats' and 'samtools_flagstat'
     sample = w.sample # If I don't convert the wildcards to set, it returns a warning when I use it within loc (next line)
     genome = samples_table.loc[sample, 'reference_genome']
     if f"{w.bam_type}" == 'Raw_bam':
@@ -255,78 +220,103 @@ def get_qctrl_bams_bais(w):
     "bai": bai
     }
 
-def hmlt_report_input(w): # I need to add here the fastp files (now I am looking for them within the markdown file)
-    if ( ((samples_table['top5000_HS_heatmap']) &
-     (samples_table['get_single_strand'])).any() ):
-        return {
-        "agg_profiles": f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{config['library']['name']}_aggregate_profiles_data.RData",
-        "peaks_summary": f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv",
-        "bamfiles_reads": samples_table_2['processed_flagstat'].values.tolist()
-        }
-        # input = [f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"] + \
-        # [f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/wrangled_autosomal_x_non_par_and_asymetric.RData"] + \
-        # [f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv"] + \
-        # samples_table_2['processed_flagstat'].values.tolist()
-    elif (samples_table['top5000_HS_heatmap'].any()):
-        return{
-        "top_5000_ag_profs": f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData",
-        "peaks_summary": f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv",
-        "bamfiles_reads": samples_table_2['processed_flagstat'].values.tolist()
-        }
-        # input = [f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/top_5000_plus_minus_2000.RData"] + \
-        # [f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv"] + \
-        # samples_table_2['processed_flagstat'].values.tolist()
+def markdown_report_aggregate_profiles_input(w): # I need to add here the fastp files (now I am looking for them within the markdown file)
+    if pd.notna(samples_table['peak_ctrl_file_alias']).any():
+        peak_summary = f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv",
     else:
-        return {
-        "peaks_summary": f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv",
-        "bamfiles_reads": samples_table_2['processed_flagstat'].values.tolist()
-        }
+        peak_summary = []
+    
+    mm10_agg_profiles = {}
+    B6xCAST_agg_profiles = {} # What happens when the input in snakemake is an empty dictionary?
+
+    if ( (samples_table['top5000_HS_heatmap'] &
+     samples_table['get_single_strand'] & ~samples_table['B6xCAST']).any() ):
+        # 'Lib_name_aggregate_profiles_data.RData' is the result of processing all top5000, 
+        # asymmetrix and XnonPAR data (output of 'wrangle_X_nonPAR_asymmetric_HS' rule.
+        mm10_agg_profiles={
+            "mm10_top5000_asmtric_auto_XnonPAR_ag_profs": f"Results/{w.genomes_not_fused}"
+            "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+            f"{config['library']['name']}_aggregate_profiles_data.RData"
+                            }
+    elif ( (samples_table['top5000_HS_heatmap'] & ~samples_table['B6xCAST']).any() ):
+        mm10_agg_profiles={
+            "mm10_top_5000_ag_profs": f"Results/{w.genomes_not_fused}/Analysis"
+            "/Heatmaps_and_aggregate_profiles/Hotspots/"
+            f"{config['library']['name']}_top_5000_plus_minus_2000.RData"
+                            }
+    
+    if ( (samples_table['top5000_HS_heatmap'] & samples_table['B6xCAST']).any() ):
+            B6xCAST_agg_profiles={
+                "B6xCAST_top_5000_pm_1000bp": f"Results/{w.genomes_not_fused}/Analysis"
+                "/Heatmaps_and_aggregate_profiles/Hotspots/"
+                f"{config['library']['name']}_B6xCAST_top_5000_pm_1000bp.RData",
+                "B6xCAST_PRDM9_assymetric_hs_invading_strand": "Results/"
+                "mm10_x_CAST_EiJ/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+                f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_invading_strand.RData",
+                "B6xCAST_PRDM9_assymetric_hs_receiving_strand": "Results/"
+                "mm10_x_CAST_EiJ/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+                f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_receiving_strand.RData"
+                                }
         # input = [f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv"] + \
         # samples_table_2['processed_flagstat'].values.tolist()
-    # return input
+        
+    return {
+        "peaks_summary": peak_summary,
+        "bamfiles_reads": samples_table_2['processed_flagstat'].values.tolist(),
+        } | mm10_agg_profiles | B6xCAST_agg_profiles # The '|' is to concat. dictionaries
 
-def input_merge_bams(w):
-    if re.search("/",samples_table.loc[w.sample,'merge_with']):
-        samples=samples_table_2.loc[w.sample, ['raw_bam', 'merge_with']].values.tolist()
-    else:
-        second_bam_name=samples_table_2.loc[w.sample, 'merge_with']
-        second_bam=samples_table_2.loc[second_bam_name, 'raw_bam']
-        first_bam=samples_table_2.loc[w.sample, 'raw_bam']
-        samples=[second_bam] + [first_bam]
+def merge_bams_input(w):
+    # Information on the merge is on the 'merge_with' column from samples table,
+    # and it should be a space-separated list of: the name of another sample on 
+    # the samples table, or a path to a file.
+    samples_orig = samples_table.loc[w.sample, 'merge_with'].split()
+    samples = [f"Results/{w.sample}.{w.genomes_all}.bam"]
+    # If sample to merge with is a path, use it as is, otherwise look for the
+    # raw bam file on samples_table_2
+    for sample in samples_orig:
+        if re.search("/", sample):
+            samples+=[sample]
+        else:
+            second_bam=f"Results/{sample}.{w.genomes_all}.bam"
+            samples+=[second_bam]
     return samples
 
-def dros_norm_report_input(w):
+def dros_normalization_report_input(w):
     df=samples_table_2.loc[samples_table_2['dros_equalization_group'].str.match(w.dros_eq_group, na=False), :]
     return df['processed_flagstat_dros'].tolist()
 
-def dros_norm_input(w):
+def dros_normalization_input(w):
     if w.strand == "":
-        unscaled_bw = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bw']
         bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
     elif ("83-163" in w.strand) | ("inc_16" in w.strand):
-        unscaled_bw = samples_table_2.loc[w.sample, 'ss_83_or_i16_bw']
         bam = samples_table_2.loc[w.sample, 'ss_83_or_i16_bam']
     elif ("99-147" in w.strand) | ("exc_16" in w.strand):
-        unscaled_bw = samples_table_2.loc[w.sample, 'ss_99_or_e16_bw']
         bam = samples_table_2.loc[w.sample, 'ss_99_or_e16_bam']
-
+    
+    bai = bam + ".bai"
     return {
     "report" : f"Results/d6/Analysis/drosophila_normalization/{w.dros_eq_group}/drosophila_equalization_report.tsv",
     "bam" : bam,
-    "unscaled_bw" : unscaled_bw
+    "bai" : bai
     }
-    # df=samples_table_2.loc[samples_table_2['dros_equalization_group'].str.match(w.dros_eq_group, na=False), :]
-    # both_strands_bams = df.loc[: , 'dedup_flt_both_strds_bam'].tolist()
-    # both_strands_bais = (df.loc[: , 'dedup_flt_both_strds_bam'] + ".bai").tolist()
-    # ss_bams =  df.loc[: , 'ss_83_or_i16_bam'].tolist() + df.loc[:,'ss_99_or_e16_bam'].tolist()
-    # ss_bais = (df.loc[:,'ss_83_or_i16_bam'] + ".bai").tolist() + (df.loc[:,'ss_99_or_e16_bam'] + ".bai").tolist()
-    #
-    # norm_report=[f"Results/{w.genomes_not_fused}/d6/Analysis/{w.dros_eq_group}/drosophila_equalization_report.tsv"]
-    # # Files to be returned in any case:
-    #
-    # default_files = both_strands_bams + both_strands_bais + norm_report
-    #
-    # if df['get_single_strand'].all():
-    #     return default_files + ss_bams + ss_bais
-    # else:
-    #     return default_files
+
+def intersect_peaks_HSs_list_input(w):
+    if samples_table.loc[w.sample, 'B6xCAST']:
+        hotspots = config['references']['mm10']['dmc1']['B6xCAST_top_5000_pm_1000bp']
+    else:
+        hotspots = config['references']['mm10']['spo11']['top_5000_plus_minus_2000']
+    return{
+        "hotspots" : hotspots,
+        "sample_peaks" : f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type_folder}/{w.peak_params}/Black-grey_filtered/{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"
+        }
+
+def compute_matrix_outfiles_hs_input(w):
+    hotspot_protein="spo11"
+    if samples_table.loc[w.sample, 'B6xCAST']:
+        hotspot_protein="dmc1"
+    
+    hotspots = config['references']['mm10'][hotspot_protein][w.hs_region]
+    bigwig = f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/{w.cov_params}/{w.sample}.{w.genomes_final}{w.extension}{w.strand}.bw"
+    
+    return {"region": hotspots,
+            "bigwig": bigwig}

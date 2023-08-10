@@ -5,7 +5,7 @@
 fastp*
 logs/
 slurm*.out
-snakemake_dry_run.txt
+*dry_run*.txt
 Results/
 .Rhistory
 __pycache__/
@@ -14,3 +14,8 @@ __pycache__/
 *samples.csv
 commands_develop*
 *.log
+List_of_files_for_rule_all.txt
+dag*
+Test_code/*
+process_outfile_matrix_image*
+*.RData
