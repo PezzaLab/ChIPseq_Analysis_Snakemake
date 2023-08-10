@@ -377,7 +377,7 @@ rule create_coverage_bw:
     # log:
     #     "Results/Log_files/create_coverage_bw/{genomes_not_fused}.{strands}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_condit}{clip_condit}{cov_params}.log"
     wildcard_constraints:
-        ss_condit="(((83-163|99-147)|(inc_16|exc_16))\.)?",
+        ss_condit="((83-163|99-147|inc_16|exc_16)\.)?" ,
         clip_condit="(((inc|exc)_16\.)?clipped_1_bp\.)?"
     params:
         smooth = config['coverage']['smooth'],
