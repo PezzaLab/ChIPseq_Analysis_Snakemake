@@ -43,7 +43,5 @@ peak_count["% brd peaks at HS"] = np.where(
 peak_count["% nrw peaks at HS"] = peak_count["% nrw peaks at HS"].map('{:,.2f}'.format)
 peak_count["% brd peaks at HS"] = peak_count["% brd peaks at HS"].map('{:,.2f}'.format)
 
-
-
 peak_count.to_csv(snakemake.output[0], sep="\t")
 

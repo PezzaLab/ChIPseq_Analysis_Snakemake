@@ -6,8 +6,10 @@ annotated_table <-
                                          "^[:alnum:]+(-|'){0,1} *[:alnum:]*")) %>%
   rename("peak_ID"= 1)  %>% 
   rename("-log(q-value)" = `Peak Score`) %>% 
-  mutate("-log(q-value)" = `-log(q-value)` / 10,
+  mutate("-log(q-value)" = `-log(q-value)` / 10, # See comment below
          "IGV_coordiates" = str_c(Chr, ":", Start,"-", End))
+
+# In MACS2, the peak score is equal to the -log(q-value) * 10
 
 write_tsv(annotated_table,
           file = snakemake@output[[1]])

@@ -88,26 +88,8 @@ setattr(w, 'hs_region', "B6xCAST_top_5000_pm_1000bp")
 
 setattr(w, "genomes_not_fused", "mm10")
 
-def process_aggregate_profiles_inputs(w):
-    # Available wildcards: 'genomes_not_fused' and 'hs_region'.
-    # w.hs_region can be one of the following:
-        # 'top_5000_plus_minus_2000', 'x_non_par', 'autosomal_x_non_par_ctrl', 
-        # 'asymetric_watson_strong', 'asymetric_crick_strong', 'top_5000_plus_minus_2000'
-        #  or 'B6xCAST_common_top_5000_pm_1000bp'
-    
-    # This rule will process all matrixes that come from the same list of HS
-    matrixes_df = samples_table_2.filter(
-        regex=f"^{w.hs_region}.*matrix"
-        )
-    matrixes_array = matrixes_df.to_numpy().ravel()
-    matrixes_list = matrixes_array[~pd.isnull(matrixes_array)].tolist()
-    return matrixes_list
-
-process_aggregate_profiles_inputs(w)
-
-samples_table_2.columns
-samples_table_2.filter(regex=f"^.*matrix$").columns
-
-samples_table_2['B6xCAST_PRDM9_assymetric_hs_receiving_strand_83-163_matrix'][1]
-
 # %%
+  # Peak files
+x=samples_table_2.filter(regex=".*(narrow|broad).*annotated")
+x.columns
+samples_table_2[]
