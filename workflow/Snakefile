@@ -97,7 +97,7 @@ rule all:
         lib_name = config['library']['name']
         ),
         heatmaps,
-        annotated_peaks
+        annotated_peaks,
 
         # IDR Analysis
             # Same as merged files analysis since most of the times both files 

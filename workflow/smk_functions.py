@@ -3,7 +3,6 @@ import numpy as np
 import os
 import re
 
-# Functions
 def check_sample_table_format(samples_table):
     exit_message = "\n\n One or more errors have been detected on your 'samples_table.xlsx' file.\nErrors:\n"
     exit_script = False
@@ -243,14 +242,17 @@ def markdown_report_aggregate_profiles_input(w): # I need to add here the fastp 
     if ( (samples_table['top5000_HS_heatmap'] & samples_table['B6xCAST']).any() ):
             B6xCAST_agg_profiles={
                 "B6xCAST_top_5000_pm_1000bp": f"Results/{w.genomes_not_fused}/Analysis"
-                "/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{config['library']['name']}_B6xCAST_top_5000_pm_1000bp.RData",
+                    "/Heatmaps_and_aggregate_profiles/Hotspots/"
+                    f"{config['library']['name']}_B6xCAST_top_5000_pm_1000bp.RData",
+                "B6xCAST_PRDM9_assymetric_hs_both_strands": f"Results/{w.genomes_not_fused}/Analysis"
+                    "/Heatmaps_and_aggregate_profiles/Hotspots/"
+                    f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_both_strands.RData",
                 "B6xCAST_PRDM9_assymetric_hs_invading_strand": "Results/"
-                "mm10_x_CAST_EiJ/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_invading_strand.RData",
+                    "mm10_x_CAST_EiJ/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+                    f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_invading_strand.RData",
                 "B6xCAST_PRDM9_assymetric_hs_receiving_strand": "Results/"
-                "mm10_x_CAST_EiJ/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_receiving_strand.RData"
+                    "mm10_x_CAST_EiJ/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+                    f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_receiving_strand.RData"
                                 }
         # input = [f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv"] + \
         # samples_table_2['processed_flagstat'].values.tolist()
@@ -315,3 +317,14 @@ def compute_matrix_outfiles_hs_input(w):
     
     return {"region": hotspots,
             "bigwig": bigwig}
+
+def FRIP_input(w):
+    sample = samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"]
+    bam = (f"Results/{w.genomes_not_fused}/Bams/Both_strands/" +
+             f"{w.sample}.{w.genomes_final}{w.extension}.bam")
+    
+    return {"peak" : (f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type}/{w.peak_params}/" + 
+            f"Black-grey_filtered/{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"),
+            "bam" : bam,
+            "bai" : bam + ".bai"
+            }

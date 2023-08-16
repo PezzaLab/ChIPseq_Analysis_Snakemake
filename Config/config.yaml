@@ -54,7 +54,7 @@ MACS2:
   # Single read arguments
   extension: "300"
 
-# Reference genomes
+# Bed files
 references:
   mm10:
     spo11:
