@@ -9,6 +9,7 @@ output:
     toc: TRUE
     toc_float:
       collapsed: TRUE
+    toc_depth: 5
 # Put the following to show chunck: "class.source = 'fold-show'", or
 #"class.source = 'fold-hide'", depending on the configuration of 'code_folding' on top
 # To insert sa brake after an image (so the text won't be next to it) put '<br/><br/>'
