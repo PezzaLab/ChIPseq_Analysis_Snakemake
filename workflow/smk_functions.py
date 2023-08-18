@@ -244,15 +244,15 @@ def markdown_report_aggregate_profiles_input(w): # I need to add here the fastp 
                 "B6xCAST_top_5000_pm_1000bp": f"Results/{w.genomes_not_fused}/Analysis"
                     "/Heatmaps_and_aggregate_profiles/Hotspots/"
                     f"{config['library']['name']}_B6xCAST_top_5000_pm_1000bp.RData",
-                "B6xCAST_PRDM9_assymetric_hs_both_strands": f"Results/{w.genomes_not_fused}/Analysis"
-                    "/Heatmaps_and_aggregate_profiles/Hotspots/"
-                    f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_both_strands.RData",
                 "B6xCAST_PRDM9_assymetric_hs_invading_strand": "Results/"
                     "mm10_x_CAST_EiJ/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
                     f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_invading_strand.RData",
                 "B6xCAST_PRDM9_assymetric_hs_receiving_strand": "Results/"
                     "mm10_x_CAST_EiJ/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-                    f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_receiving_strand.RData"
+                    f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_receiving_strand.RData",
+                "B6xCAST_PRDM9_assymetric_hs_mm10_aligned": "Results/"
+                    "mm10/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+                    f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_mm10_aligned.RData",
                                 }
         # input = [f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary.tsv"] + \
         # samples_table_2['processed_flagstat'].values.tolist()

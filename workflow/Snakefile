@@ -119,7 +119,7 @@ wildcard_constraints: # Automate constrain expression depending on config or sam
     ss_SR="(inc|exc)_16",
     peak_params="(bco_[0-9]+_)?qv_[0-9]+__[^/]*",
     peak_type="narrow|broad",
-    hs_region = "B6xCAST_top_5000_pm_1000bp|B6xCAST_PRDM9_assymetric_hs_invading_strand|B6xCAST_PRDM9_assymetric_hs_receiving_strand|top_5000_plus_minus_2000|asymetric_watson_strong|asymetric_crick_strong|x_non_par|autosomal_x_non_par_ctrl|",
+    hs_region = "B6xCAST_(top_5000_pm_1000bp|PRDM9_assymetric_hs_((invading|receiving)_strand|mm10_aligned))|top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|x_non_par|autosomal_x_non_par_ctrl",
     bam_type = "Raw_bam|Processed_bam",
     extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
     strand = "(\.(83-163|99-147|inc_16|exc_16))?",
