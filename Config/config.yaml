@@ -3,6 +3,10 @@ library:
   general_info: "Whatever info you want to add about this library"
   container: "agustin"
 
+# Should quality control analysis be done?
+qctrl: False
+
+# Reference genomes' paths
 genomes:
     mm10: "/Volumes/hts_core/Shared/mus_musculus/mm10/bwa_0.7.12_indexed/mm10.fasta"
     mm10_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drodophila6_mm10/final_files/dm6_mm10_fusion.fa"

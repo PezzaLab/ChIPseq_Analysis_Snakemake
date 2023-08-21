@@ -80,17 +80,21 @@ heatmaps = [x for x in heatmaps if x==x] # 'nan == nan' is false, therefore doin
 
 annotated_peaks = samples_table_2.filter(regex=".*(narrow|broad)Peak.*annotated$").values.flatten().tolist()
 annotated_peaks = [x for x in annotated_peaks if x==x]
+
+multiqc = []
+if config['qctrl']:
+            multiqc = expand(
+                "Results/{genomes}/Qctrl/multiqc_report_{lib_name}.html",
+                genomes = samples_table["reference_genome"].unique().tolist(),
+                lib_name = config['library']['name']    
+            )
 ###########################
 ######### RULES  ##########
 ###########################
 
 rule all: 
     input:
-        expand(
-        "Results/{genomes}/Qctrl/multiqc_report_{lib_name}.html",
-        genomes = samples_table["reference_genome"].unique().tolist(),
-        lib_name = config['library']['name']    
-        ),
+        multiqc,
         expand(
         "Results/{genomes}/Analysis/{lib_name}.html",
         genomes = samples_table["reference_genome"].unique().tolist(),
