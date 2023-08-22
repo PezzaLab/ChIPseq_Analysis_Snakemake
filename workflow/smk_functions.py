@@ -48,6 +48,14 @@ def check_sample_table_format(samples_table):
     if "" in samples_table.drop(["fastq1","fastq2"], axis=1).values:
         exit_message += "* There is a cell that  is empty. There cannot be any empty cell. Please fill empty cells with '-'\n"
         exit_script = True
+        
+    # Check that both FASTQ files are different
+    if (samples_table['PE'] & (samples_table['fastq1'] == samples_table['fastq2'])).any():
+        bad_samples = samples_table.loc[samples_table['fastq1'] == samples_table['fastq2']]['sample_name'].tolist()
+        exit_message += "* The following samples have identical paths for fastq1 and 2:\n"
+        for i in bad_samples:
+            exit_message += "\t" + i + "\n"
+        exit_script = True
     
     # Check that the samples with a "dros_equalization_group" have "dros_spike_in" == T 
     #(I don't do the complementary becuase you might have the sample to equalize on another library)
