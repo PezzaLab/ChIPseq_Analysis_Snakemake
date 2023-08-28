@@ -17,8 +17,7 @@ samples_table = pd.read_csv(
     na_values= {"dros_equalization_group":"-",
                 "merge_with":"-",
                 "fastq2":"-",
-                "peak_ctrl_file_alias":"-"}).set_index("sample_name", drop=False) 
-    # "-" will be interpreted as NaN only at "dros_equalization_group" column
+                "peak_ctrl_file_alias":"-"}).set_index("sample_name", drop=False)
 
 smkf.check_sample_table_format(samples_table)
 
@@ -81,6 +80,7 @@ heatmaps = [x for x in heatmaps if x==x] # 'nan == nan' is false, therefore doin
 annotated_peaks = samples_table_2.filter(regex=".*(narrow|broad)Peak.*annotated$").values.flatten().tolist()
 annotated_peaks = [x for x in annotated_peaks if x==x]
 
+# Qctrl
 multiqc = []
 if config['qctrl']:
             multiqc = expand(
@@ -88,6 +88,11 @@ if config['qctrl']:
                 genomes = samples_table["reference_genome"].unique().tolist(),
                 lib_name = config['library']['name']    
             )
+
+# Drosophila normalization 
+drosophila_equalized_bigwigs = samples_table_2['dros_norm_bw_both_strands'].dropna().unique().tolist()
+
+
 ###########################
 ######### RULES  ##########
 ###########################
@@ -102,6 +107,7 @@ rule all:
         ),
         heatmaps,
         annotated_peaks,
+        drosophila_equalized_bigwigs
 
         # IDR Analysis
             # Same as merged files analysis since most of the times both files 
@@ -286,7 +292,6 @@ rule filter_bam:
     # log:
     #     "Results/Log_files/filter_bam/{genomes_not_fused}/{sample}.{genomes_final}.log"
     params:
-        min_mapping_qual = lambda w: config['min_mapping_qual'],
         PE = lambda w: str(samples_table.loc[w.sample, "PE"]).lower()
     threads: 2
     envmodules:
@@ -306,7 +311,7 @@ echo "Data is SR"
 fi
 
 command="samtools view \\
--q {params.min_mapping_qual} \\
+-q {config[min_mapping_qual]} \\
 -b \\
 -@ $SLURM_CPUS_ON_NODE \\
 ${{filter}} \\
@@ -394,11 +399,6 @@ rule create_coverage_bw:
     wildcard_constraints:
         ss_condit="((83-163|99-147|inc_16|exc_16)\.)?" ,
         clip_condit="(((inc|exc)_16\.)?clipped_1_bp\.)?" 
-    params:
-        smooth = config['coverage']['smooth'],
-        bin = config['coverage']['bin_size'],
-        normalize = config['coverage']['normalization'],
-        extend_reads = config['coverage']['extend_reads']
     threads: 2
     envmodules:
         config["deeptools"]
@@ -407,10 +407,10 @@ rule create_coverage_bw:
         if [ -z {wildcards.clip_condit} ] # Cannot do the test [[ curly_brace empty_variable curly_brace == "" ]], won't work
         then
         echo "Doing smooth and bin according to config file (not clipped profile)"
-        bamCoverage --numberOfProcessors max -b {input.bam} -bs {params.bin} --smoothLength {params.smooth} --normalizeUsing {params.normalize} -o {output}
+        bamCoverage --numberOfProcessors max -b {input.bam} -bs {config[coverage][bin_size]} --smoothLength {config[coverage][smooth]} --normalizeUsing {config[coverage][normalization]} -o {output}
         else
         echo "Doing smooth 1 and bin 1 (clipped profile)"
-        bamCoverage --numberOfProcessors max -b {input.bam} -bs 1 --smoothLength 1 --normalizeUsing {params.normalize} -o {output}
+        bamCoverage --numberOfProcessors max -b {input.bam} -bs 1 --smoothLength 1 --normalizeUsing {config[coverage][normalization]} -o {output}
         fi
         """
 
@@ -547,9 +547,9 @@ rule dros_normalization_report:
         smkf.dros_normalization_report_input
     output:
         "Results/d6/Analysis/drosophila_normalization/{dros_eq_group}/drosophila_equalization_report.tsv"
+    threads: 1
     params:
         samples_table_2 = samples_table_2
-    threads: 1
     script:
         "Scripts/dros_norm_report.py"
 
@@ -558,11 +558,6 @@ rule dros_normalization:
         unpack(smkf.dros_normalization_input)
     output:
         "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}.dros_norm.bw",
-    params:
-        smooth = config['coverage']['smooth'],
-        bin = config['coverage']['bin_size'],
-        normalize = config['coverage']['normalization'],
-        extend_reads = config['coverage']['extend_reads']
     threads: 1
     envmodules:
         config["deeptools"]
@@ -578,7 +573,7 @@ fi
 echo -e "scaleFactor = $scaleFactor \n"
 
 echo "Sample will be scaled down with a scale factor of $scaleFactor"
-bamCoverage --numberOfProcessors max -b {input.bam} -bs {params.bin} --smoothLength {params.smooth} -o {output} --scaleFactor $scaleFactor
+bamCoverage --numberOfProcessors max -b {input.bam} -bs {config[coverage][bin_size]} --smoothLength {config[coverage][smooth]} -o {output} --scaleFactor $scaleFactor
         """
 
 #############
@@ -761,13 +756,9 @@ rule compute_matrix_outfiles_hs:
     threads: 1
     envmodules:
         config["deeptools"]
-    params:
-        before_region = config['heatmaps']['before_region'],
-        after_region = config['heatmaps']['after_region'],
-        bin_size = config['heatmaps']['bin_size']
     shell:
         """
-computeMatrix reference-point -p max -R {input.region} -S {input.bigwig} --sortRegions keep -b {params.before_region} -a {params.after_region} --outFileName {output.filename} --outFileNameMatrix {output.matrix} --referencePoint center --binSize {params.bin_size}
+computeMatrix reference-point -p max -R {input.region} -S {input.bigwig} --sortRegions keep -b {config[heatmaps][before_region]} -a {config[heatmaps][after_region]} --outFileName {output.filename} --outFileNameMatrix {output.matrix} --referencePoint center --binSize {config[heatmaps][bin_size]}
         """
 
 rule process_aggregate_profiles:
@@ -788,8 +779,6 @@ rule process_aggregate_profiles:
         config["bioconductor"]
     params:
         genomes = config['genomes'].keys(),
-        overwrite = config['aggregate_profiles']['process_outfile']['overwrite'],
-        smooth = config['aggregate_profiles']['process_outfile']['smooth']
     script:
         "Scripts/process_outfile_matrix.R"
 

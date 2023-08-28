@@ -1,12 +1,12 @@
 # For debugging:
-file_name <- paste0(
-  "process_outfile_matrix_image.",
-  runif(n = 1, min = 0, max = 9999),
-  ".RData")
-save.image(file = file_name)
-
-print(paste("File name:", file_name))
-  
+# file_name <- paste0(
+#   "process_outfile_matrix_image.",
+#   runif(n = 1, min = 0, max = 9999),
+#   ".RData")
+# save.image(file = file_name)
+# 
+# print(paste("File name:", file_name))
+#  
 
 # Load libraries -----------
 library(tidyverse)
@@ -124,7 +124,8 @@ averages <-
   lapply(snakemake@input, average_signal_per_coordinate)
 
 ## Smooth --------------------------------
-if (tolower(snakemake@params[["smooth"]]) == "true") {
+if (tolower(
+  snakemake@config[['aggregate_profiles']][['process_outfile']][['smooth']]) == "true") {
   averages <-
     lapply(averages,smooth_fun)
   }
