@@ -402,12 +402,12 @@ rule create_coverage_bw:
     threads: 2
     envmodules:
         config["deeptools"]
-    shell: # The coverage will be different depending on weather the bam's been clipped or not. If clipped, then cov smooth and bin  == 1, otherwise use config file parameters
+    shell: # The coverage will be different depending on weather the bam's been clipped or not. If clipped, then cov smooth and bin  == 1 and no read extension is done, otherwise use config file parameters
         """
         if [ -z {wildcards.clip_condit} ] # Cannot do the test [[ curly_brace empty_variable curly_brace == "" ]], won't work
         then
         echo "Doing smooth and bin according to config file (not clipped profile)"
-        bamCoverage --numberOfProcessors max -b {input.bam} -bs {config[coverage][bin_size]} --smoothLength {config[coverage][smooth]} --normalizeUsing {config[coverage][normalization]} -o {output}
+        bamCoverage --numberOfProcessors max -b {input.bam} -bs {config[coverage][bin_size]} --smoothLength {config[coverage][smooth]} --extendReads {config[coverage][extend_reads]} --normalizeUsing {config[coverage][normalization]} -o {output}
         else
         echo "Doing smooth 1 and bin 1 (clipped profile)"
         bamCoverage --numberOfProcessors max -b {input.bam} -bs 1 --smoothLength 1 --normalizeUsing {config[coverage][normalization]} -o {output}
@@ -571,9 +571,9 @@ if [ -z "${{scaleFactor}}" ]; then
 fi
 
 echo -e "scaleFactor = $scaleFactor \n"
-
 echo "Sample will be scaled down with a scale factor of $scaleFactor"
-bamCoverage --numberOfProcessors max -b {input.bam} -bs {config[coverage][bin_size]} --smoothLength {config[coverage][smooth]} -o {output} --scaleFactor $scaleFactor
+
+bamCoverage --numberOfProcessors max -b {input.bam} -bs {config[coverage][bin_size]} --smoothLength {config[coverage][smooth]} --extendReads {config[coverage][extend_reads]} -o {output} --scaleFactor $scaleFactor
         """
 
 #############
