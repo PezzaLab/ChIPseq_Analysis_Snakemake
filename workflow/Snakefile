@@ -75,7 +75,8 @@ smkf.samples_table_2 = samples_table_2
 #####   Get list of files to call in rule all   #####
 #####################################################
 heatmaps = samples_table_2.filter(regex="^heatmap.*").values.flatten().tolist()
-heatmaps = [x for x in heatmaps if x==x] # 'nan == nan' is false, therefore doing x==x will filter out nan values
+heatmaps = [x for x in heatmaps if x==x] # 'nan == nan' is false, therefore 
+                                    # doing x==x will filter out nan values
 
 annotated_peaks = samples_table_2.filter(regex=".*(narrow|broad)Peak.*annotated$").values.flatten().tolist()
 annotated_peaks = [x for x in annotated_peaks if x==x]
@@ -89,9 +90,11 @@ if config['qctrl']:
                 lib_name = config['library']['name']    
             )
 
-# Drosophila normalization 
-drosophila_equalized_bigwigs = samples_table_2['dros_norm_bw_both_strands'].dropna().unique().tolist()
-
+# Bigwig coverage files 
+coverage_bigwigs = [ a for a in 
+    samples_table_2.filter(regex = ".*coverage_bw$").values.flatten().tolist() 
+    if a == a 
+    ]
 
 ###########################
 ######### RULES  ##########
@@ -107,7 +110,7 @@ rule all:
         ),
         heatmaps,
         annotated_peaks,
-        drosophila_equalized_bigwigs
+        coverage_bigwigs
 
         # IDR Analysis
             # Same as merged files analysis since most of the times both files 
@@ -416,10 +419,10 @@ rule create_coverage_bw:
 
 rule clip_1bp:
     input:
-        "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag16}.bam"
+        "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}{strand}.bam"
     output:
-        bam="Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/{sample_with_extensions}.{flag16}.clipped_1_bp.bam",
-        tmp_dir=temp(directory("Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/{sample_with_extensions}.{flag16}/temp_clip_1bp"))
+        bam="Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/{sample_with_extensions}{strand}.clipped_1_bp.bam",
+        tmp_dir=temp(directory("Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/{sample_with_extensions}{strand}/temp_clip_1bp"))
     wildcard_constraints:
         flag16="inc_16|exc_16"
     # log:
