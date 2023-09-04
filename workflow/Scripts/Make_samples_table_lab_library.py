@@ -12,25 +12,44 @@ Created on Tue Sep 20 19:59:14 2022
 #   Then run this script directly from IDE or at the command line by running:
 #       ml python/3.10.2 pandas/1.4.2 && python <this/script/path>
 ########################################################################
-
-import pandas as pd
-import numpy as np
-from pathlib import Path
 import os
 import re
+from pathlib import Path
 import shutil as shu
-
-# Get input by user (library name, sequencing techonology, PE/SR,)
+import pandas as pd
+import numpy as np
+import git  # To get snakepipeline current's commit hash
 
 
 def get_lib_name():
     library_name = input(
         "What is the library name?\nKeep in mind that it has to be"
         "the same name provided to Stuart Glenn\n")
-    return {"archive": f"/archive/pezza/Agustin/{library_name}",
+    return {"library_name": library_name,
+            "archive": f"/archive/pezza/Agustin/{library_name}",
             "scratch": f"/s/pezzar-lab/{library_name}"}
 
 
+def get_seq_mode():
+    answer = int(
+        input("Are reads paired (PE) or single (SR)?, "
+              "choose a number.\n1 = PE\n2 = SR\n\n"
+              "If different samples have different sequencing pairing of reads"
+              " you can always change this on Config/samples_table.csv\n"
+              )
+    )
+    return answer
+
+
+def get_library_tech():
+    answer = int(input(
+        "\nWhat technology was used to do the library? "
+        "Choose a number\n1 = Adaptase\n2 = Regular\n3 = Other\n")
+    )
+    return answer
+
+
+# Get input by user (library name, sequencing techonology, PE/SR,)
 while True:
     library_paths = get_lib_name()
     if not os.path.exists(library_paths['archive']):
@@ -45,23 +64,10 @@ while True:
         break
 
 # Get library sequencing mode (PE or SR)
-
-
-def get_seq_mode():
-    answer = int(
-        input("Are reads paired (PE) or single (SR)?, "
-              "choose a number.\n1 = PE\n2 = SR\n\n"
-              "If different samples have different sequencing pairing of reads"
-              " you can always change this on Config/samples_table.csv\n"
-              )
-    )
-    return answer
-
-
 while True:
     pe_sr = get_seq_mode()
     if pe_sr != 1 and pe_sr != 2:
-        print(f"You need to input either '1' or '2', you can do it! ")
+        print("You need to input either '1' or '2', you can do it! ")
         continue
     else:
         break
@@ -69,20 +75,10 @@ while True:
 pe_dic = {1: True, 2: False}
 
 # Get library technology (regular or adaptase)
-
-
-def get_library_tech():
-    answer = int(input(
-        "\nWhat technology was used to do the library? "
-        "Choose a number\n1 = Adaptase\n2 = Regular\n3 = Other\n")
-    )
-    return answer
-
-
 while True:
     lib_tech = get_library_tech()
     if lib_tech < 1 or lib_tech > 3:
-        print(f"You need to input either '1', '2' or '3', you can do it! ")
+        print("You need to input either '1', '2' or '3', you can do it! ")
         continue
     else:
         break
@@ -128,6 +124,27 @@ except FileExistsError:
         exit
 else:
     print(f"Copying {dest_path}")
+
+# Modify 'commands.sh' file with library-specific info
+# Get git curent commit hash
+repo = git.Repo(
+    "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/"
+    "ChIPseq_Analysis_Snakemake"
+)
+sha = repo.head.object.hexsha
+# Read in the file
+commands_path = f"{library_paths['scratch']}/commands.sh"
+with open(commands_path, 'r') as file:
+    commands = file.read()
+# Replace the target string
+commands = commands.replace('{library_name}', library_paths["library_name"])
+commands = commands.replace('{sha}', sha)
+# Write the file out again
+print(f'commands_{library_paths["library_name"]}.sh')
+with open(f'commands_{library_paths["library_name"]}.sh', 'w') as file:
+    file.write(commands)
+# Erase `commands.sh`
+os.remove(commands_path)
 
 # Get fastqs' filepaths
 fastqs_temp = os.listdir(library_paths['archive'])
@@ -193,7 +210,7 @@ print(
     "2) config.yaml\n"
     "3) Profiles/slurm_quio/config.yaml\n\n"
     "For more information on how to fill the files please visit "
-    "https://github.com/PezzaLab/ChIPseq_Analysis_Snakemake\n"
+    "https://github.com/PezzaLab/ChIPseq_Analysis_Snakemake\n\n"
     "Thanks and have a nice day!...biaatch!"
 )
 
