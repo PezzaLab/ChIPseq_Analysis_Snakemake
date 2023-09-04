@@ -140,8 +140,12 @@ with open(commands_path, 'r') as file:
 commands = commands.replace('{library_name}', library_paths["library_name"])
 commands = commands.replace('{sha}', sha)
 # Write the file out again
-print(f'commands_{library_paths["library_name"]}.sh')
-with open(f'commands_{library_paths["library_name"]}.sh', 'w') as file:
+commands_new_path = (
+    f"{library_paths['scratch']}/"
+    f'commands_{library_paths["library_name"]}.sh'
+)
+print(f"\nFollowing steps can be found at file:\n{commands_new_path}")
+with open(commands_new_path, 'w') as file:
     file.write(commands)
 # Erase `commands.sh`
 os.remove(commands_path)
