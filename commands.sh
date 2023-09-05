@@ -9,7 +9,7 @@
 ml slurm python/3.10.2 pandas/1.4.2
 
 # 2) OPTIONAL. Dry run summary ("mock" run, no files are created)
-cd /s/Pezza/{library_name} && \
+cd /s/pezzar-lab/{library_name} && \
 snakemake --profile Config/Profiles/slurm_quio -np --quiet
 
 # 2.bis) OPTIONAL. Dry run extended version, text printed to the screen
@@ -34,3 +34,5 @@ sbatch --job-name snkmk --mem 400 --wrap \
 # Info on snakemake pipeline used to process this library:
 # Commit hash: 
 # {sha}
+# Commit date:
+# {commit_date}
