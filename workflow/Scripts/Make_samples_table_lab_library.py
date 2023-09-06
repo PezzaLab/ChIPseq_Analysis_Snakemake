@@ -5,25 +5,19 @@ Created on Tue Sep 20 19:59:14 2022
 
 @author: quio
 """
-########################################################################
-# USAGE:
-#   First log in to o3:
-#       o3-login -t LDAP_o3-pezza
-#   Then run this script directly from IDE or at the command line by running:
-#       ml python/3.10.2 pandas/1.4.2 && python <this/script/path>
-########################################################################
+# %% Imports
 import os
 import re
-from pathlib import Path
 import shutil as shu
 import pandas as pd
-import numpy as np
 import git  # To get snakepipeline current's commit hash
 
 
+# %% Functions
+
 def get_lib_name():
     library_name = input(
-        "What is the library name?\nKeep in mind that it has to be"
+        "What is the library name?\nKeep in mind that it has to be "
         "the same name provided to Stuart Glenn\n")
     return {"library_name": library_name,
             "archive": f"/archive/pezza/Agustin/{library_name}",
@@ -31,25 +25,24 @@ def get_lib_name():
 
 
 def get_seq_mode():
-    answer = int(
-        input("Are reads paired (PE) or single (SR)?, "
-              "choose a number.\n1 = PE\n2 = SR\n\n"
-              "If different samples have different sequencing pairing of reads"
-              " you can always change this on Config/samples_table.csv\n"
-              )
+    answer = input(
+        "Are reads paired (PE) or single (SR)?, "
+        "If different samples have different sequencing pairing of reads"
+        " you can always change this later on the Config/samples_table.csv\n"
+        "choose a number.\n1 = PE\n2 = SR\n"
     )
     return answer
 
 
 def get_library_tech():
-    answer = int(input(
+    answer = input(
         "\nWhat technology was used to do the library? "
-        "Choose a number\n1 = Adaptase\n2 = Regular\n3 = Other\n")
-    )
+        "Choose a number\n1 = Adaptase\n2 = Regular\n")
     return answer
 
 
-# Get input by user (library name, sequencing techonology, PE/SR,)
+# %% Get user's input
+# %%% Get input by user (library name, sequencing techonology, PE/SR,)
 while True:
     library_paths = get_lib_name()
     if not os.path.exists(library_paths['archive']):
@@ -63,37 +56,29 @@ while True:
     else:
         break
 
-# Get library sequencing mode (PE or SR)
+# %%% Get library sequencing mode (PE or SR)
 while True:
     pe_sr = get_seq_mode()
-    if pe_sr != 1 and pe_sr != 2:
+    if pe_sr not in ["1", "2"]:
         print("You need to input either '1' or '2', you can do it! ")
         continue
     else:
         break
 
-pe_dic = {1: True, 2: False}
+pe_dic = {"1": True, "2": False}
 
-# Get library technology (regular or adaptase)
+# %%% Get library technology (regular or adaptase)
 while True:
     lib_tech = get_library_tech()
-    if lib_tech < 1 or lib_tech > 3:
-        print("You need to input either '1', '2' or '3', you can do it! ")
+    if lib_tech not in ["1", "2"]:
+        print("You need to input either '1' or '2', you can do it! ")
         continue
     else:
         break
 
-lib_tech_dic = {1: "adaptase", 2: "regular", 3: "'Other"}
+lib_tech_dic = {"1": "adaptase", "2": "regular"}
 
-# genome=input("What is the reference genome for most of your samples? \
-#              Choose a number\n1 = mm10\n2 = Other (fill up manually)\n")
-# genome=int(genome)
-# if ((genome < 1) | (genome > 2)):
-#     print("You need to write a number from 1 to 2. Exiting.")
-#     exit()
-# genome_dic={1: "mm10", 2:"'mm10' or 'hg19' or 'hg38'"}
-
-# Create library folder and copy snakemake pipeline
+# %% Create library folder and copy snakemake pipeline
 source_path = (
     "/Volumes/Pezza/hpc-nobackup/Agustin/"
     "test_folder/ChIPseq_Analysis_Snakemake"
@@ -108,13 +93,13 @@ not_copy = shu.ignore_patterns(
 try:
     shu.copytree(source_path, dest_path, ignore=not_copy)
 except FileExistsError:
-    overwrite = int(
-        input(f"'{dest_path}' already exists, would you like to overwrite? \n"
-              "1) Yes\n"
-              "2) No\n"
-              )
+    overwrite = input(
+        f"'{dest_path}' already exists, would you like to overwrite? \n"
+        "1) Yes\n"
+        "2) No\n"
     )
-    if overwrite:
+    positive = ["1", "y", "Y", "yes", "YES", "Yes"]
+    if overwrite in positive:
         shu.copytree(
             source_path, dest_path, dirs_exist_ok=True,
             ignore=not_copy
@@ -125,34 +110,47 @@ except FileExistsError:
 else:
     print(f"Copying {dest_path}")
 
-# Modify 'commands.sh' file with library-specific info
+# %% Modify 'commands.sh' file with library-specific info
+# %%% Get git info
 # Get git curent commit hash
 repo = git.Repo(
     "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/"
     "ChIPseq_Analysis_Snakemake"
 )
 sha = repo.head.object.hexsha
+mod_time = str(repo.head.object.committed_datetime)
+# %%% Modify file
 # Read in the file
 commands_path = f"{library_paths['scratch']}/commands.sh"
 with open(commands_path, 'r') as file:
     commands = file.read()
-# Replace the target string
+# Replace the target strings
 commands = commands.replace('{library_name}', library_paths["library_name"])
 commands = commands.replace('{sha}', sha)
+commands = commands.replace('{commit_date}', mod_time)
 # Write the file out again
 commands_new_path = (
     f"{library_paths['scratch']}/"
     f'commands_{library_paths["library_name"]}.sh'
 )
-print(f"\nFollowing steps can be found at file:\n{commands_new_path}")
 with open(commands_new_path, 'w') as file:
     file.write(commands)
 # Erase `commands.sh`
 os.remove(commands_path)
 
+# %% Modify config file
+config_path = f"{library_paths['scratch']}/Config/config.yaml"
+with open(config_path, 'r') as file:
+    config = file.read()
+# Replace the target string
+config = config.replace('Test_library', library_paths["library_name"])
+# Write the file out again
+with open(config_path, 'w') as file:
+    file.write(config)
+# %% Do samples_table
 # Get fastqs' filepaths
 fastqs_temp = os.listdir(library_paths['archive'])
-fastqs_temp2 = [x for x in fastqs_temp if re.search(".*\.fastq\.gz$", x)]
+fastqs_temp2 = [x for x in fastqs_temp if re.search(r".*\.fastq\.gz$", x)]
 fastqs = sorted(fastqs_temp2, key=str.lower)
 fastqs = [library_paths['archive'] + "/" +
           file for file in fastqs]
@@ -199,12 +197,8 @@ sample_table.to_csv(f"{library_paths['scratch']}/Config/samples.csv",
                     index=False,
                     na_rep="-",
                     )
-# sample_table.to_csv("/Users/quio/Test_folder_local/samples.csv",
-#                     index=False,
-#                     na_rep="-",
-#                     )
 
-# Final message
+# %% Final message
 print(
     "\n\n"
     "Done! The snakemake pipeline has been copied at the following path: "
@@ -217,6 +211,7 @@ print(
     "https://github.com/PezzaLab/ChIPseq_Analysis_Snakemake\n\n"
     "Thanks and have a nice day!...biaatch!"
 )
+
 
 # Run this script:
 # python /Volumes/Pezza/hpc-nobackup/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow/Scripts/Make_samples_table_lab_library.py
