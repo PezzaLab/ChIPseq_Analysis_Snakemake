@@ -10,14 +10,25 @@ def check_sample_table_format(samples_table):
     """Check if samples_table.csv has been properly filled.
 
     The following conditions should be met:
-    * 'samples_names' do not contain '/', '.', ' ', or finish in '_MERGED'.
-    * 'samples_names':'reference_genome' combinations should not be repeated.
-    *  'merge_with' cannot be the path for a deduplicated/filterted bam file
-    if the sample has drosophila spike-in ().
-    * There must be 2 FASTQs when sample is PE and 1 when it is not.
-    * FASTQ1 != FASTQ2
-    * If 'dros_equalization_group' is not empty, then 'dros_spike_in' == True
-    * Booleans columns should have booleans only
+        * 'samples_names' do not contain '/', '.', ' ', or finish in '_MERGED'.
+        * 'samples_names':'reference_genome' combinations should not be
+            repeated.
+        *  'merge_with' cannot be the path for a deduplicated/filterted bam
+            file if the sample has drosophila spike-in ().
+        * There must be 2 FASTQs when sample is PE and 1 when it is not.
+        * FASTQ1 != FASTQ2
+        * If 'dros_equalization_group' is not empty, then
+            'dros_spike_in' == True
+        * Booleans columns should have boolean values only
+
+    Parameters:
+    -----------
+        samples_table : dataframe produced by reading samples_table.csv 
+            containing samples information.
+
+    Return:
+    -------
+        None
     """
 
     exit_message = ("\n\n The following error/s have been detected on your "
@@ -201,7 +212,6 @@ def get_rv_fw_strand_input(w):
     Wildcards
     ----------
     sample_with_extensions: [^/]+
-        eg. sample1.
 
     Returns
     -------
@@ -580,8 +590,8 @@ def intersect_peaks_HSs_list_input(w):
         "hotspots": hotspots,
         "sample_peaks": (
             f"Results/{w.genomes_not_fused}/Peaks/MACS2/"
-            "{w.peak_type}/{w.peak_params}/Black-grey_filtered/"
-            "{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"
+            f"{w.peak_type}/{w.peak_params}/Black-grey_filtered/"
+            f"{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"
         )
     }
 
@@ -613,8 +623,8 @@ def compute_matrix_outfiles_hs_input(w):
 
     hotspots = config['references']['mm10'][hotspot_protein][w.hs_region]
     bigwig = (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
-              "{w.cov_params}/{w.sample}.{w.genomes_final}{w.extension}"
-              "{w.strand}.bw"
+              f"{w.cov_params}/{w.sample}.{w.genomes_final}{w.extension}"
+              f"{w.strand}.bw"
               )
 
     return {"region": hotspots,
