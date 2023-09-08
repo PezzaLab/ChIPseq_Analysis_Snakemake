@@ -88,7 +88,7 @@ dest_path = library_paths['scratch']
 not_copy = shu.ignore_patterns(
     '.*', 'tmp*', '_*_', 'Test_and_assembly_of_python_code.py',
     'samples_table_processed.csv', 'Results*', 'logs*', '*dry_run*',
-    'commands_develop.sh', 'dag*', 'Test_code*'
+    'commands_develop.sh', 'dag*', 'Test_code*', 'test_FASTQs',
 )
 try:
     shu.copytree(source_path, dest_path, ignore=not_copy)
