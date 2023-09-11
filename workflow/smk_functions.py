@@ -1,9 +1,8 @@
 # TODO: add module docstring
 
 import pandas as pd
-import numpy as np
-import os
 import re
+import sys
 
 
 def check_sample_table_format(samples_table):
@@ -14,7 +13,11 @@ def check_sample_table_format(samples_table):
         * 'samples_names':'reference_genome' combinations should not be
             repeated.
         *  'merge_with' cannot be the path for a deduplicated/filterted bam
-            file if the sample has drosophila spike-in ().
+            file if the sample has drosophila spike-in (). This is because
+            deduplication happens after separation of mm10 and drosohpila 
+            reads.
+        * 'merge_with' must either be a sample_name contained within the 
+            samples_table, or an absolute path.
         * There must be 2 FASTQs when sample is PE and 1 when it is not.
         * FASTQ1 != FASTQ2
         * If 'dros_equalization_group' is not empty, then
@@ -23,7 +26,7 @@ def check_sample_table_format(samples_table):
 
     Parameters:
     -----------
-        samples_table : dataframe produced by reading samples_table.csv 
+        samples_table : dataframe produced by reading samples_table.csv
             containing samples information.
 
     Return:
@@ -35,6 +38,7 @@ def check_sample_table_format(samples_table):
                     "'samples_table.csv' file.\nErrors:\n"
                     )
     exit_script = False
+    # %% Samples names check
     # Check names of samples don't contain / or . or finish in "_MERGED"
     if (samples_table['sample_name'].str.contains(r"\.") |
             samples_table['sample_name'].str.contains("/") |
@@ -46,7 +50,7 @@ def check_sample_table_format(samples_table):
                          " sample names. Modify names and try again\n"
                          )
         exit_script = True
-
+    # %% sample_name:genome unique
     # Check that there is no sample_name:genome combination repeated
     if samples_table.loc[:, ['sample_name',
                              'reference_genome'
@@ -57,23 +61,41 @@ def check_sample_table_format(samples_table):
             "Choose different names for all your samples.\n"
         )
         exit_script = True
-
-    # Check that "merge_with" reference is not a deduplicated/filtered
-    # file for spiked-in samples (it has to be raw bam)
+    # %% Merged samples
     if pd.notnull(samples_table['merge_with']).any():
-        if (
-            samples_table['merge_with'].str.contains(".nodup.") &
+        # Check that "merge_with" reference is not a deduplicated/filtered
+        # file for spiked-in samples (it has to be raw bam)
+        if (samples_table['merge_with'].str.contains(".nodup.") &
                 samples_table['dros_spike_in']).any():
             exit_message += (
                 "* One or more samples' 'merge_with' parameter is a "
                 "deduplicated/filtered bam file AND has drosophila spike in. "
                 "When sample is spiked, the 'merge_with' file has to be the "
-                "raw bam.\n"
+                "raw bam, otherwise you'll loose the drosophila reads.\n"
             )
             exit_script = True
 
-    # Check that there are 2 FASTQs when sample is PE and 1 when is not
+        # Check that to merge samples are either an absolute path or another
+        # sample from samples_table
+        samples_names_not_in_library = []
+        for sample in samples_table['sample_name']:
+            if not pd.isnull(samples_table.loc[sample, 'merge_with']):
+                merge_samples = samples_table.loc[sample, 'merge_with'].split()
+                for merge_sample in merge_samples:
+                    absolute_path = merge_sample[0] == "/"
+                    in_library = merge_sample in samples_table['sample_name']
+                    if not absolute_path and not in_library:
+                        samples_names_not_in_library.append(
+                            f"\t{merge_sample}")
+                        exit_script = True
+        format_samples_not_in_lib = "\n".join(samples_names_not_in_library)
+        exit_message += (
+            "* The following samples are not found at courrent samples table:"
+            f"\n{format_samples_not_in_lib}.\n"
+        ) if len(samples_names_not_in_library) > 0 else ""
 
+    # %% # FASTQs and PE
+    # Check that there are 2 FASTQs when sample is PE and 1 when is not
     if (
         samples_table['PE'] &
             ((samples_table['fastq1'] == "") |
@@ -92,8 +114,7 @@ def check_sample_table_format(samples_table):
         exit_message += "* There is a cell that  is empty. There cannot be any"
         " empty cell. Please fill empty cells with '-'\n"
         exit_script = True
-
-    # Check that both FASTQ files are different
+    # %% FASTQ1 != FASTQ2
     if (samples_table['PE'] &
             (samples_table['fastq1'] == samples_table['fastq2'])).any():
         fastq_comp = samples_table['fastq1'] == samples_table['fastq2']
@@ -105,6 +126,7 @@ def check_sample_table_format(samples_table):
             exit_message += "\t" + i + "\n"
         exit_script = True
 
+    # %% Dros_eq and dros_spike_in
     # Check that the samples with a "dros_equalization_group" have
     # "dros_spike_in" == T (I don't do the complementary becuase you might
     # have the sample to equalize on another library)
@@ -115,9 +137,8 @@ def check_sample_table_format(samples_table):
             "assigned to it but has the field 'dros_spike_in' set as False.\n"
         )
         exit_script = True
-
+    # %% Column type
     # Check that all columns with false-true are actually false true
-    # (check if col == bool)
     booleans_check = samples_table[
         ["PE", "dros_spike_in", "get_single_strand",
          "Clip_reads_to_1bp_on_5_prime", "top5000_HS_heatmap"
@@ -131,11 +152,10 @@ def check_sample_table_format(samples_table):
             " different than 'T', 'F', 'True', 'False', 'TRUE' or 'FALSE'.\n"
         )
         exit_script = True
-
+    # %% Exit
     # Exit if any previous condition is met
     if exit_script:
-        print(exit_message)
-        quit()
+        sys.exit(exit_message)
 
 # %% Functions to get inputs/params
 
@@ -483,7 +503,7 @@ def merge_bams_input(w):
     """Get input for merge_bams rule.
     Information about what to merge is on the 'merge_with' column from 
     samples table, and it should be a space-separated list of sample 
-    names found the same samples table, or absolute patha to files (or both).
+    names found the same samples table, or absolute paths to files (or both).
 
     Wildcards
     ----------
@@ -495,7 +515,7 @@ def merge_bams_input(w):
     Returns
     -------
     samples : List
-        List with pathS OF the raw bam files to be merged.
+        List with paths to the raw bam files to be merged.
     """
     samples_merge = samples_table.loc[w.sample, 'merge_with'].split()
     samples = [f"Results/{w.sample}.{w.genomes_all}.bam"]
