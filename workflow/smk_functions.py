@@ -112,11 +112,6 @@ def check_sample_table_format(samples_table):
             " contains a FASTQ path at column 'fastq2'. Please put it at "
             "column 'fastq1'\n")
         exit_script = True
-    if "" in samples_table.drop(["fastq1", "fastq2"], axis=1).values:
-        exit_message += (
-            "* There is a cell that  is empty. There cannot be "
-            "any empty cell. Please fill empty cells with '-'\n")
-        exit_script = True
     # %% FASTQ1 != FASTQ2
     if (samples_table['PE'] &
             (samples_table['fastq1'] == samples_table['fastq2'])).any():
