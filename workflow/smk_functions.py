@@ -100,19 +100,22 @@ def check_sample_table_format(samples_table):
         samples_table['PE'] &
             ((samples_table['fastq1'] == "") |
              (samples_table['fastq2'] == ""))).any():
-        exit_message += "* At least one sample is set as PE but only contains "
-        "one FASTQ path. Interleaved FASTQs are not supported yet.\n"
+        exit_message += (
+            "* At least one sample is set as PE but only contains"
+            " one FASTQ path. Interleaved FASTQs are not supported yet.\n")
         exit_script = True
         # Above code doesn't work without the extra parentheses on each
         # condition
     if (~samples_table['PE'] & ~samples_table['fastq2'].isna()).any():
-        exit_message += "* At least one sample is set as SR (PE == False) but"
-        " contains a FASTQ path at column 'fastq2'. Please put it at column"
-        " 'fastq1'\n"
+        exit_message += (
+            "* At least one sample is set as SR (PE == False) but"
+            " contains a FASTQ path at column 'fastq2'. Please put it at "
+            "column 'fastq1'\n")
         exit_script = True
     if "" in samples_table.drop(["fastq1", "fastq2"], axis=1).values:
-        exit_message += "* There is a cell that  is empty. There cannot be any"
-        " empty cell. Please fill empty cells with '-'\n"
+        exit_message += (
+            "* There is a cell that  is empty. There cannot be "
+            "any empty cell. Please fill empty cells with '-'\n")
         exit_script = True
     # %% FASTQ1 != FASTQ2
     if (samples_table['PE'] &
