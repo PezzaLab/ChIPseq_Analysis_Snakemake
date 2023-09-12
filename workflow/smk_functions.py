@@ -192,6 +192,37 @@ def align_fastq_input(w):
     return input_
 
 
+def align_fastq_params(w):
+    """Get params for rule align_fastq
+    
+    wildcards
+    ----------
+    genomes_all : mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6|
+                      mm10_x_CAST_EiJ_f_d6|mm10_x_CAST_EiJ
+    sample : [^./ ]+
+
+    Returns
+    -------
+    : 
+        
+    """
+    input2 = ""
+    PE_adaptase = ""
+    if samples_table.loc[w.sample, "PE"]:
+        fastq2 = samples_table.loc[w.sample, "fastq2"]
+        input2 = f"\n\t\t  -I {fastq2} "
+
+    if (samples_table.loc[w.sample, "library_technology"] == "adaptase"):
+        PE_adaptase = ("fastp \\\n"
+                       "\t\t  --stdin \\\n"
+                       "\t\t  --interleaved_in \\\n"
+                       "\t\t  --trim_front2 10 \\\n"
+                       "\t\t  --stdout |"
+                       )
+    return {"input2" : input2,
+            "PE_adaptase" : PE_adaptase}
+    
+
 def call_peaks_macs2_input(w):
     """Get input for call_peaks_macs2 rule.
 

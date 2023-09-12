@@ -209,10 +209,7 @@ rule align_fastq:
                 "{sample}_fastp.html"
             ),
     params:
-        library_tech = lambda w: samples_table.loc[
-            w.sample, "library_technology"],
-        PE = lambda w: str(
-            samples_table.loc[w.sample, "PE"]).lower(),
+        smkf.align_fastq_params
     threads: 2
     envmodules:
         config["fastp"],
@@ -221,36 +218,19 @@ rule align_fastq:
         config["samtools"],
     shell:
         """
-input2=""
-PE_adaptase=""
-echo "determining alignement conditions..."
-if [[ "{params.PE}" == "true" ]]; then
-  input2="-I {input.fastq2} "
-  echo "Data is PE"
-  if [[ "{params.library_tech}" == "adaptase" ]]; then
-PE_adaptase="fastp \\
---stdin \\
---interleaved_in \\
---trim_front2 10 \\
---stdout |"
-echo "Library technology: Adaptase"
-fi
-fi
-echo "finished the first part"
+        fastp \\
+          -i {input.fastq1} {params[0][input2]} \\
+          --html {output.fastp_html} \\
+          --json {output.fastp_json} \\
+          --stdout | 
+        {params[0][PE_adaptase]} \\
+        bwa mem -v 1 -M -p \\
+          -t $SLURM_CPUS_ON_NODE {input.genome_path} - |\\ 
+        samtools sort -@ $SLURM_CPUS_ON_NODE -O bam \\
+          -o {output.bam}"
 
-command="
-fastp \\
--i {input.fastq1} $input2 \\
---html {output.fastp_html} \\
---json {output.fastp_json} \\
---stdout | $PE_adaptase \\
-bwa mem -v 1 -M -p -t $SLURM_CPUS_ON_NODE {input.genome_path} - \\
-| samtools sort -@ $SLURM_CPUS_ON_NODE -O bam -o {output.bam}"
-
-#sambamba sort --nthreads $SLURM_CPUS_ON_NODE -o {output.bam} /dev/stdin 
-# --. Apparently sambamba sort only takes bam files
-
-eval $command
+        #sambamba sort --nthreads $SLURM_CPUS_ON_NODE -o {output.bam} /dev/stdin 
+        # --. Apparently sambamba sort only takes bam files
         """
 
 rule filter_spiked_in_bam_int_genome:
