@@ -148,17 +148,19 @@ wildcard_constraints:
                              "mm10_aligned))|"
         "top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|x_non_par|"
         "autosomal_x_non_par_ctrl"),
-    int_genome="mm10|hg19|hg38|mm10_x_CAST_EiJ",
+    int_genome = "mm10|hg19|hg38|mm10_x_CAST_EiJ",
     library_name = config['library']['name'],
-    peak_params="(bco_[0-9]+_)?qv_[0-9]+__[^/]*",
-    peak_type="narrow|broad",
+    n_ends = "(SE|PE)",
+    peak_params = "(bco_[0-9]+_)?qv_[0-9]+__[^/]*",
+    peak_type = "narrow|broad",
+    read = "[12]{1}",
     strand = "(\.(83-163|99-147|inc_16|exc_16))?",
     spike_genome="d6",
-    sample="[^./ ]+", # Name of files cannot contain . or / or space
-    sample_with_extensions="[^/]+",
-    strands="Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)",
-    ss_PE="83-163|99-147",
-    ss_SR="(inc|exc)_16",
+    sample = "[^./ ]+", # Name of files cannot contain . or / or space
+    sample_with_extensions = "[^/]+",
+    strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)",
+    ss_PE = "83-163|99-147",
+    ss_SR = "(inc|exc)_16",
 # TODO: Automate wildcard constrain expressions for genomes according to
 # info on config or sample file (which genomes are there?)
     
@@ -175,16 +177,82 @@ localrules: filter_peaks_blk_grey_list, filter_peaks_blk_grey_list, \
 
 rule index:
     input:
-        "{sample}.bam"
+        "{sample}.bam",
     output:
-        "{sample,.+}.bam.bai" 
+        "{sample,.+}.bam.bai",
         # In particular case, sample can be anything (path included)
     threads: 2
     envmodules:
-        config['sambamba']
+        config['sambamba'],
     shell:
         """
         sambamba index {input}
+        """
+
+rule trim_adapters_SE:
+    input:
+        lambda w: samples_table.loc[w.sample, "fastq1"],
+    output:
+        fq1 = temp("Results/{sample}.adap_trimmed.R1.SE.fq.gz"),
+        html = "Results/FASTQ_reports/{sample}.SE.fastp.html",
+        json = "Results/FASTQ_reports/{sample}.SE.fastp.json",
+    threads: 2
+    envmodules:
+        config["fastp"],
+    shell:
+        """
+        fastp -i {input} \\
+          --html {output.html} \\
+          --json {output.json} \\
+          -o {output.fq1} \\
+
+          # For SE data, the adapters are evaluated by analyzing the 
+          # tails of first ~1M reads. FASTP has a built-in list of the 
+          # most common adapters used. If adapters are 'weird', you can
+          # specify them using --adapter_sequence option. For this the
+          # snakemake rule should be changed.
+        """
+
+rule trim_adapters_PE:
+    input:
+        unpack(smkf.trim_adapters_PE_input),
+    output:
+        fq1 = temp("Results/{sample}.adap_trimmed.R1.PE.fq.gz"),
+        fq2 = temp("Results/{sample}.adap_trimmed.R2.PE.fq.gz"),
+        html = "Results/FASTQ_reports/{sample}.PE.fastp.html",
+        json = "Results/FASTQ_reports/{sample}.PE.fastp.json",
+    threads: 2
+    envmodules:
+        config["fastp"],
+    shell:
+        """
+        fastp \\
+          -i {input.fastq1} \\
+          -I {input.fastq2} \\
+          --html {output.html} \\
+          --json {output.json} \\
+          -o {output.fq1} \\
+          -O {output.fq2}
+        """
+
+rule trim_adaptase:
+    input:
+        "Results/{sample}.adap_trimmed.R{read}.{n_ends}.fq.gz",
+    output:
+        fq1 = temp("Results/{sample}.adap_trimmed.adaptase_trimmed.R{read}.{n_ends}.fq.gz"),
+    threads: 2
+    envmodules:
+        config["cutadapt"],
+    shell:
+        """
+        cutadapt \\
+          -u 10  \\
+          -o {output} \\
+          {input}
+
+        # -u : remove bases from the beginning or end of each read. If 
+        #      the given length is positive, the bases are removed from 
+        #      the beginning of each read.
         """
 
 rule align_fastq: 
@@ -195,42 +263,22 @@ rule align_fastq:
         unpack(smkf.align_fastq_input),
     output:
         bam = temp("Results/{sample}.{genomes_all}.bam"),
-        fastp_json = (
-            "Results/{genomes_all}/Qctrl/{sample}/Raw_FASTQ/"
-                "{sample}_fastp.json"
-            ), 
-        # TODO: This is actually not right, the fastp report is on the 
-        # FASTQ file, not "raw bam", and should be placed on final 
-        # genomes, not all genomos (drosophila fusions not included). 
-        # So, it should be on: 
-        # "Results/{final_genomes}/Qctrl/{sample}/FASTQ/{sample}_fastp.json"
-        fastp_html = (
-            "Results/{genomes_all}/Qctrl/{sample}/Raw_FASTQ/"
-                "{sample}_fastp.html"
-            ),
-    params:
-        smkf.align_fastq_params
     threads: 2
     envmodules:
-        config["fastp"],
         config["bwa"],
-        config["sambamba"],
         config["samtools"],
     shell:
         """
-        fastp \\
-          -i {input.fastq1} {params[0][input2]} \\
-          --html {output.fastp_html} \\
-          --json {output.fastp_json} \\
-          --stdout | 
-        {params[0][PE_adaptase]} \\
-        bwa mem -v 1 -M -p \\
-          -t $SLURM_CPUS_ON_NODE {input.genome_path} - |\\ 
+        bwa mem -v 1 -M \\
+          -t $SLURM_CPUS_ON_NODE {input.genome_path} \\
+          {input.fq1} {input.fq2} |\\
         samtools sort -@ $SLURM_CPUS_ON_NODE -O bam \\
-          -o {output.bam}"
+          -o {output.bam}
 
-        #sambamba sort --nthreads $SLURM_CPUS_ON_NODE -o {output.bam} /dev/stdin 
-        # --. Apparently sambamba sort only takes bam files
+        # bwa
+            # -M: Mark shorter split hits as secondary (for Picard 
+            #     compatibility)
+
         """
 
 rule filter_spiked_in_bam_int_genome:
@@ -269,11 +317,14 @@ rule filter_spiked_in_bam_spike_in_genome:
     shell:
         """
         spike_chromsomes=$(samtools idxstats {input.bam} | cut -f 1 | \\
-         grep .*{params.spike_suffix} | grep -v \* | paste  -sd ' ')
-        command="sambamba view --nthreads $SLURM_CPUS_PER_TASK --format bam \\
-         -o {output} {input.bam} $spike_chromsomes"
-        echo $command
-        eval $command
+         grep .*{params.spike_suffix} | grep -v \\* | paste  -sd ' ')
+        
+        sambamba view \\
+          --nthreads $SLURM_CPUS_PER_TASK \\
+          --format bam \\
+          -o {output} \\
+          {input.bam} \\
+          $spike_chromsomes
         """
 
 rule dedup_bam: 
@@ -311,7 +362,7 @@ rule filter_bam:
          "Results/{genomes_not_fused}/Bams/Both_strands/"
             "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.bam",
     params:
-        PE = lambda w: str(samples_table.loc[w.sample, "PE"]).lower(),
+        smkf.filter_bam_params
     threads: 2
     envmodules:
         config["samtools"],
@@ -320,27 +371,15 @@ rule filter_bam:
         """
         # Filter out mitochondrial reads
         chromsomes=$(samtools idxstats {input.bam} | cut -f 1 \\
-        | grep -v MT | grep -v chrM | grep -v \* | paste  -sd ' ') 
+        | grep -v MT | grep -v chrM | grep -v \\* | paste  -sd ' ') 
 
-        if [[ "{params.PE}" == "true" ]]; then
-          echo "Data is PE"
-          filter="-F 3852 -f 3"
-        else
-        echo "Data is SR"
-          filter="-F 3844"
-        fi
-
-        command="samtools view \\
-        -q {config[min_mapping_qual]} \\
-        -b \\
-        -@ $SLURM_CPUS_ON_NODE \\
-        ${{filter}} \\
-        -o {output} \\
-        {input.bam} $chromsomes"
-
-        echo "Command:
-        $command"
-        eval $command
+        samtools view \\
+          -q {config[min_mapping_qual]} \\
+          -b \\
+          -@ $SLURM_CPUS_ON_NODE \\
+          {params} \\
+          -o {output} \\
+          {input.bam} $chromsomes
 
         # Flags
             # 3852 = read or mate unmapped, not primary alignement, read fails 
@@ -562,8 +601,7 @@ rule call_peaks_macs2:
          --name {wildcards.sample}.{wildcards.genomes_final}{wildcards.extension}\\
          -t {input.treat_bam} {params[0][ctrl]} \\
          -g {params[0][genome]} \\
-         {params[0][qv_bco]} {params[0][PE]} {params[0][peak_type_options]} \\
-         {params[0][extension]}
+         {params[0][qv_bco]} {params[0][PE]} {params[0][peak_type_options]} {params[0][extension]}
         """
 
 rule filter_peaks_blk_grey_list:
@@ -827,6 +865,10 @@ rule library_complexity_picard:
 rule multiqc:
     input:
         expand(
+            "Results/FASTQ_reports/{sample}_fastp.json",
+            sample = samples_table['sample_name'].tolist()
+        ),
+        expand(
             "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
                 "{sample}.crosscorrelation.spp.out",
             sample = samples_table['sample_name'].tolist()
@@ -877,7 +919,7 @@ config_file_path="$(pwd)/Config/multiqc_config.yaml"
 cd Results/{wildcards.genomes_not_fused}/Qctrl && \
 multiqc --dirs --dirs-depth 1 \\
  --filename "multiqc_report_{wildcards.library}.html" \\
- --config $config_file_path ./
+ --config $config_file_path ./ ../../FASTQ_reports
 # --dirs       : use directory name as part of sample name 
 #               (not to overwrite data with same file name)
 # --dirs-depth : how many directories should be used for the name of 

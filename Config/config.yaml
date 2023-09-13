@@ -3,7 +3,7 @@ library:
   general_info: "Whatever info you want to add about this library"
 
 # Should quality control analysis be done?
-qctrl: False
+qctrl: True
 
 # Reference genomes' paths
 genomes:
@@ -117,4 +117,5 @@ bioconductor: "bioconductor/3.14"
 phantompeakqualtools: "phantompeakqualtools/1.2"
 macs2: "macs2/2.2.7.1"
 bamutil: "bamutil/1.0.15"
+cutadapt: "cutadapt/3.7"
 

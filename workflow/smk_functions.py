@@ -14,9 +14,9 @@ def check_sample_table_format(samples_table):
             repeated.
         *  'merge_with' cannot be the path for a deduplicated/filterted bam
             file if the sample has drosophila spike-in (). This is because
-            deduplication happens after separation of mm10 and drosohpila 
+            deduplication happens after separation of mm10 and drosohpila
             reads.
-        * 'merge_with' must either be a sample_name contained within the 
+        * 'merge_with' must either be a sample_name contained within the
             samples_table, or an absolute path.
         * There must be 2 FASTQs when sample is PE and 1 when it is not.
         * FASTQ1 != FASTQ2
@@ -172,56 +172,28 @@ def align_fastq_input(w):
     input_: dictionary
         Fastq/s path/s, taken from samples_table.csv
     """
-    # Cannot return fastq2="" because then snakemake looks for "" file.
-    # And if I return only fastq1, then in the shell I am searching for
-    # input.fastq2, which is not there
     input_ = {"genome_path": config['genomes'][w.genomes_all]}
+    seq_tech = ""
+
+    if (samples_table.loc[w.sample, "library_technology"] == "adaptase"):
+        seq_tech = ".adaptase_trimmed"
 
     if samples_table.loc[w.sample, "PE"]:
-        input_ |= {
-            "fastq1": samples_table.loc[w.sample, "fastq1"],
-            "fastq2": samples_table.loc[w.sample, "fastq2"],
-        }
+        fq1 = (f"Results/{w.sample}.adap_trimmed{seq_tech}.R1."
+               "PE.fq.gz")
+        fq2 = (f"Results/{w.sample}.adap_trimmed{seq_tech}.R2."
+               "PE.fq.gz")
     else:
-        input_ |= {
-            "fastq1": samples_table.loc[w.sample, "fastq1"],
-            "fastq2": []}
+        fq1 = (f"Results/{w.sample}.adap_trimmed{seq_tech}.R1."
+               "SE.fq.gz")
+        fq2 = []
+
         # Cannot use "" here because snakemake will look for "" file
         # and give a "missing input" error. Instead, it returns
         # an empty list
+    input_ |= {"fq1": fq1, "fq2": fq2}
     return input_
 
-
-def align_fastq_params(w):
-    """Get params for rule align_fastq
-    
-    wildcards
-    ----------
-    genomes_all : mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6|
-                      mm10_x_CAST_EiJ_f_d6|mm10_x_CAST_EiJ
-    sample : [^./ ]+
-
-    Returns
-    -------
-    : 
-        
-    """
-    input2 = ""
-    PE_adaptase = ""
-    if samples_table.loc[w.sample, "PE"]:
-        fastq2 = samples_table.loc[w.sample, "fastq2"]
-        input2 = f"\n\t\t  -I {fastq2} "
-
-    if (samples_table.loc[w.sample, "library_technology"] == "adaptase"):
-        PE_adaptase = ("fastp \\\n"
-                       "\t\t  --stdin \\\n"
-                       "\t\t  --interleaved_in \\\n"
-                       "\t\t  --trim_front2 10 \\\n"
-                       "\t\t  --stdout |"
-                       )
-    return {"input2" : input2,
-            "PE_adaptase" : PE_adaptase}
-    
 
 def call_peaks_macs2_input(w):
     """Get input for call_peaks_macs2 rule.
@@ -253,6 +225,151 @@ def call_peaks_macs2_input(w):
             "ctrl_bai": ctrl_bai
         }
     return input_
+
+
+def compute_matrix_outfiles_hs_input(w):
+    """Get input for rule compute_matrix_outfiles_hs.
+
+    Wildcards
+    ----------
+    sample : [^./ ]+
+    hs_region : B6xCAST_(top_5000_pm_1000bp|
+                         PRDM9_assymetric_hs_((invading|receiving)_strand|
+                                              mm10_aligned)
+                         )|
+                top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|
+                x_non_par|autosomal_x_non_par_ctrl
+    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+
+    Returns
+    -------
+    dict
+        'region', path to bed file with hotspots coordinates
+        'bigwig', path to bigwig file
+
+    """
+    hotspot_protein = "spo11"
+    if samples_table.loc[w.sample, 'B6xCAST']:
+        hotspot_protein = "dmc1"
+
+    hotspots = config['references']['mm10'][hotspot_protein][w.hs_region]
+    bigwig = (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
+              f"{w.cov_params}/{w.sample}.{w.genomes_final}{w.extension}"
+              f"{w.strand}.bw"
+              )
+
+    return {"region": hotspots,
+            "bigwig": bigwig}
+
+
+def dros_normalization_input(w):
+    r"""Get input for dros_normalization rule
+
+    Wildcards
+    ----------
+    strand : (\.(83-163|99-147|inc_16|exc_16))?
+    sample : [^./ ]+
+    dros_eq_group : [^./ ]+
+
+    Returns
+    -------
+    Dictionary
+        'report', path to a csv file containing the drosophila normalization
+            factors.
+        'bam', bam file to normalize
+        'bai', index file of bam to normalize
+    """
+    if w.strand == "":
+        bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
+    elif ("83-163" in w.strand) | ("inc_16" in w.strand):
+        bam = samples_table_2.loc[w.sample, 'ss_83_or_i16_bam']
+    elif ("99-147" in w.strand) | ("exc_16" in w.strand):
+        bam = samples_table_2.loc[w.sample, 'ss_99_or_e16_bam']
+
+    bai = bam + ".bai"
+    return {
+        "report": ("Results/d6/Analysis/drosophila_normalization/"
+                   f"{w.dros_eq_group}/drosophila_equalization_report.tsv"),
+        "bam": bam,
+        "bai": bai
+    }
+
+
+def dros_normalization_report_input(w):
+    """Get input for rule dros_normalization_report.
+
+    Wildcards
+    ----------
+    dros_eq_group : [^./ ]+
+
+    Returns
+    -------
+    List
+        Paths to outputs of samtools_flagstat of samples to be normalized on a
+            given 'dros_equalization_group'.
+    """
+    df = samples_table_2.loc[
+        samples_table_2['dros_equalization_group'].str.match(
+            w.dros_eq_group, na=False
+        ), :]
+    return df['processed_flagstat_dros'].tolist()
+
+
+def filter_bam_params(w):
+    """Assemble part of the bash commands as params in rule filter_bam
+
+    Wildcards
+    ----------
+    sample: [^./ ]+
+    genomes_not_fused: "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ"
+    genomes_final:(
+        "(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+"
+        "(_f_d6\.((?P=interest_genome)|d6))?(?=\.)")
+
+    Returns
+    -------
+    string
+        Filtering options for samtools view (-F and -f), according to wether the sample is
+        SE or PE.
+    """
+    if samples_table.loc[w.sample, "PE"] :
+        filter_="-F 3852 -f 3"
+    else:
+        filter_="-F 3844"
+    return filter_
+
+
+def FRIP_input(w):
+    r"""Get input for FRIP rule.
+
+    Wildcards
+    ----------
+    sample : [^./ ]+
+    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_final : (?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+
+                        (_f_d6\.((?P=interest_genome)|d6))?(?=\.)"
+    extension : (\.q_filt\.srt\.nodup\.mit_filt)?
+    peak_type : narrow|broad
+    peak_params : (bco_[0-9]+_)?qv_[0-9]+__[^/]*
+    extension : (\.q_filt\.srt\.nodup\.mit_filt)?
+
+    Returns
+    -------
+    dict
+        'peak', path to peaks bed file
+        'bam', path to bam file
+        'bai', path to bai file
+    """
+    sample = samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"]
+    bam = (f"Results/{w.genomes_not_fused}/Bams/Both_strands/" +
+           f"{w.sample}.{w.genomes_final}{w.extension}.bam")
+
+    return {"peak": (f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type}"
+                     f"/{w.peak_params}/Black-grey_filtered/{w.sample}."
+                     f"{w.genomes_final}{w.extension}.{w.peak_type}Peak"),
+            "bam": bam,
+            "bai": bam + ".bai"
+            }
 
 
 def get_rv_fw_strand_input(w):
@@ -329,100 +446,37 @@ def get_call_peaks_macs2_params(w):
         "ctrl": ctrl}
 
 
-def process_aggregate_profiles_inputs(w):
-    """Get inputs for rule process_aggregate_profiles.
+def intersect_peaks_HSs_list_input(w):
+    r"""Get input for intersect_peaks_HSs_list rule.
 
-    Wildcards
-    ----------
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
-    hs_region : B6xCAST_(top_5000_pm_1000bp|
-                         PRDM9_assymetric_hs_((invading|receiving)_strand|
-                                              mm10_aligned))|
-                top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|
-                x_non_par|autosomal_x_non_par_ctrl
-
-    Returns
-    -------
-    matrixes_list : List
-        Contains all matrixes' paths for all the 
-        sample/strand combinations possible for one particular hostpots list 
-        (top_5000_plus_minus_2000, x_non_par, etc.).
-
-    Matrixes paths are taken from samples_table_2. So, the actual decition of
-    which sample will have a matrix in which hotspot list and in which strands
-    is actually taking place during samples_table_2 generation 
-    (suffixes.generate_samples_table_2())
-    """
-
-    matrixes_df = samples_table_2.filter(
-        regex=f"^{w.hs_region}.*matrix$"
-    )
-    matrixes_array = matrixes_df.to_numpy().ravel()
-    matrixes_list = matrixes_array[~pd.isnull(matrixes_array)].tolist()
-    return matrixes_list
-
-
-def sumarize_peak_count_input(w):
-    """Get input for rule sumarize_peak_count.
-
-    Wildcards
-    ----------
-    genomes_not_fused: mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
-
-    Returns
-    -------
-    peaks : dictionary
-        Contains 4 lists: combinatorial of narrow|broad and 
-        black_grey-filtered|black_gery-filtered-hs-intersected
-    """
-    genome_filtered = samples_table_2[
-        samples_table_2['reference_genome'] == w.genomes_not_fused
-    ]
-    peak_types = ["narrow", "broad"]
-    peaks = {}
-    for peak_type in peak_types:
-        peaks |= {
-            f"{peak_type}_all": genome_filtered.loc[
-                genome_filtered[f'{peak_type}_peak_bl_gr_flt'].notnull(),
-                f'{peak_type}_peak_bl_gr_flt'].values.tolist(),
-            f"{peak_type}_hs": genome_filtered.loc[
-                genome_filtered[
-                    f'{peak_type}_peak_bl_gr_flt_hs_int'].notnull(),
-                f'{peak_type}_peak_bl_gr_flt_hs_int'].values.tolist(),
-        }
-    return peaks
-
-
-def samstats_samtools_flagstat_input(w):
-    """Get input for rules samstats and samtools_flagstat.
-
-    Wildcards
+    Parameters
     ----------
     sample : [^./ ]+
     genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
-    bam_type : Raw_bam|Processed_bam
+    peak_type: narrow|broad
+    peak_params: (bco_[0-9]+_)?qv_[0-9]+__[^/]*
+    genomes_final : genomes_final="(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+(_f_d6\.((?P=interest_genome)|d6))?(?=\.)",
+    extension : (\.q_filt\.srt\.nodup\.mit_filt)?
 
     Returns
     -------
-    dictionary
-        Bam and bai paths.
+    dict
+        'hotspots', path to hotspots (from either mm10 or B6xCAST) bed file
+        'sample_peaks', path to peaks bed file
     """
-    genome = samples_table.loc[w.sample, 'reference_genome']
-    if f"{w.bam_type}" == 'Raw_bam':
-        if w.genomes_not_fused != "d6":
-            bam = samples_table_2.loc[w.sample, 'raw_bam']
-        else:
-            bam = f"Results/{w.w.sample}.{genome}_f_d6.d6.bam"
+    if samples_table.loc[w.sample, 'B6xCAST']:
+        hotspots = config[
+            'references']['mm10']['dmc1']['B6xCAST_top_5000_pm_1000bp']
     else:
-        if w.genomes_not_fused != "d6":
-            bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
-        else:
-            bam = (f"Results/d6/Bams/Both_strands/{w.sample}.{genome}_f_d6.d6."
-                   "q_filt.srt.nodup.mit_filt.bam")
-    bai = f"{bam}.bai"
+        hotspots = config[
+            'references']['mm10']['spo11']['top_5000_plus_minus_2000']
     return {
-        "bam": bam,
-        "bai": bai
+        "hotspots": hotspots,
+        "sample_peaks": (
+            f"Results/{w.genomes_not_fused}/Peaks/MACS2/"
+            f"{w.peak_type}/{w.peak_params}/Black-grey_filtered/"
+            f"{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"
+        )
     }
 
 
@@ -455,7 +509,7 @@ def markdown_report_aggregate_profiles_input(w):
             containing the aggreagte profiles of all samples aligned to
             B6xCAST fused genome, in B6xCAST hotspots that bind PRDM9
             asymmetrically, on the invading strand.
-        'B6xCAST_PRDM9_assymetric_hs_receiving_strand', same as previous but 
+        'B6xCAST_PRDM9_assymetric_hs_receiving_strand', same as previous but
             receiving/template strand.
         'B6xCAST_PRDM9_assymetric_hs_mm10_aligned', path to .RData object
             containing the aggreagte profiles of all samples from B6xCAST mice,
@@ -529,9 +583,9 @@ def markdown_report_aggregate_profiles_input(w):
 
 
 def merge_bams_input(w):
-    """Get input for merge_bams rule.
-    Information about what to merge is on the 'merge_with' column from 
-    samples table, and it should be a space-separated list of sample 
+    r"""Get input for merge_bams rule.
+    Information about what to merge is on the 'merge_with' column from
+    samples table, and it should be a space-separated list of sample
     names found the same samples table, or absolute paths to files (or both).
 
     Wildcards
@@ -559,155 +613,114 @@ def merge_bams_input(w):
     return samples
 
 
-def dros_normalization_report_input(w):
-    """Get input for rule dros_normalization_report.
+def process_aggregate_profiles_inputs(w):
+    """Get inputs for rule process_aggregate_profiles.
 
     Wildcards
     ----------
-    dros_eq_group : [^./ ]+
+    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    hs_region : B6xCAST_(top_5000_pm_1000bp|
+                         PRDM9_assymetric_hs_((invading|receiving)_strand|
+                                              mm10_aligned))|
+                top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|
+                x_non_par|autosomal_x_non_par_ctrl
 
     Returns
     -------
-    List
-        Paths to outputs of samtools_flagstat of samples to be normalized on a
-            given 'dros_equalization_group'.    
+    matrixes_list : List
+        Contains all matrixes' paths for all the
+        sample/strand combinations possible for one particular hostpots list
+        (top_5000_plus_minus_2000, x_non_par, etc.).
+
+    Matrixes paths are taken from samples_table_2. So, the actual decition of
+    which sample will have a matrix in which hotspot list and in which strands
+    is actually taking place during samples_table_2 generation
+    (suffixes.generate_samples_table_2())
     """
-    df = samples_table_2.loc[
-        samples_table_2['dros_equalization_group'].str.match(
-            w.dros_eq_group, na=False
-        ), :]
-    return df['processed_flagstat_dros'].tolist()
+
+    matrixes_df = samples_table_2.filter(
+        regex=f"^{w.hs_region}.*matrix$"
+    )
+    matrixes_array = matrixes_df.to_numpy().ravel()
+    matrixes_list = matrixes_array[~pd.isnull(matrixes_array)].tolist()
+    return matrixes_list
 
 
-def dros_normalization_input(w):
-    """Get input for dros_normalization rule
+def sumarize_peak_count_input(w):
+    """Get input for rule sumarize_peak_count.
 
     Wildcards
     ----------
-    strand : (\.(83-163|99-147|inc_16|exc_16))?
+    genomes_not_fused: mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+
+    Returns
+    -------
+    peaks : dictionary
+        Contains 4 lists: combinatorial of narrow|broad and
+        black_grey-filtered|black_gery-filtered-hs-intersected
+    """
+    genome_filtered = samples_table_2[
+        samples_table_2['reference_genome'] == w.genomes_not_fused
+    ]
+    peak_types = ["narrow", "broad"]
+    peaks = {}
+    for peak_type in peak_types:
+        peaks |= {
+            f"{peak_type}_all": genome_filtered.loc[
+                genome_filtered[f'{peak_type}_peak_bl_gr_flt'].notnull(),
+                f'{peak_type}_peak_bl_gr_flt'].values.tolist(),
+            f"{peak_type}_hs": genome_filtered.loc[
+                genome_filtered[
+                    f'{peak_type}_peak_bl_gr_flt_hs_int'].notnull(),
+                f'{peak_type}_peak_bl_gr_flt_hs_int'].values.tolist(),
+        }
+    return peaks
+
+
+def samstats_samtools_flagstat_input(w):
+    """Get input for rules samstats and samtools_flagstat.
+
+    Wildcards
+    ----------
     sample : [^./ ]+
-    dros_eq_group : [^./ ]+
+    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    bam_type : Raw_bam|Processed_bam
 
     Returns
     -------
-    Dictionary
-        'report', path to a csv file containing the drosophila normalization 
-            factors.
-        'bam', bam file to normalize
-        'bai', index file of bam to normalize
+    dictionary
+        Bam and bai paths.
     """
-    if w.strand == "":
-        bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
-    elif ("83-163" in w.strand) | ("inc_16" in w.strand):
-        bam = samples_table_2.loc[w.sample, 'ss_83_or_i16_bam']
-    elif ("99-147" in w.strand) | ("exc_16" in w.strand):
-        bam = samples_table_2.loc[w.sample, 'ss_99_or_e16_bam']
-
-    bai = bam + ".bai"
+    genome = samples_table.loc[w.sample, 'reference_genome']
+    if f"{w.bam_type}" == 'Raw_bam':
+        if w.genomes_not_fused != "d6":
+            bam = samples_table_2.loc[w.sample, 'raw_bam']
+        else:
+            bam = f"Results/{w.w.sample}.{genome}_f_d6.d6.bam"
+    else:
+        if w.genomes_not_fused != "d6":
+            bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
+        else:
+            bam = (f"Results/d6/Bams/Both_strands/{w.sample}.{genome}_f_d6.d6."
+                   "q_filt.srt.nodup.mit_filt.bam")
+    bai = f"{bam}.bai"
     return {
-        "report": f"Results/d6/Analysis/drosophila_normalization/{w.dros_eq_group}/drosophila_equalization_report.tsv",
         "bam": bam,
         "bai": bai
     }
 
 
-def intersect_peaks_HSs_list_input(w):
-    """Get input for intersect_peaks_HSs_list rule.
+def trim_adapters_PE_input(w):
+    """Get FASTQ paths for trim_adapters_PE rule
 
-    Parameters
+    wildcards
     ----------
     sample : [^./ ]+
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
-    peak_type: narrow|broad
-    peak_params: (bco_[0-9]+_)?qv_[0-9]+__[^/]*
-    genomes_final : genomes_final="(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+(_f_d6\.((?P=interest_genome)|d6))?(?=\.)",
-    extension : (\.q_filt\.srt\.nodup\.mit_filt)?
 
     Returns
     -------
-    dict
-        'hotspots', path to hotspots (from either mm10 or B6xCAST) bed file
-        'sample_peaks', path to peaks bed file
+    input_: dictionary
+        Fastq/s path/s, taken from samples_table.csv
     """
-    if samples_table.loc[w.sample, 'B6xCAST']:
-        hotspots = config[
-            'references']['mm10']['dmc1']['B6xCAST_top_5000_pm_1000bp']
-    else:
-        hotspots = config[
-            'references']['mm10']['spo11']['top_5000_plus_minus_2000']
-    return {
-        "hotspots": hotspots,
-        "sample_peaks": (
-            f"Results/{w.genomes_not_fused}/Peaks/MACS2/"
-            f"{w.peak_type}/{w.peak_params}/Black-grey_filtered/"
-            f"{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"
-        )
-    }
-
-
-def compute_matrix_outfiles_hs_input(w):
-    """Get input for rule compute_matrix_outfiles_hs.
-
-    Wildcards
-    ----------
-    sample : [^./ ]+
-    hs_region : B6xCAST_(top_5000_pm_1000bp|
-                         PRDM9_assymetric_hs_((invading|receiving)_strand|
-                                              mm10_aligned)
-                         )|
-                top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|
-                x_non_par|autosomal_x_non_par_ctrl
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
-
-    Returns
-    -------
-    dict
-        'region', path to bed file with hotspots coordinates
-        'bigwig', path to bigwig file
-
-    """
-    hotspot_protein = "spo11"
-    if samples_table.loc[w.sample, 'B6xCAST']:
-        hotspot_protein = "dmc1"
-
-    hotspots = config['references']['mm10'][hotspot_protein][w.hs_region]
-    bigwig = (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
-              f"{w.cov_params}/{w.sample}.{w.genomes_final}{w.extension}"
-              f"{w.strand}.bw"
-              )
-
-    return {"region": hotspots,
-            "bigwig": bigwig}
-
-
-def FRIP_input(w):
-    """Get input for FRIP rule.
-
-    Wildcards
-    ----------
-    sample : [^./ ]+
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
-    genomes_final : (?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+
-                        (_f_d6\.((?P=interest_genome)|d6))?(?=\.)"
-    extension : (\.q_filt\.srt\.nodup\.mit_filt)?
-    peak_type : narrow|broad
-    peak_params : (bco_[0-9]+_)?qv_[0-9]+__[^/]*
-    extension : (\.q_filt\.srt\.nodup\.mit_filt)?
-
-    Returns
-    -------
-    dict
-        'peak', path to peaks bed file
-        'bam', path to bam file
-        'bai', path to bai file
-    """
-    sample = samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"]
-    bam = (f"Results/{w.genomes_not_fused}/Bams/Both_strands/" +
-           f"{w.sample}.{w.genomes_final}{w.extension}.bam")
-
-    return {"peak": (f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type}"
-                     f"/{w.peak_params}/Black-grey_filtered/{w.sample}."
-                     f"{w.genomes_final}{w.extension}.{w.peak_type}Peak"),
-            "bam": bam,
-            "bai": bam + ".bai"
-            }
+    return {"fastq1": samples_table.loc[w.sample, "fastq1"],
+              "fastq2": samples_table.loc[w.sample, "fastq2"]}
