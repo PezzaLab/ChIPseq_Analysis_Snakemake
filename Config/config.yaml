@@ -102,20 +102,18 @@ aggregate_profiles:
 ######################
 #### ENV. MODULES ####
 ######################
-
-sambamba: "sambamba/0.8.2"
-fastp: "fastp/0.23.2"
-bwa: "bwa/0.7.15"
-samtools: "samtools/1.14"
-picard: "picard/2.21.2"
-deeptools: "deeptools/3.4.3"
-multiqc: "multiqc/1.8"
-bedtools: "bedtools/2.30.0"
-homer: "homer/4.7"
-R: "R/4.1.2-mkl"
-bioconductor: "bioconductor/3.14"
-phantompeakqualtools: "phantompeakqualtools/1.2"
-macs2: "macs2/2.2.7.1"
 bamutil: "bamutil/1.0.15"
+bedtools: "bedtools/2.30.0"
+bioconductor: "bioconductor/3.14"
+bwa: "bwa/0.7.15"
 cutadapt: "cutadapt/3.7"
-
+deeptools: "deeptools/3.4.3"
+fastp: "fastp/0.23.2"
+homer: "homer/4.7"
+macs2: "macs2/2.2.7.1"
+multiqc: "multiqc/1.15"
+phantompeakqualtools: "phantompeakqualtools/1.2"
+picard: "picard/2.21.2"
+R: "R/4.1.2-mkl"
+samtools: "samtools/1.14"
+sambamba: "sambamba/0.8.2"
