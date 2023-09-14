@@ -612,64 +612,6 @@ def merge_bams_input(w):
             samples += [second_bam]
     return samples
 
-def multiqc_input(w):
-    """Get path of all input files for rule multiqc
-    
-    Wildcards
-    ----------
-    w : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    input_ : TYPE
-        DESCRIPTION.
-
-    """
-    input_ = (
-        expand(
-            "Results/FASTQ_reports/{sample}_fastp.json",
-            sample=samples_table['sample_name'].tolist()
-        )
-        + expand(
-            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
-            "{sample}.crosscorrelation.spp.out",
-            sample=samples_table['sample_name'].tolist()
-        )
-        + expand(
-            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
-            "{sample}.insert_size_picard.tab",
-            sample=samples_table.loc[
-                samples_table['PE'],
-                'sample_name',
-            ].tolist()
-        )
-        + expand(
-            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Raw_bam/"
-            "{sample}.picard_library_complexity.tab",
-            sample=samples_table.loc[
-                ~samples_table['sample_name'].str.endswith("MERGED"),
-                'sample_name',
-            ].to_list()
-        )
-        + expand(
-            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
-            "{sample}.{ext}",
-            sample=samples_table['sample_name'].tolist(),
-            ext=["samstats.txt", "flagstat.txt"],
-        )
-        + expand(
-            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Raw_bam/"
-            "{sample}.{ext}",
-            sample=samples_table.loc[
-                ~samples_table['sample_name'].str.endswith("MERGED"),
-                'sample_name',
-            ].to_list(),
-            ext=["samstats.txt", "flagstat.txt"]
-        )
-    )
-    return input_
-
     
 def process_aggregate_profiles_inputs(w):
     """Get inputs for rule process_aggregate_profiles.
