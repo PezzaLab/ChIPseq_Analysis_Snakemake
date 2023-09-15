@@ -201,7 +201,9 @@ rule trim_adapters_SE:
         config["fastp"],
     shell:
         """
-        fastp -i {input} \\
+        fastp \\
+          --thread $SLURM_CPUS_ON_NODE \\
+          -i {input} \\
           --html {output.html} \\
           --json {output.json} \\
           -o {output.fq1} \\
@@ -227,6 +229,7 @@ rule trim_adapters_PE:
     shell:
         """
         fastp \\
+          --thread $SLURM_CPUS_ON_NODE \\
           -i {input.fastq1} \\
           -I {input.fastq2} \\
           --html {output.html} \\
@@ -246,6 +249,7 @@ rule trim_adaptase:
     shell:
         """
         cutadapt \\
+          --cores 0 \\
           -u 10  \\
           -o {output} \\
           {input}
@@ -253,6 +257,7 @@ rule trim_adaptase:
         # -u : remove bases from the beginning or end of each read. If 
         #      the given length is positive, the bases are removed from 
         #      the beginning of each read.
+        # --cores: Use 0 to auto-detect the number of available cores
         """
 
 rule align_fastq: 
