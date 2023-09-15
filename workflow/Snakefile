@@ -865,9 +865,10 @@ rule library_complexity_picard:
 rule multiqc:
     input:
         expand(
-            "Results/FASTQ_reports/{sample}_fastp.json",
-            sample = samples_table['sample_name'].tolist()
-        ),
+            "Results/FASTQ_reports/{sample}.{PE}.fastp.json",
+            sample = samples_table['sample_name'].tolist(),
+            PE = "PE" if samples_table['PE'].all() else "SE"
+            ),
         expand(
             "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
                 "{sample}.crosscorrelation.spp.out",
