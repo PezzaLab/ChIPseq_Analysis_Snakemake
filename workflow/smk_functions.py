@@ -23,6 +23,7 @@ def check_sample_table_format(samples_table):
         * If 'dros_equalization_group' is not empty, then
             'dros_spike_in' == True
         * Booleans columns should have boolean values only
+        * 'peak_ctrl_file_alias' should not contain '/', '.' or ' '
 
     Parameters:
     -----------
@@ -34,8 +35,8 @@ def check_sample_table_format(samples_table):
         None
     """
 
-    exit_message = ("\n\n The following error/s have been detected on your "
-                    "'samples_table.csv' file.\nErrors:\n"
+    exit_message = ("\n\nThe following error/s have been detected on your "
+                    "'samples_table.csv' file:\n"
                     )
     exit_script = False
     # %% Samples names check
@@ -150,6 +151,20 @@ def check_sample_table_format(samples_table):
             " different than 'T', 'F', 'True', 'False', 'TRUE' or 'FALSE'.\n"
         )
         exit_script = True
+    # %% peak_ctrl_file_alias
+    bad_samples = samples_table.loc[
+        samples_table['peak_ctrl_file_alias'].str.contains("/|\\.| ",
+                                                           regex=True,
+                                                           na=False)]
+    if len(bad_samples) > 0:
+        exit_message += (
+            "* The following samples have incorrect values on column "
+            "'peak_ctrl_file_alias:'\n"
+            )
+        for i in bad_samples.index:
+            exit_message += "\t" + i + "\n"
+        exit_script = True
+
     # %% Exit
     # Exit if any previous condition is met
     if exit_script:
@@ -612,7 +627,7 @@ def merge_bams_input(w):
             samples += [second_bam]
     return samples
 
-    
+
 def process_aggregate_profiles_inputs(w):
     """Get inputs for rule process_aggregate_profiles.
 
