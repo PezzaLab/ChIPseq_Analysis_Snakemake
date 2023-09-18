@@ -152,10 +152,12 @@ def check_sample_table_format(samples_table):
         )
         exit_script = True
     # %% peak_ctrl_file_alias
+    # Convert peak_ctrl_file_alias series to str (in case it's all NaN values)
+    peak_ctrls = samples_table['peak_ctrl_file_alias'].astype(str)
+    # Get list of wrongly filled samples
     bad_samples = samples_table.loc[
-        samples_table['peak_ctrl_file_alias'].str.contains("/|\\.| ",
-                                                           regex=True,
-                                                           na=False)]
+        peak_ctrls.str.contains("/|\\.| ",regex=True,na=False)]
+    # If necessary, assemble exit message
     if len(bad_samples) > 0:
         exit_message += (
             "* The following samples have incorrect values on column "
