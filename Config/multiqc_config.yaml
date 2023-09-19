@@ -13,13 +13,19 @@ extra_fn_clean_exts:
   - type: regex
     pattern: "_S[0-9]+_R[12]_[0-9]+"
 
-# Sample buttons for filtering in html report (it is not working for some reason..)
-show_hide_buttons:
-  - "Cut&run"
-show_hide_mode:
-  - show_re
-show_hide_patterns:
-  - ".*CyR.*"
+# Sample buttons for filtering in html report
+show_hide_buttons: # legend of buttons used to filter samples
+  - Cut&run
+  - ATAC-seq
+  - ChIP-seq
+show_hide_mode: # 'show' or 'hide' samples that match criteria below
+  - show
+  - show
+  - hide
+show_hide_patterns: # Regex to filter samples
+  - CyR
+  - ATAC
+  - ["CyR", "ATAC"]
 
 # Remove sections
 remove_sections:
