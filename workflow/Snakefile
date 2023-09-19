@@ -721,7 +721,7 @@ rule dros_normalization:
          {{print $4}}' {input.report})
 
         if [ -z "${{scaleFactor}}" ]; then
-            echo "Empty/non-existent scale factor. 
+            echo "Empty/non-existent scale factor." 
             echo "Most likely there were no drosophila reads on your sample"
             exit 1
         fi
