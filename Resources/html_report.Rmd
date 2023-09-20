@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = F)
 ```
 ```{r,include=F, eval=T}
-save.image("html_report_image.RData")
+# save.image("html_report_image.RData")
 ```
 
 ```{r, libraries, message=F, error=F}
@@ -98,7 +98,7 @@ if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
 # Peak summary
   # Peaks found at "Results/{genomes_not_fused}/Analysis/Peaks_summary.tsv"
 if (is.null(snakemake@input[["peaks_summary"]])){
-  no_peaks <- "No peaks were asked for" 
+  "No peaks were asked for" 
 } else{
   peaks <- read_tsv(snakemake@input[["peaks_summary"]])
   peaks_sorted <- 
@@ -112,26 +112,20 @@ if (is.null(snakemake@input[["peaks_summary"]])){
 ## Number of reads in fastq and in final bam  
 How may reads were in the fastq used for alignment (after fastp filtering), and how many primary reads on the final filtered BAM file.  
 ```{r, get_number_of_reads}
-# Fastp
-# files_fastp <-
-#   list.files(path = "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/Snake_make/Results/mm10",
-#     full.names = T,
-#     recursive = T) %>% 
-#   grep("_fastp\\.json",., value =T)
-
+# Get fastp summary json files
 files_fastp <-  
   list.files(path = "Results",
     full.names = T,
     recursive = T) %>% 
-  grep("_fastp\\.json$",., value =T)
-  
+  grep("fastp\\.json$",., value =T)
 
-files_fastp_names <-  
-  files_fastp %>% 
-  basename %>% 
-  str_remove("_fastp.json")
+files_fastp_names <-
+  files_fastp %>%
+  basename %>%
+  str_remove(".fastp.json")
 
-FASTQ_reads <- 
+# Get number of reads in FASTQ file from fastp json files
+FASTQ_reads <-
   map_dbl(files_fastp,
           ~fromJSON(file = .) %>%
             .[['read1_after_filtering']] %>%
@@ -143,7 +137,7 @@ results_reads_filtered_FASTQs <-
          "# R1 in filtered FASTQ" = FASTQ_reads)
 
 # Final bam file
-  # Get the info from the field "read1" (since they should al be properly paired).
+  # Get the info from the field "read1" (since they should all be properly paired).
 get_read1_number <- 
   function(flagstat_text){
     read1 <- readLines(flagstat_text) %>% 
@@ -163,18 +157,6 @@ get_read1_number <-
       round(1) %>% 
       format(nsmall = 2)
 }
-
-# bam_read_files <- 
-#   list.files(path = "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/Snake_make/Results/mm10/Qctrl",
-#              recursive = T,
-#              full.names = T) %>% 
-#   grep("Processed_bam.*flagstat\\.txt",., value =T)
-
-# snakemake@input[["bamfiles_reads"]]
-  # list.files(path = "Results",
-  #            recursive = T,
-  #            full.names = T) %>% 
-  # grep("Processed_bam.*flagstat\\.txt",., value =T)
 
 bam_read_file_names <- 
   snakemake@input[["bamfiles_reads"]] %>% 
@@ -202,7 +184,7 @@ For a detailed quality control analysis look at the multiqc report (Results/geno
 # Number of reads and peaks  
 ```{r}
 if (is.null(snakemake@input[["peaks_summary"]])){
-  no_peaks
+  results_reads
 } else {
   full_join(peaks_sorted,results_reads)
 }
