@@ -48,11 +48,12 @@ MACS2:
   control: # <techinque>_<ref_genome>_<frag._tech>_<library_tech>_<reads type and length>_<file_ID> # <chip|cyr|...>_<mm10_hg38...>_<sonic|mnase|...>_<accel|reg|...>_<(SR|PE)(50|75,etc)><1|2|...>
     no_input: ""
     chip_mm10_sonic_testes_regular_PE50_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/INPUT_B180_2_28.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib12_CHD4_BLM_HP1g/Results/mm10/Bams/Both_strands/2022_1_7_Input_zyg_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_adaptase_2: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib16_CyRs_Msh4_RPA-HP1s-KO_CHD4/3rd_deposit_of_data/Results/mm10/Bams/Both_strands/6-28-22_MSH4_8_di_laZYG_RMI2_WT.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_MNAse_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib12_CHD4_BLM_HP1g/Merged_files/Nodup/MitDel/2022_1_28_input_7dpp_MNAse_merged.filt.srt.nodup._filt.chr.bam"
+    chip_mm10_sonic_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_7_Input_zyg_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_adaptase_2: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/6-28-22_Input_8_Di_L_zyg_wtestes.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_MNAse_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_28_CHD4_7dpp_MNAse_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_24_input_7dpp_sonic_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
     cyr_mm10_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib14_H2az_H33_CyR_dmc1ko/Processed_old_way/Merged_files/Nodup/MitDel/RaG_IgG_merge_R4_and_R7_from_3-22_and_3-24_2022.filt.srt.nodup._filt.chr.bam"
-    chip_mm10_sonic_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib12_CHD4_BLM_HP1g/Processed_old_way/Merged_files/Nodup/MitDel/2022_1_24_input_7dpp_sonic_merged.filt.srt.nodup._filt.chr.bam"
+    
   # Single read arguments
   extension: "300"
 
@@ -94,10 +95,12 @@ heatmaps:
   after_region: "3000"
   bin_size: "2"
 
+# Configuration related to aggregate profiles.
+# 'process_outfile' makes reference to script 'process_outfile_matrix.R'
 aggregate_profiles:
   process_outfile:
-    overwrite: "TRUE"
-    smooth: "TRUE"
+    overwrite: "TRUE" # Overwrite output of process_aggregate_profiles rule?
+    smooth: "FALSE" # Smooth aggregate profiles?
 
 ######################
 #### ENV. MODULES ####
