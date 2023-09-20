@@ -101,7 +101,7 @@ if config['qctrl']:
                 lib_name = config['library']['name']    
             )
 
-# Bigwig coverage files 
+# Bigwig coverage files (including drosophila-normalized) 
 coverage_bigwigs = [ a for a in 
     samples_table_2.filter(regex = ".*coverage_bw$").values.flatten().tolist() 
     if a == a 
@@ -709,7 +709,7 @@ rule dros_normalization:
     input:
         unpack(smkf.dros_normalization_input),
     output:
-        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/"
+        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/"
             "{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}."
             "dros_norm.bw",
     threads: 1

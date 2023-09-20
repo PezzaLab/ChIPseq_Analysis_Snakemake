@@ -5,8 +5,8 @@ Created on Fri Apr 21 15:04:24 2023
 
 @author: quio
 
-This module contains only one function called generate_samples_table_2() that 
-returns a modified samples_table dataframe containing new columns with 
+This module contains only one function called generate_samples_table_2() that
+returns a modified samples_table dataframe containing new columns with
 files' full paths (so they can be called upon by snakemake pipeline
 using the sample and column name).
 """
@@ -18,7 +18,24 @@ import re
 
 
 def generate_samples_table_2(samples_table, config):
+    """Generates different file paths to be used by snakemake and
+    smk_functions.py
 
+    Parameters
+    -----------
+    samples_table: dataframe
+        dataframe with samples information taken from file samples_table.csv
+
+    config: snakemake object
+        snakemake object with all info from config file. It is accessed in
+        snakemake as 'config'
+
+    Returns
+    ------
+    samples_table_2: dataframe
+        samples_table_2 is the same table as samples_table, but with extra
+        columns that contain paths to different files for each sample.
+    """
     samples_table_2 = samples_table.copy()
 
     # %% Suffixes to make file names
@@ -206,8 +223,12 @@ def generate_samples_table_2(samples_table, config):
     # %%% Drosophila normalized bigwigs
     samples_table_2['dros_normalized_both_strands_coverage_bw'] = np.where(
         ~samples_table["dros_equalization_group"].isnull(),
-        "Results/" + samples_table['reference_genome']
-            + f"/Bigwigs/Coverage/Both_strands/{cov_params}"
+        "Results/"
+            + samples_table['reference_genome']
+            + "/Bigwigs/Coverage/Both_strands/"
+            + f"bs{config['coverage']['bin_size']}_"
+            + f"sm{config['coverage']['smooth']}"
+            + "/"
             + samples_table['dros_equalization_group']
             + "/"
             + samples_nodup_filt
