@@ -122,7 +122,7 @@ files_fastp <-
 files_fastp_names <-
   files_fastp %>%
   basename %>%
-  str_remove(".fastp.json")
+  str_remove("\\.(PE|SE)\\.fastp\\.json")
 
 # Get number of reads in FASTQ file from fastp json files
 FASTQ_reads <-
@@ -184,9 +184,13 @@ For a detailed quality control analysis look at the multiqc report (Results/geno
 # Number of reads and peaks  
 ```{r}
 if (is.null(snakemake@input[["peaks_summary"]])){
-  results_reads
+  DT::datatable(
+    results_reads,
+    filter = "top")
 } else {
-  full_join(peaks_sorted,results_reads)
+  DT::datatable(
+    full_join(peaks_sorted,results_reads),
+    filter = "top")
 }
 ```
 
