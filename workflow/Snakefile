@@ -130,7 +130,7 @@ rule all:
 wildcard_constraints:
     bam_type = "Raw_bam|Processed_bam",
     clipped_1bp_PE="((inc|exc)_16\.clipped_1_bp\.)?",
-    cov_params="(CPM|RPKM|none|drosNormalized)_bs[0-9]+_sm[0-9]+",
+    cov_params="((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+",
     dros_eq_group="[^./ ]+",
     extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
     fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6)",
@@ -709,7 +709,7 @@ rule dros_normalization:
     input:
         unpack(smkf.dros_normalization_input),
     output:
-        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/"
+        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/"
             "{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}."
             "dros_norm.bw",
     threads: 1
@@ -987,7 +987,6 @@ rule compute_matrix_outfiles_hs:
         """
 
 rule process_aggregate_profiles:
-# TODO: improve docstring
     """Average over all loci, smooth and normalize signal from \
     'compute_matrix_outfiles_hs' rule's output
       
@@ -996,12 +995,14 @@ rule process_aggregate_profiles:
      'LibName_top_5000_B6xCAST', 
      'LibName_B6xCAST_PRDM9_assymetric_hs_invading_strand' and 
      'LibName__B6xCAST_PRDM9_assymetric_hs_receiving_strand'. 
+     
      The first 3 pertain mm10 (B6) aligned data. All the others are for 
-     data aligned to a B6-CAST fusion mm10 genome.
+     data aligned to a B6-CAST fusion (mm10 assembly).
 
-     input function (process_aggregate_profiles_inputs) returns a dict 
-     with 3 lists named as {strand}_{region}
+     Input function (process_aggregate_profiles_inputs) returns a list with
+     all available *.matrix files for that particular {hs_region}
     """
+    # TODO: improve docstring
     input:
         unpack(smkf.process_aggregate_profiles_inputs),
     output:

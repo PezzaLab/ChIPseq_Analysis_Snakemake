@@ -214,4 +214,4 @@ print(
 
 
 # Run this script:
-# python /Volumes/Pezza/hpc-nobackup/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow/Scripts/Make_samples_table_lab_library.py
+# ml slurm python/3.10.2 pandas/1.4.2 && python /Volumes/Pezza/hpc-nobackup/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow/Scripts/Make_samples_table_lab_library.py
