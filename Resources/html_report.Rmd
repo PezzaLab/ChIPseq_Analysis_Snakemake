@@ -9,9 +9,7 @@ output:
     toc: TRUE
     toc_float:
       collapsed: TRUE
-# Put the following to show chunck: "class.source = 'fold-show'", or
-#"class.source = 'fold-hide'", depending on the configuration of 'code_folding' on top
-# To insert sa brake after an image (so the text won't be next to it) put '<br/><br/>'
+    toc_depth: 5
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,
@@ -19,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = F)
 ```
 ```{r,include=F, eval=T}
-save.image("html_report_image.RData")
+# save.image("html_report_image.RData")
 ```
 
 ```{r, libraries, message=F, error=F}
@@ -86,6 +84,10 @@ if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
     bind_rows(B6xCAST_PRDM9_assymetric_hs_invading_strand, 
               B6xCAST_PRDM9_assymetric_hs_receiving_strand)
   
+  load(snakemake@input$B6xCAST_PRDM9_assymetric_hs_mm10_aligned)
+  B6xCAST_PRDM9_assymetric_hs_mm10_aligned <- final_table
+  rm(final_table)
+  
   rm(B6xCAST_PRDM9_assymetric_hs_receiving_strand,
      B6xCAST_PRDM9_assymetric_hs_invading_strand)
 }
@@ -96,7 +98,7 @@ if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
 # Peak summary
   # Peaks found at "Results/{genomes_not_fused}/Analysis/Peaks_summary.tsv"
 if (is.null(snakemake@input[["peaks_summary"]])){
-  no_peaks <- "No peaks were asked for" 
+  "No peaks were asked for" 
 } else{
   peaks <- read_tsv(snakemake@input[["peaks_summary"]])
   peaks_sorted <- 
@@ -110,26 +112,20 @@ if (is.null(snakemake@input[["peaks_summary"]])){
 ## Number of reads in fastq and in final bam  
 How may reads were in the fastq used for alignment (after fastp filtering), and how many primary reads on the final filtered BAM file.  
 ```{r, get_number_of_reads}
-# Fastp
-# files_fastp <-
-#   list.files(path = "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/Snake_make/Results/mm10",
-#     full.names = T,
-#     recursive = T) %>% 
-#   grep("_fastp\\.json",., value =T)
-
+# Get fastp summary json files
 files_fastp <-  
   list.files(path = "Results",
     full.names = T,
     recursive = T) %>% 
-  grep("_fastp\\.json$",., value =T)
-  
+  grep("fastp\\.json$",., value =T)
 
-files_fastp_names <-  
-  files_fastp %>% 
-  basename %>% 
-  str_remove("_fastp.json")
+files_fastp_names <-
+  files_fastp %>%
+  basename %>%
+  str_remove("\\.(PE|SE)\\.fastp\\.json")
 
-FASTQ_reads <- 
+# Get number of reads in FASTQ file from fastp json files
+FASTQ_reads <-
   map_dbl(files_fastp,
           ~fromJSON(file = .) %>%
             .[['read1_after_filtering']] %>%
@@ -141,7 +137,7 @@ results_reads_filtered_FASTQs <-
          "# R1 in filtered FASTQ" = FASTQ_reads)
 
 # Final bam file
-  # Get the info from the field "read1" (since they should al be properly paired).
+  # Get the info from the field "read1" (since they should all be properly paired).
 get_read1_number <- 
   function(flagstat_text){
     read1 <- readLines(flagstat_text) %>% 
@@ -161,18 +157,6 @@ get_read1_number <-
       round(1) %>% 
       format(nsmall = 2)
 }
-
-# bam_read_files <- 
-#   list.files(path = "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/Snake_make/Results/mm10/Qctrl",
-#              recursive = T,
-#              full.names = T) %>% 
-#   grep("Processed_bam.*flagstat\\.txt",., value =T)
-
-# snakemake@input[["bamfiles_reads"]]
-  # list.files(path = "Results",
-  #            recursive = T,
-  #            full.names = T) %>% 
-  # grep("Processed_bam.*flagstat\\.txt",., value =T)
 
 bam_read_file_names <- 
   snakemake@input[["bamfiles_reads"]] %>% 
@@ -200,9 +184,13 @@ For a detailed quality control analysis look at the multiqc report (Results/geno
 # Number of reads and peaks  
 ```{r}
 if (is.null(snakemake@input[["peaks_summary"]])){
-  no_peaks
+  DT::datatable(
+    results_reads,
+    filter = "top")
 } else {
-  full_join(peaks_sorted,results_reads)
+  DT::datatable(
+    full_join(peaks_sorted,results_reads),
+    filter = "top")
 }
 ```
 
@@ -265,8 +253,7 @@ lapply(ss_prots,
              data = filter(
                aggregate_profiles$xNonPar_autosomal,
                Protein == i,
-               (Strand == "83-163") |
-                 Strand == "inc_16"
+               Strand != "Both_strands"
              ),
              aes(x = Coordinates,
                  y = Mean_Max_Normalized_Coverage,
@@ -275,15 +262,15 @@ lapply(ss_prots,
            geom_line() +
            theme(legend.position = "top",
                  plot.title = element_textbox_simple(hjust = 0,
-                                                     size = 10))
+                                                     size = 10)) +
+           facet_wrap( ~ Strand)
          
          not_normalized <-
            ggplot(
              data = filter(
                aggregate_profiles$xNonPar_autosomal,
                Protein == i,
-               (Strand == "83-163") |
-                 Strand == "inc_16"
+               Strand != "Both_strands"
              ),
              aes(x = Coordinates,
                  y = Average_signal,
@@ -291,7 +278,8 @@ lapply(ss_prots,
            ) +
            geom_line() +
            theme(legend.position = "top")
-         rasterize(normalized | not_normalized)
+         rasterize(normalized | not_normalized) +
+           facet_wrap( ~ Strand)
        })
 ```
 
@@ -367,13 +355,52 @@ lapply(prots,
 ```
 
 #### PRDM9-binding assymetric hotspots    
-The list of hotpots used here corresponds to a subset of B6xCAST mix hotspots in which PRDM9 binding is asymmetric between CAST and B6 DNA, binding with more affinity in one than the other. Knowing which strand  binds PRDM9 with highest affinity allows us to determing which strand is going to get cut (preferentially), and which one is going to serve as template for repair.    
-We refer to the strand that gets preferentially cut as the **invading strand**, and the one that works as template as the **receiving strand**.    
+The list of hotpots used here corresponds to a subset of B6xCAST mix hotspots in which PRDM9 binding is asymmetric between CAST and B6 DNA. Knowing which strand  binds PRDM9 with highest affinity allows us to determing which strand is going to get cut (preferentially), and which one is going to serve as template for repair.  
+We refer to the strand that gets preferentially cut as the **invading strand**, and the one that works as template as the **receiving strand**.   
 ```{r, include=is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
 "No B6xCAST experiments were done on this library"
 ```
 
+##### mm10 aligned reads  
+Here are the aggregate profiles of mm10-aligned reads on these set of PRDM9-asymmetric hotspots. On these plots there is no discrimination between 'invading' or 'receiving' DNA.  
+```{r, include=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand), eval=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
+prots <- levels(B6xCAST_PRDM9_assymetric_hs_mm10_aligned$Protein)
+names(prots) <- prots
+
+map(prots,
+    function (i) {
+      a <-
+        ggplot(
+          data = filter(
+            B6xCAST_PRDM9_assymetric_hs_mm10_aligned ,
+            Protein == i,
+            Strand == "Both_strands"
+          )
+        ) +
+        geom_line(mapping = aes(x = Coordinates,
+                                y = Mean_Max_Normalized_Coverage)) +
+        theme(legend.position = "top")
+      
+      b <-
+        ggplot(
+          data = filter(
+            B6xCAST_PRDM9_assymetric_hs_mm10_aligned,
+            Protein == i,
+            Strand != "Both_strands"
+          )
+        ) +
+        geom_line(mapping = aes(x = Coordinates,
+                                y = Mean_Max_Normalized_Coverage,
+                                color = Strand)) +
+        theme(legend.position = "top")
+      
+      rasterize( a |b)
+    })
+```
+
+
 ##### Invading or receiving  
+Here are the aggregate profiles for both strands of DNA (watson or crick) on either 'invading' or 'receiving' DNA (B6 or CAST depending on the hostpot).  
 ```{r, include=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand), eval=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
 
 prots <- levels(B6xCAST_top_5000_pm_1000bp$Protein)
@@ -395,6 +422,7 @@ map(prots,
 ```
 
 ##### Invading vs receiving  
+Here is the same information as in previous section but both invading and receiving of one strand (crick or watson) are plot together for comparison.  
 ```{r, include=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand), eval=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
 
 map(prots,

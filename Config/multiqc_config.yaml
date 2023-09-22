@@ -1,5 +1,5 @@
 # Clean samples names
-fn_clean_exts: # This removes the pattern and everyhing to the right of it
+fn_clean_exts: # This removes the pattern and everyhing to the right
   - ".picard_library_complexity.tab"
   - ".mm10"
   - ".hg38"
@@ -13,19 +13,50 @@ extra_fn_clean_exts:
   - type: regex
     pattern: "_S[0-9]+_R[12]_[0-9]+"
 
-# Sample buttons for filtering in html report (it is not working for some reason..)
-show_hide_buttons:
-  - "Cut&run"
-show_hide_mode:
-  - show_re
-show_hide_patterns:
-  - ".*CyR.*"
+# Sample buttons for filtering in html report
+show_hide_buttons: # legend of buttons used to filter samples
+  - Cut&run
+  - ATAC-seq
+  - ChIP-seq
+show_hide_mode: # 'show' or 'hide' samples that match criteria below
+  - show
+  - show
+  - hide
+show_hide_patterns: # Regex to filter samples
+  - CyR
+  - ATAC
+  - ["CyR", "ATAC"]
 
 # Remove sections
 remove_sections:
   - fastp-insert-size
+  - Cutadapt
 
 # Hide column from general table
 table_columns_visible:
   fastp:
     pct_duplication: False
+  phantompeakqualtools:
+    Estimated_Fragment_Length_bp: False
+  Samtools Flagstat:
+    mapped_passed: False
+
+
+# Change order of columns in the General Statistics table.
+# High values push columns to the right hand side of the table and low 
+# to the left. The default value is 1000
+# table_columns_placement:
+#   Samtools:
+#     reads_mapped: 900
+#     properly_paired: 1010
+#     secondary: 1020
+
+# Report time and analysis paths 
+show_analysis_paths: True
+show_analysis_time: True
+
+# Title and subtitles
+# title: "My Title"
+# subtitle: "A subtitle to go underneath in grey"
+# intro_text: "MultiQC reports summarise analysis results."
+# report_comment: "This is a comment about this report."

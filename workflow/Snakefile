@@ -17,24 +17,32 @@ samples_table = pd.read_csv(
     na_values= {"dros_equalization_group":"-",
                 "merge_with":"-",
                 "fastq2":"-",
-                "peak_ctrl_file_alias":"-"}).set_index("sample_name", drop=False) 
-    # "-" will be interpreted as NaN only at "dros_equalization_group" column
+                "peak_ctrl_file_alias":"-",
+                }
+                ).set_index("sample_name", drop=False)
 
 smkf.check_sample_table_format(samples_table)
 
 # Pre formed strings
-cov_config_params_string=f"{config['coverage']['normalization']}_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
-dros_norm_cov_config_params_string=f"drosNormalized_bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
+cov_config_params_string=(
+    f"{config['coverage']['normalization']}_"
+    f"bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
+)
+dros_norm_cov_config_params_string=(
+    f"drosNormalized_bs{config['coverage']['bin_size']}_sm"
+    f"{config['coverage']['smooth']}"
+)
 
 ############################################################
 ########## Add merged samples to samples table #############
 ############################################################
-    # For samples that will be merged with another deduplicated and filtered bam (from
-    # another library or within the same library). The "merged" sample will be
-    # added to the samples table and treated
-    # as one more sample. Parameters for the merged sample will be taken from the
-    # sample from this library that will be merged. Hence, both samples to be merged
-    # need to have been sequenced using the same technology (SR or PE).
+    # For samples that will be merged with another deduplicated 
+    # and filtered bam (from another library or within the same 
+    # library). The "merged" sample will be added to the samples table 
+    # and treated as one more sample. Parameters for the merged sample 
+    # will be taken from the sample from this library that will be 
+    # merged. Hence, both samples to be merged need to have been 
+    # sequenced using the same technology (SR or PE).
 # Subset samples_table and keep only those samples that provide the base of the
 # merged samples' names
 new_rows = samples_table.loc[pd.notna(samples_table['merge_with'])]
@@ -43,21 +51,22 @@ new_rows_names = new_rows['sample_name'] + "_MERGED"
 # Replace name with new name
 new_rows= new_rows.assign(sample_name = new_rows_names)
 # Replace `merge_with` field with '-'
-new_rows= new_rows.assign(merge_with = "-")
+new_rows= new_rows.assign(merge_with = np.nan)
 # new_rows= new_rows.assign(fastq1 = np.nan)
 # new_rows= new_rows.assign(fastq2 = np.nan)
 # Re-index using new names
-new_rows.set_index('sample_name', drop=False, inplace=True, verify_integrity=True)
+new_rows.set_index('sample_name', drop=False, inplace=True, 
+                    verify_integrity=True)
 # Add new rows to samples table
 samples_table = pd.concat([samples_table, new_rows], verify_integrity=True)
 
 ####################################################
 ##### Add samples names with suffixes to table #####
 ####################################################
-# All potentially generated files with their proper extensions will be added to 
-# a dataframe called "samples_table_2".
-# Files will be called upon using the samples_table_2 dataframe, which will be exported
-# as an csv table on "Config/samples_table_processed.csv"
+# All potentially generated files with their proper extensions will be 
+# added to  a dataframe called "samples_table_2".
+# Files will be called upon using the samples_table_2 dataframe, which 
+# will be exported as an csv table on "Config/samples_table_processed.csv"
 
 samples_table_2 = sfxs.generate_samples_table_2(samples_table, config)
 
@@ -72,296 +81,397 @@ smkf.samples_table = samples_table
 smkf.config = config
 smkf.samples_table_2 = samples_table_2
 
+#####################################################
+#####   Get list of files to call in rule all   #####
+#####################################################
+heatmaps = samples_table_2.filter(regex="^heatmap.*").values.flatten().tolist()
+heatmaps = [x for x in heatmaps if x==x] 
+# 'nan == nan' is false, therefore doing x==x will filter out nan values
+
+annotated_peaks = samples_table_2.filter(
+    regex=".*(narrow|broad)Peak.*annotated$").values.flatten().tolist()
+annotated_peaks = [x for x in annotated_peaks if x==x]
+
+# Qctrl
+multiqc = []
+if config['qctrl']:
+            multiqc = expand(
+                "Results/{genomes}/Qctrl/multiqc_report_{lib_name}.html",
+                genomes = samples_table["reference_genome"].unique().tolist(),
+                lib_name = config['library']['name']    
+            )
+
+# Bigwig coverage files (including drosophila-normalized) 
+coverage_bigwigs = [ a for a in 
+    samples_table_2.filter(regex = ".*coverage_bw$").values.flatten().tolist() 
+    if a == a 
+    ]
+
 ###########################
 ######### RULES  ##########
 ###########################
 
 rule all: 
     input:
-        expand(
-        "Results/{genomes}/Qctrl/multiqc_report_{lib_name}.html",
-        genomes = samples_table["reference_genome"].unique().tolist(),
-        lib_name = config['library']['name']    
-        ),
+        multiqc,
         expand(
         "Results/{genomes}/Analysis/{lib_name}.html",
         genomes = samples_table["reference_genome"].unique().tolist(),
         lib_name = config['library']['name']
         ),
+        heatmaps,
+        annotated_peaks,
+        coverage_bigwigs
 
         # IDR Analysis
             # Same as merged files analysis since most of the times both files 
             # do not belong to the same library
 
-wildcard_constraints: # Automate constrain expression depending on config or sample file (which genomes are there?)
-    sample="[^./ ]+", # Name of files cannot contain . or / or space
-    sample_with_extensions="[^/]+",
-    strands="Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)",
-    int_genome="mm10|hg19|hg38|mm10_x_CAST_EiJ",
-    spike_genome="d6",
-    genomes_not_fused="mm10|d6|hg19|hg38|mm10_x_CAST_EiJ",
-    genomes_all="mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|mm10_x_CAST_EiJ",
-    fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6)",
-    cov_params="(CPM|RPKM|none|drosNormalized)_bs[0-9]+_sm[0-9]+",
-    genomes_final="(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+(_f_d6\.((?P=interest_genome)|d6))?(?=\.)",
-    ss_PE="83-163|99-147",
-    clipped_1bp_PE="((inc|exc)_16\.clipped_1_bp\.)?",
-    ss_SR="(inc|exc)_16",
-    peak_params="(bco_[0-9]+_)?qv_[0-9]+__[^/]*",
-    hs_region = "B6xCAST_top_5000_pm_1000bp|B6xCAST_PRDM9_assymetric_hs_invading_strand|B6xCAST_PRDM9_assymetric_hs_receiving_strand|top_5000_plus_minus_2000|asymetric_watson_strong|asymetric_crick_strong|x_non_par|autosomal_x_non_par_ctrl|",
+wildcard_constraints:
     bam_type = "Raw_bam|Processed_bam",
+    clipped_1bp_PE="((inc|exc)_16\.clipped_1_bp\.)?",
+    cov_params="((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+",
+    dros_eq_group="[^./ ]+",
     extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
-    strand = "(\.(83-163|99-147|inc_16|exc_16))?",
+    fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6)",
+    genomes_not_fused="mm10|d6|hg19|hg38|mm10_x_CAST_EiJ",
+    genomes_final=(
+        "(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+"
+        "(_f_d6\.((?P=interest_genome)|d6))?(?=\.)"),
+    genomes_all=(
+        "mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|"
+        "mm10_x_CAST_EiJ"),
+    hs_region = (
+        "B6xCAST_(top_5000_pm_1000bp|"
+        "PRDM9_assymetric_hs_("
+                             "(invading|receiving)_strand|"
+                             "mm10_aligned))|"
+        "top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|x_non_par|"
+        "autosomal_x_non_par_ctrl"),
+    int_genome = "mm10|hg19|hg38|mm10_x_CAST_EiJ",
     library_name = config['library']['name'],
-    dros_eq_group="[^./ ]+"
-
-
+    n_ends = "(SE|PE)",
+    peak_params = "(bco_[0-9]+_)?qv_[0-9]+__[^/]*",
+    peak_type = "narrow|broad",
+    read = "[12]{1}",
+    strand = "(\.(83-163|99-147|inc_16|exc_16))?",
+    spike_genome="d6",
+    sample = "[^./ ]+", # Name of files cannot contain . or / or space
+    sample_with_extensions = "[^/]+",
+    strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)",
+    ss_PE = "83-163|99-147",
+    ss_SR = "(inc|exc)_16",
+# TODO: Automate wildcard constrain expressions for genomes according to
+# info on config or sample file (which genomes are there?)
+    
 ruleorder: get_strand_sep_pe_bams > dedup_bam > index
 ruleorder: merge_bams > align_fastq
-localrules: filter_peaks_blk_grey_list, filter_peaks_blk_grey_list, intersect_peaks_HSs_list, sumarize_peak_count#, dros_normalization_report#,markdown_report_aggregate_profiles
+localrules: filter_peaks_blk_grey_list, filter_peaks_blk_grey_list, \
+    intersect_peaks_HSs_list, sumarize_peak_count
+# TODO: add dros_normalization_report and 
+# markdown_report_aggregate_profiles to localrules?
 
 ##############################
 ###### Basic processing ######
 ##############################
 
-# Index rule should create all indexes (as long as I ask for them. In final bams
-#  I will have to ask for them, on the rest it won't be necessary)
 rule index:
     input:
-        "{sample}.bam" # In this case, sample wildcard can be anything (path included)
+        "{sample}.bam",
     output:
-        "{sample,.+}.bam.bai" # In this case, sample can be anything (path included), 
-        # hence I need to override the global wildcard constrain (which does not allow paths on sample wildcard)
-    # log:
-    #     "{sample}.index.log"
+        "{sample,.+}.bam.bai",
+        # In particular case, sample can be anything (path included)
     threads: 2
     envmodules:
-        config['sambamba']
+        config['sambamba'],
     shell:
         """
         sambamba index {input}
         """
 
-rule align_fastq: 
-# Alignement should take into account the sequencing mode (SR or PE),
-# the species of interest, the spike in, and the technology used to do the library
-#  (adaptase or regular). For now I'll forget about o3.
+rule trim_adapters_SE:
     input:
-        unpack(smkf.align_fastq_input)
+        lambda w: samples_table.loc[w.sample, "fastq1"],
     output:
-        bam = temp("Results/{sample}.{genomes_all}.bam"),  # How do I use scratch temp dir here? 
-        fastp_json = "Results/{genomes_all}/Qctrl/{sample}/Raw_FASTQ/{sample}_fastp.json", 
-        # This is actually not right, the fastp report is on the FASTQ file, not "raw bam", 
-        # and should be placed on final genomes, not all genemos (drosophila fusions not included). 
-        # So, it should be on: "Results/{final_genomes}/Qctrl/{sample}/FASTQ/{sample}_fastp.json"
-        fastp_html = "Results/{genomes_all}/Qctrl/{sample}/Raw_FASTQ/{sample}_fastp.html"
-    params:
-        library_tech = lambda w: samples_table.loc[w.sample, "library_technology"],
-        PE = lambda w: str(samples_table.loc[w.sample, "PE"]).lower()
-    # log:
-    #     "Results/Log_files/align_spiked_fastq/{sample}.{genomes_all}.log"
+        fq1 = temp("Results/{sample}.adap_trimmed.R1.SE.fq.gz"),
+        html = "Results/FASTQ_reports/{sample}.SE.fastp.html",
+        json = "Results/FASTQ_reports/{sample}.SE.fastp.json",
     threads: 2
     envmodules:
         config["fastp"],
-        config["bwa"],
-        config["sambamba"],
-        config["samtools"]
-    shell: # I need to assemble the command as a string and the "eval" it, 
-    # otherwise it doesn't work. Another workaround is to use wrappers (there is a wrapper that does this)
+    shell:
         """
-input2=""
-PE_adaptase=""
-echo "determining alignement conditions..."
-if [[ "{params.PE}" == "true" ]]; then
-  input2="-I {input.fastq2} "
-  echo "Data is PE"
-  if [[ "{params.library_tech}" == "adaptase" ]]; then
-PE_adaptase="fastp \\
---stdin \\
---interleaved_in \\
---trim_front2 10 \\
---stdout |"
-echo "Library technology: Adaptase"
-fi
-fi
-echo "finished the first part"
+        fastp \\
+          --thread $SLURM_CPUS_ON_NODE \\
+          -i {input} \\
+          --html {output.html} \\
+          --json {output.json} \\
+          -o {output.fq1} \\
 
-command="
-fastp \\
--i {input.fastq1} $input2 \\
---html {output.fastp_html} \\
---json {output.fastp_json} \\
---stdout | $PE_adaptase \\
-bwa mem -v 1 -M -p -t $SLURM_CPUS_ON_NODE {input.genome_path} - \\
-| samtools sort -@ $SLURM_CPUS_ON_NODE -O bam -o {output.bam}"
+          # For SE data, the adapters are evaluated by analyzing the 
+          # tails of first ~1M reads. FASTP has a built-in list of the 
+          # most common adapters used. If adapters are 'weird', you can
+          # specify them using --adapter_sequence option. For this the
+          # snakemake rule should be changed.
+        """
 
-#sambamba sort --nthreads $SLURM_CPUS_ON_NODE -o {output.bam} /dev/stdin # --. Apparently sambamba sort only takes bam files
+rule trim_adapters_PE:
+    input:
+        unpack(smkf.trim_adapters_PE_input),
+    output:
+        fq1 = temp("Results/{sample}.adap_trimmed.R1.PE.fq.gz"),
+        fq2 = temp("Results/{sample}.adap_trimmed.R2.PE.fq.gz"),
+        html = "Results/FASTQ_reports/{sample}.PE.fastp.html",
+        json = "Results/FASTQ_reports/{sample}.PE.fastp.json",
+    threads: 2
+    envmodules:
+        config["fastp"],
+    shell:
+        """
+        fastp \\
+          --thread $SLURM_CPUS_ON_NODE \\
+          -i {input.fastq1} \\
+          -I {input.fastq2} \\
+          --html {output.html} \\
+          --json {output.json} \\
+          -o {output.fq1} \\
+          -O {output.fq2}
+        """
 
-eval $command
+rule trim_adaptase:
+    input:
+        "Results/{sample}.adap_trimmed.R{read}.{n_ends}.fq.gz",
+    output:
+        fq1 = temp("Results/{sample}.adap_trimmed.adaptase_trimmed.R{read}.{n_ends}.fq.gz"),
+    threads: 2
+    envmodules:
+        config["cutadapt"],
+    shell:
+        """
+        cutadapt \\
+          --cores 0 \\
+          -u 10  \\
+          -o {output} \\
+          {input}
+
+        # -u : remove bases from the beginning or end of each read. If 
+        #      the given length is positive, the bases are removed from 
+        #      the beginning of each read.
+        # --cores: Use 0 to auto-detect the number of available cores
+        """
+
+rule align_fastq: 
+# Alignement should take into account the sequencing mode (SR or PE),
+# the reference genome, the spike in, and the technology used to do 
+# the library (adaptase or regular).
+    input:
+        unpack(smkf.align_fastq_input),
+    output:
+        bam = temp("Results/{sample}.{genomes_all}.bam"),
+    threads: 2
+    envmodules:
+        config["bwa"],
+        config["samtools"],
+    shell:
+        """
+        bwa mem -v 1 -M \\
+          -t $SLURM_CPUS_ON_NODE {input.genome_path} \\
+          {input.fq1} {input.fq2} |\\
+        samtools sort -@ $SLURM_CPUS_ON_NODE -O bam \\
+          -o {output.bam}
+
+        # bwa
+            # -M: Mark shorter split hits as secondary (for Picard 
+            #     compatibility)
+
         """
 
 rule filter_spiked_in_bam_int_genome:
     input:
         bam="Results/{sample}.{fused_genome}.bam",
-        bai="Results/{sample}.{fused_genome}.bam.bai" # To view by chr needs a bai
+        bai="Results/{sample}.{fused_genome}.bam.bai",
     output:
-        "Results/{sample}.{fused_genome}.{int_genome}.bam"
-    # log:
-    #     "Results/Log_files/filter_spiked_in_bam_int_genome/{sample}.{fused_genome}.{int_genome}.log"
+        "Results/{sample}.{fused_genome}.{int_genome}.bam",
     params:
-        spike_suffix= lambda w: config['spike_in_suffixes'][w.fused_genome]
+        spike_suffix= lambda w: config['spike_in_suffixes'][w.fused_genome],
     threads: 2
     envmodules:
         config["samtools"],
-        config["sambamba"]
+        config["sambamba"],
     shell:
         """
         int_chromsomes=$(samtools idxstats {input.bam} | \\
          cut -f 1 | grep -v .*{params.spike_suffix} | \\
          grep -v \* | paste  -sd ' ')
-        sambamba view --nthreads $SLURM_CPUS_PER_TASK --format bam -o {output} {input.bam} $int_chromsomes
+        sambamba view --nthreads $SLURM_CPUS_PER_TASK --format bam \\
+         -o {output} {input.bam} $int_chromsomes
         """
 
 rule filter_spiked_in_bam_spike_in_genome:
     input:
         bam="Results/{sample}.{fused_genome}.bam",
-        bai="Results/{sample}.{fused_genome}.bam.bai"
+        bai="Results/{sample}.{fused_genome}.bam.bai",
     output:
-        "Results/{sample}.{fused_genome}.{spike_genome}.bam"
-    # log:
-    #     "Results/Log_files/filter_spiked_in_bam_spike_in_genome/{sample}.{fused_genome}.{spike_genome}.log"
+        "Results/{sample}.{fused_genome}.{spike_genome}.bam",
     params:
-        spike_suffix= lambda w: config['spike_in_suffixes'][w.fused_genome]
+        spike_suffix= lambda w: config['spike_in_suffixes'][w.fused_genome],
     threads: 2
     envmodules:
         config["sambamba"],
-        config["samtools"]
+        config["samtools"],
     shell:
         """
-        spike_chromsomes=$(samtools idxstats {input.bam} | cut -f 1 | grep .*{params.spike_suffix} | grep -v \* | paste  -sd ' ')
-command="sambamba view --nthreads $SLURM_CPUS_PER_TASK --format bam -o {output} {input.bam} $spike_chromsomes"
-        echo $command
-        eval $command
+        spike_chromsomes=$(samtools idxstats {input.bam} | cut -f 1 | \\
+         grep .*{params.spike_suffix} | grep -v \\* | paste  -sd ' ')
+        
+        sambamba view \\
+          --nthreads $SLURM_CPUS_PER_TASK \\
+          --format bam \\
+          -o {output} \\
+          {input.bam} \\
+          $spike_chromsomes
         """
 
-rule dedup_bam: # Either not index by piccard, or change index file name to .bam.bai (so it can be used by next steps), or change next step inputs to .bai
+rule dedup_bam: 
+# TODO: Either not index by piccard, or change index file name to
+# .bam.bai (so it can be used by next steps), or change next step inputs
+# to .bai
     input:
         bam = "Results/{sample}.{genomes_final}.bam",
-        bai = "Results/{sample}.{genomes_final}.bam.bai" # Is this necessary?
+        bai = "Results/{sample}.{genomes_final}.bam.bai", # Is this necessary?
     output:
-        bam = temp("Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bam"),
-        qctrl = "Results/{genomes_not_fused}/Qctrl/{sample}/Raw_bam/{sample}.{genomes_final}.markDup_raw.txt",
-        bai = temp("Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bai")
-    # log:
-    #     "Results/Log_files/dedup/{genomes_not_fused}{sample}.{genomes_final}.log"
+        bam = temp(
+            "Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bam"
+            ),
+        qctrl = "Results/{genomes_not_fused}/Qctrl/{sample}/Raw_bam/"
+                    "{sample}.{genomes_final}.markDup_raw.txt",
+        bai = temp(
+            "Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bai"
+            ),
     threads: 2
     envmodules:
-        config["picard"]
+        config["picard"],
     shell:
         """
-        picard MarkDuplicates I={input.bam} O={output.bam} M={output.qctrl} VALIDATION_STRINGENCY=LENIENT ASSUME_SORTED=true REMOVE_DUPLICATES=TRUE VERBOSITY=INFO CREATE_INDEX=TRUE
+        picard MarkDuplicates I={input.bam} O={output.bam} M={output.qctrl} \\
+        VALIDATION_STRINGENCY=LENIENT ASSUME_SORTED=true \\
+        REMOVE_DUPLICATES=TRUE VERBOSITY=INFO CREATE_INDEX=TRUE
         """
 
 rule filter_bam:
     input:
         bam = "Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bam",
-        bai = "Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bam.bai",
-    output:
-        "Results/{genomes_not_fused}/Bams/Both_strands/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.bam"
-    # log:
-    #     "Results/Log_files/filter_bam/{genomes_not_fused}/{sample}.{genomes_final}.log"
+        bai = "Results/{genomes_not_fused}/{sample}.{genomes_final}."
+                    "nodup.bam.bai",
+    output: 
+         "Results/{genomes_not_fused}/Bams/Both_strands/"
+            "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.bam",
     params:
-        min_mapping_qual = lambda w: config['min_mapping_qual'],
-        PE = lambda w: str(samples_table.loc[w.sample, "PE"]).lower()
+        smkf.filter_bam_params
     threads: 2
     envmodules:
         config["samtools"],
-        config["sambamba"]
+        config["sambamba"],
     shell:
         """
-chromsomes=$(samtools idxstats {input.bam} | cut -f 1 \\
-| grep -v MT | grep -v chrM | grep -v \* | paste  -sd ' ') # This is to filter out mitochondrial reads
+        # Filter out mitochondrial reads
+        chromsomes=$(samtools idxstats {input.bam} | cut -f 1 \\
+        | grep -v MT | grep -v chrM | grep -v \\* | paste  -sd ' ') 
 
-if [[ "{params.PE}" == "true" ]]; then
-  echo "Data is PE"
-  filter="-F 3852 -f 3"
-else
-echo "Data is SR"
-  filter="-F 3844"
-fi
+        samtools view \\
+          -q {config[min_mapping_qual]} \\
+          -b \\
+          -@ $SLURM_CPUS_ON_NODE \\
+          {params} \\
+          -o {output} \\
+          {input.bam} $chromsomes
 
-command="samtools view \\
--q {params.min_mapping_qual} \\
--b \\
--@ $SLURM_CPUS_ON_NODE \\
-${{filter}} \\
--o {output} \\
-{input.bam} $chromsomes"
-
-echo "Command:
-$command"
-eval $command
-
-# Flags
-    # 3852 = read or mate unmapped, not primary alignement, read fails platform/vendor quality checks, read is PCR or optical duplicate, supplementary alignment
-    # 3 = read paired and read mapped in proper pair
-    # 3844 = read unmapped, not primary alignement, read fails platform/vendor quality checks, read is PCR or optical duplicate, supplementary alignment
+        # Flags
+            # 3852 = read or mate unmapped, not primary alignement, read fails 
+            # platform/vendor quality checks, read is PCR or optical duplicate, 
+            # supplementary alignment.
+            # 3 = read paired and read mapped in proper pair
+            # 3844 = read unmapped, not primary alignement, read fails 
+            # platform/vendor quality checks, read is PCR or optical duplicate, 
+            # supplementary alignment
         """
 
-rule get_strand_sep_pe_bams: # Do I need to separate 83 AND 163 or are the both the same?
+rule get_strand_sep_pe_bams: 
+#TODO: Do I need to separate 83 AND 163 or are the both the same?
     input:
-        bam="Results/{genomes_not_fused}/Bams/Both_strands/{sample_with_extensions}.bam"
+        bam=(
+            "Results/{genomes_not_fused}/Bams/Both_strands/"
+                "{sample_with_extensions}.bam"
+            ),
     output:
-        bam=temp("Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag}.bam"),
-        bai=temp("Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag}.bam.bai"), # Index is needed for next merge_watson_or_crick and is also temp, that is why it is not done by index rule
+        bam=temp(
+            "Results/{genomes_not_fused}/Bams/Single_strand/"
+                "Full_length_reads/{sample_with_extensions}.{flag}.bam"
+            ),
+        bai=temp(
+            "Results/{genomes_not_fused}/Bams/Single_strand/"
+                "Full_length_reads/{sample_with_extensions}.{flag}.bam.bai"
+            ), 
+        # Index is needed for next merge_watson_or_crick and is also 
+        # temp, that is why it is not done by index rule
     wildcard_constraints:
-        flag="(83|163|99|147)"
-    # log:
-    #     "Results/Log_files/get_strand_sep_pe_bams/{genomes_not_fused}/{sample_with_extensions}.{flag}.log"
+        flag="(83|163|99|147)",
     threads: 2
     envmodules:
-        config["samtools"]
+        config["samtools"],
     shell:
         """
         samtools view -b -f {wildcards.flag} {input.bam} > {output.bam}
         samtools index {output.bam}
         """
 
-rule merge_watson_or_crick: # If the next rule works for both SR and PE, erase this rule
+rule merge_watson_or_crick: 
+# TODO: If the next rule works for both SR and PE, erase this rule
     input:
-        flag1="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag1}.bam",
-        index_1="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag1}.bam.bai",
-        flag2="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag2}.bam",
-        index_2="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag2}.bam.bai"
+        flag1="Results/{genomes_not_fused}/Bams/Single_strand/"
+                    "Full_length_reads/{sample_with_extensions}.{flag1}.bam",
+        index_1="Results/{genomes_not_fused}/Bams/Single_strand/"
+                    "Full_length_reads/"
+                    "{sample_with_extensions}.{flag1}.bam.bai",
+        flag2="Results/{genomes_not_fused}/Bams/Single_strand/"
+                    "Full_length_reads/"
+                    "{sample_with_extensions}.{flag2}.bam",
+        index_2="Results/{genomes_not_fused}/Bams/Single_strand/"
+                    "Full_length_reads/"
+                    "{sample_with_extensions}.{flag2}.bam.bai",
     output:
-        "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag1}-{flag2}.bam"
+        "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/"
+        "{sample_with_extensions}.{flag1}-{flag2}.bam",
     wildcard_constraints:
         flag1="(83|99)",
-        flag2="(163|147)"
-    # log:
-    #     "Results/Log_files/merge_watson_or_crick/{genomes_not_fused}/{sample_with_extensions}.{flag1}-{flag2}.log"
+        flag2="(163|147)",
     threads: 2
     envmodules:
-        config["samtools"]
+        config["samtools"],
     shell:
         """
         samtools merge {output} {input.flag1} {input.flag2}
         """
 
 rule get_rv_fw_strand:
-# This rule only applies to single read samples with strand information (ENDseq and such)
+# This rule only applies to single read (SR) samples with strand
+# information (ENDseq and such)
+# TODO: revise this rule and it's input function. Why would the input
+# have the PE single strand flags (99-147, etc)?
     input:
-        smkf.get_rv_fw_strand_input
-        #"Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.bam",
-        #"Results/{genomes_not_fused}/Bams/Both_strands/{sample_with_extensions}.bam"
+        smkf.get_rv_fw_strand_input,
+        #"Results/{genomes_not_fused}/Bams/Single_strand/"
+        #    "Full_length_reads/{sample_with_extensions}.bam",
+        #"Results/{genomes_not_fused}/Bams/Both_strands/"
+        #    "{sample_with_extensions}.bam"
     output:
-        inc_16="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.inc_16.bam",
-        exc_16="Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.exc_16.bam"
-    # log:
-    #     "Results/Log_files/get_rv_fw_strand/{genomes_not_fused}/{sample_with_extensions}.log"
+        inc_16="Results/{genomes_not_fused}/Bams/Single_strand/"
+                    "Full_length_reads/{sample_with_extensions}.inc_16.bam",
+        exc_16="Results/{genomes_not_fused}/Bams/Single_strand/"
+                    "Full_length_reads/{sample_with_extensions}.exc_16.bam",
     threads: 2
     envmodules:
-        config["samtools"]
+        config["samtools"],
     shell:
         """
         samtools view -b -f 16 {input} > {output.inc_16}
@@ -370,45 +480,67 @@ rule get_rv_fw_strand:
 
 rule create_coverage_bw:
     input:
-        bam="Results/{genomes_not_fused}/Bams/{strands}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_condit}{clip_condit}bam",
-        bai="Results/{genomes_not_fused}/Bams/{strands}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_condit}{clip_condit}bam.bai"
+        bam="Results/{genomes_not_fused}/Bams/{strands}/"
+            "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
+                "{ss_condit}{clip_condit}bam",
+        bai="Results/{genomes_not_fused}/Bams/{strands}/"
+            "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
+                "{ss_condit}{clip_condit}bam.bai",
     output:
-        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_condit}{clip_condit}bw"
-    # log:
-    #     "Results/Log_files/create_coverage_bw/{genomes_not_fused}.{strands}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_condit}{clip_condit}{cov_params}.log"
+        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/"
+        "{cov_params}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
+        "{ss_condit}{clip_condit}bw",
     wildcard_constraints:
-        ss_condit="((83-163|99-147|inc_16|exc_16)\.)?" ,
-        clip_condit="(((inc|exc)_16\.)?clipped_1_bp\.)?" 
-    params:
-        smooth = config['coverage']['smooth'],
-        bin = config['coverage']['bin_size'],
-        normalize = config['coverage']['normalization'],
-        extend_reads = config['coverage']['extend_reads']
+        ss_condit="((83-163|99-147|inc_16|exc_16)\.)?",
+        clip_condit="(((inc|exc)_16\.)?clipped_1_bp\.)?",
     threads: 2
     envmodules:
-        config["deeptools"]
-    shell: # The coverage will be different depending on weather the bam's been clipped or not. If clipped, then cov smooth and bin  == 1, otherwise use config file parameters
+        config["deeptools"],
+    shell: 
         """
-        if [ -z {wildcards.clip_condit} ] # Cannot do the test [[ curly_brace empty_variable curly_brace == "" ]], won't work
+        # The coverage will be different depending on weather the bam's 
+        # been clipped or not. If clipped, then cov smooth and bin  == 1
+        # and no read extension is done, otherwise use config file 
+        # parameters
+
+        if [ -z {wildcards.clip_condit} ]
         then
         echo "Doing smooth and bin according to config file (not clipped profile)"
-        bamCoverage --numberOfProcessors max -b {input.bam} -bs {params.bin} --smoothLength {params.smooth} --normalizeUsing {params.normalize} -o {output}
+        bamCoverage --numberOfProcessors max -b {input.bam} \\
+         -bs {config[coverage][bin_size]} \\
+         --smoothLength {config[coverage][smooth]} \\
+         --extendReads {config[coverage][extend_reads]} \\
+         --normalizeUsing {config[coverage][normalization]} \\
+         -o {output}
         else
         echo "Doing smooth 1 and bin 1 (clipped profile)"
-        bamCoverage --numberOfProcessors max -b {input.bam} -bs 1 --smoothLength 1 --normalizeUsing {params.normalize} -o {output}
+        bamCoverage \\
+         --numberOfProcessors max \\
+         -b {input.bam} -bs 1 \\
+         --smoothLength 1 \\
+         --normalizeUsing {config[coverage][normalization]} \\
+         -o {output}
         fi
+
+        # Cannot do the test 
+        # [[ curly_brace empty_variable curly_brace == "" ]], won't work
         """
 
 rule clip_1bp:
     input:
-        "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/{sample_with_extensions}.{flag16}.bam"
+        "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/"
+            "{sample_with_extensions}{strand}.bam",
     output:
-        bam="Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/{sample_with_extensions}.{flag16}.clipped_1_bp.bam",
-        tmp_dir=temp(directory("Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/{sample_with_extensions}.{flag16}/temp_clip_1bp"))
+        bam="Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/"
+                "{sample_with_extensions}{strand}.clipped_1_bp.bam",
+        tmp_dir=temp(
+            directory(
+                "Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/"
+                    "{sample_with_extensions}{strand}/temp_clip_1bp"
+                )
+            ),
     wildcard_constraints:
         flag16="inc_16|exc_16"
-    # log:
-    #     "Results/Log_files/clip_1bp/{genomes_not_fused}/{sample_with_extensions}.{flag16}.log"
     threads: 2
     envmodules:
         config["samtools"],
@@ -426,7 +558,8 @@ rule clip_1bp:
         # Clip reads
 
         samtools view {input} | \\
-        awk -v dir="${{temp_dir}}" '{{read_length=length($10)}} {{print $0 >> dir "/" read_length ".sam" }} '
+        awk -v dir="${{temp_dir}}" '{{read_length=length($10)}} \\
+          {{print $0 >> dir "/" read_length ".sam" }} '
 
         sam_files=$(find ./${{temp_dir}} -regextype awk -iregex ".*sam$")
 
@@ -442,76 +575,101 @@ rule clip_1bp:
         done
 
         # Merge them
-        bam_files=$(find ./${{temp_dir}} -regextype awk -iregex ".*bam$" -type f | tr "\\n" " ")
+        bam_files=$(find ./${{temp_dir}} -regextype awk -iregex ".*bam$" -type f \\
+            | tr "\\n" " ")
         samtools merge -o {output.bam} $bam_files
         """
 
-rule call_peaks_macs2: # Check on the original script I get a file with the name "._peaks.broadPeak". Should take out that ._peaks.
+rule call_peaks_macs2: 
+# TODO Check on the original script I get a file with the name 
+# "._peaks.broadPeak". Should take out that ._peaks.
     input:
         unpack(smkf.call_peaks_macs2_input)
     output:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak" # Check the file name
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/"
+            "{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak",
     params:
-        smkf.get_MACS2_params # Within params, `unpack` is not allowed, instead return a dictionary and access it via {params[0][mykey]}. Not sure why the [0]. Appaerently params is a list, and the first item is the dict...
-    # log:
-    #     "Results/Log_files/call_peaks_macs2/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{sample}.{genomes_final}{extension}.{peak_params}.log"
+        smkf.get_call_peaks_macs2_params,
+        # Within params, `unpack` is not allowed, instead return a 
+        # dictionary and access it via {params[0][mykey]}. Not sure why 
+        # the [0]. Appaerently params is a list, and the first item is 
+        # the dict...
     wildcard_constraints:
-        peak_type="broad|narrow",
-        peak_type_folder="Broad|Narrow",
-        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?"
+        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
     threads: 2
     envmodules:
-        config["macs2"]
+        config["macs2"],
     shell:
         """
         directory=$(dirname {output})
-        macs2 callpeak --outdir $directory --name {wildcards.sample}.{wildcards.genomes_final}{wildcards.extension} -t {input.treat_bam} {params[0][ctrl]} -g {params[0][genome]} {params[0][qv_bco]} {params[0][PE]} {params[0][peak_type_options]} {params[0][extension]}
+        macs2 callpeak --outdir $directory \\
+         --name {wildcards.sample}.{wildcards.genomes_final}{wildcards.extension}\\
+         -t {input.treat_bam} {params[0][ctrl]} \\
+         -g {params[0][genome]} \\
+         {params[0][qv_bco]} {params[0][PE]} {params[0][peak_type_options]} {params[0][extension]}
         """
 
 rule filter_peaks_blk_grey_list:
     input:
-        peaks="Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak",
-        blck_gry_lst=lambda w: config['references'][w.genomes_not_fused]['black_grey']
+        peaks = "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
+                  "{peak_params}/{sample}.{genomes_final}{extension}_peaks."
+                  "{peak_type}Peak",
+        blck_gry_lst=lambda w: config['references'][
+            w.genomes_not_fused]['black_grey'],
     output:
-        final="Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak",
+        final = "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
+                  "{peak_params}/Black-grey_filtered/{sample}."
+                  "{genomes_final}{extension}.{peak_type}Peak",
     wildcard_constraints:
-        peak_type="broad|narrow",
-        peak_type_folder="Broad|Narrow",
-        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?"
-    # log:
-    #     "Results/Log_files/filter_peaks_blk_grey_list/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{sample}.{genomes_final}{extension}.{peak_params}.log"
+        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
     threads: 1
     envmodules:
-        config["bedtools"]
+        config["bedtools"],
     shell:
         """
-        bedtools intersect -wa -v -a {input.peaks} -b {input.blck_gry_lst} | \
-        awk 'BEGIN {{ OFS = "\t"}} {{print $0, ($1 ":" $2 "-" $3)}}' - > {output.final}
+        bedtools intersect -wa -v -a {input.peaks} -b {input.blck_gry_lst} | \\
+        awk 'BEGIN {{ OFS = "\\t"}} {{print $0, ($1 ":" $2 "-" $3)}}' - > \\
+        {output.final}
         """
 
 rule annotate_peaks:
     input:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak"
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/"
+            "Black-grey_filtered/{sample}.{genomes_final}{extension}."
+            "{peak_type}Peak",
     output:
-        anno_peaks = temp("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.homer_anotated.tsv"),
-        genome_ontology = directory("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Genome_ontology/{sample}.{genomes_final}{extension}.{peak_type}")
+        anno_peaks = temp(
+            "Results/{genomes_not_fused}/Peaks/MACS2/"
+                "{peak_type}/{peak_params}/Black-grey_filtered/{sample}."
+                "{genomes_final}{extension}.{peak_type}Peak.homer_anotated.tsv"
+            ),
+        genome_ontology = directory(
+            "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
+                "{peak_params}/Black-grey_filtered/Genome_ontology/"
+                "{sample}.{genomes_final}{extension}.{peak_type}"
+            ),
     threads: 1
     envmodules:
         config["homer"],
     shell:
         """
-        annotatePeaks.pl {input} {wildcards.genomes_not_fused} -genomeOntology {output.genome_ontology} > {output.anno_peaks}
+        annotatePeaks.pl {input} {wildcards.genomes_not_fused} \\
+         -genomeOntology {output.genome_ontology} > {output.anno_peaks}
         """
 
 rule modify_annotated_peaks:
     input:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.{peak_type}Peak.homer_anotated.tsv"
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/"
+            "Black-grey_filtered/{sample}.{genomes_final}{extension}."
+            "{peak_type}Peak.homer_anotated.tsv",
     output:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Annotated_peaks/{sample}.{genomes_final}{extension}.{peak_type}Peak.annotated.tsv"
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/"
+            "Black-grey_filtered/Annotated_peaks/{sample}."
+            "{genomes_final}{extension}.{peak_type}Peak.annotated.tsv",
     threads: 1
     envmodules:
         config["R"],
-        config["bioconductor"]
+        config["bioconductor"],
     script:
         "Scripts/modify_annotated_peaks.R"
 
@@ -521,15 +679,15 @@ rule modify_annotated_peaks:
 
 rule merge_bams:
     input:
-        smkf.merge_bams_input
+        smkf.merge_bams_input,
     output:
-        temp("Results/{sample}_MERGED.{genomes_all}.bam")
+        temp("Results/{sample}_MERGED.{genomes_all}.bam"),
     threads: 2
     envmodules:
-        config["samtools"]
+        config["samtools"],
     shell:
         """
-samtools merge -o {output} {input}
+        samtools merge -o {output} {input}
         """
 
 ####################################
@@ -537,60 +695,69 @@ samtools merge -o {output} {input}
 ####################################
 rule dros_normalization_report:
     input:
-        smkf.dros_normalization_report_input
+        smkf.dros_normalization_report_input,
     output:
-        "Results/d6/Analysis/drosophila_normalization/{dros_eq_group}/drosophila_equalization_report.tsv"
-    params:
-        samples_table_2 = samples_table_2
+        "Results/d6/Analysis/drosophila_normalization/{dros_eq_group}/"
+            "drosophila_equalization_report.tsv",
     threads: 1
+    params:
+        samples_table_2 = samples_table_2,
     script:
         "Scripts/dros_norm_report.py"
 
 rule dros_normalization:
     input:
-        unpack(smkf.dros_normalization_input)
+        unpack(smkf.dros_normalization_input),
     output:
-        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}.dros_norm.bw",
-    params:
-        smooth = config['coverage']['smooth'],
-        bin = config['coverage']['bin_size'],
-        normalize = config['coverage']['normalization'],
-        extend_reads = config['coverage']['extend_reads']
+        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/"
+            "{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}."
+            "dros_norm.bw",
     threads: 1
     envmodules:
-        config["deeptools"]
+        config["deeptools"],
     shell:
         """
-scaleFactor=$(awk 'BEGIN {{FS="\t"}} $1 == "{wildcards.sample}" {{print $4}}' {input.report})
+        scaleFactor=$(awk 'BEGIN {{FS="\t"}} $1 == "{wildcards.sample}" \\
+         {{print $4}}' {input.report})
 
-if [ -z "${{scaleFactor}}" ]; then
-    echo "Empty/non-existent scale factor. Most likely there were no drosophila reads on your sample"
-    exit 1
-fi
+        if [ -z "${{scaleFactor}}" ]; then
+            echo "Empty/non-existent scale factor." 
+            echo "Most likely there were no drosophila reads on your sample"
+            exit 1
+        fi
 
-echo -e "scaleFactor = $scaleFactor \n"
+        echo -e "scaleFactor = $scaleFactor \\n"
+        echo "Sample will be scaled down with a scale factor of $scaleFactor"
 
-echo "Sample will be scaled down with a scale factor of $scaleFactor"
-bamCoverage --numberOfProcessors max -b {input.bam} -bs {params.bin} --smoothLength {params.smooth} -o {output} --scaleFactor $scaleFactor
+        bamCoverage --numberOfProcessors max -b {input.bam} \\
+         -bs {config[coverage][bin_size]} \\
+         --smoothLength {config[coverage][smooth]} \\
+         --extendReads {config[coverage][extend_reads]} \\
+         -o {output} \\
+         --scaleFactor $scaleFactor
         """
 
 #############
 ### Qctrl ###
 #############
 
-rule FRIP_narrow:
+rule FRIP:
     input:
-        peak = "Results/{genomes_not_fused}/Peaks/MACS2/Narrow/{peak_params}/Black-grey_filtered/{sample}.{genomes_final}{extension}.narrowPeak",
-        bam = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"],
-        bai = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"] + ".bai"
+        peak = "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
+                   "{peak_params}/Black-grey_filtered/{sample}."
+                   "{genomes_final}{extension}.{peak_type}Peak",
+        bam = lambda w: samples_table_2.loc[
+                            w.sample, "dedup_flt_both_strds_bam"],
+        bai = lambda w: samples_table_2.loc[
+                            w.sample, "dedup_flt_both_strds_bam"] + ".bai",
     output:
-        "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/MACS2_Narrow_{peak_params}_bl-gr_flt/{sample}.{genomes_final}{extension}.FRIP.txt"
-    # log:
-    #     "Results/Log_files/FRIP/{genomes_not_fused}/Narrow/{sample}.{genomes_final}.{peak_params}{extension}.log"
+        "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/"
+            "MACS2_{peak_type}_{peak_params}_bl-gr_flt/"
+            "{sample}.{genomes_final}{extension}.FRIP.txt",
     threads: 1
     envmodules:
         config["sambamba"],
-        config["samtools"]
+        config["samtools"],
     shell:
         """
         echo "Getting total number of reads"
@@ -610,149 +777,159 @@ rule FRIP_narrow:
         Anything below 1% is not good..." > {output}
         """
 
-rule FRIP_broad:
+rule crosscorrelation: 
+# only for processed bam
     input:
-        peak = "Results/{genomes_not_fused}/Peaks/MACS2/Broad/{peak_params}/{sample}.{genomes_final}{extension}_peaks.broadPeak",
-        bam = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"],
-        bai = lambda w: samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"] + ".bai"
+        lambda w: samples_table_2.loc[w.sample,'dedup_flt_both_strds_bam'],
     output:
-        "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/MACS2_Broad_{peak_params}_bl-gr_flt/{sample}.{genomes_final}{extension}.FRIP.txt"
-    # log:
-    #     "Results/Log_files/FRIP/{genomes_not_fused}/Broad/{sample}.{genomes_final}.{peak_params}{extension}.log"
-    threads: 1
-    envmodules:
-        config["sambamba"],
-        config["samtools"]
-    shell:
-        """
-        echo "Getting total number of reads"
-        total_reads=$( sambamba view -c {input.bam} )
-
-        # Get reads in peak list
-        echo "Getting number of reads in peaks"
-        peak_reads=$( samtools view -L {input.peak} -c {input.bam} )
-
-        FRIP=$( echo "scale=2; 100 * $peak_reads / $total_reads" | bc )
-
-        echo "
-        Sample name: $(basename {input.bam} bam)
-        Total reads: $total_reads
-        Reads in peaks: $peak_reads
-        FRIP (%): $FRIP
-        Anything below 1% is not good..." > {output}
-        """
-
-rule crosscorrelation: # only processed bam
-    input:
-        lambda w: samples_table_2.loc[w.sample,'dedup_flt_both_strds_bam']
-    output:
-        pdf="Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/{sample}.crosscorrelation.pdf",
-        tab="Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/{sample}.crosscorrelation.spp.out" # For multiqc, the suffix has to be ".spp.out"
-    # log:
-    #     "Results/Log_files/crosscorrelation/{genomes_not_fused}/{sample}.log"
+        pdf = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/"
+                "{sample}.crosscorrelation.pdf",
+        tab = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/"
+                "{sample}.crosscorrelation.spp.out", 
+        # the suffix ".spp.out" is so that the file is recognized by multiqc
     threads: 2
     envmodules:
         config["phantompeakqualtools"],
         config["samtools"],
         config["sambamba"],
         config["picard"],
-        config["deeptools"]
+        config["deeptools"],
     shell:
         """
-    run_spp.R -c="{input}" -savp="{output.pdf}" -out="{output.tab}"
+        run_spp.R -c="{input}" -savp="{output.pdf}" -out="{output.tab}"
         """
 
 rule samstats:
     input:
-        unpack(smkf.get_qctrl_bams_bais)
+        unpack(smkf.samstats_samtools_flagstat_input),
     output:
-        "Results/{genomes_not_fused}/Qctrl/{sample}/{bam_type}/{sample}.samstats.txt" # This file is actualy just a txt file, but to be able to use expand in multiqc I am using .tab
+        "Results/{genomes_not_fused}/Qctrl/{sample}/{bam_type}/"
+            "{sample}.samstats.txt",
+    # TODO: check on the following phrase: 
+    # 'to be able to use the expand in multiqc I should use .tab instead
+    # of .txt'
     threads: 2
     envmodules:
         config["samtools"],
     shell:
         """
-    samtools stats {input.bam} > {output}
+        samtools stats {input.bam} > {output}
         """
 
 rule samtools_flagstat:
     input:
-        unpack(smkf.get_qctrl_bams_bais)
+        unpack(smkf.samstats_samtools_flagstat_input)
     output:
-        "Results/{genomes_not_fused}/Qctrl/{sample}/{bam_type}/{sample}.flagstat.txt"
+        "Results/{genomes_not_fused}/Qctrl/{sample}/{bam_type}/"
+            "{sample}.flagstat.txt",
     threads: 2
     envmodules:
         config["samtools"],
     shell:
         """
-    samtools flagstat {input.bam} > {output}
+        samtools flagstat {input.bam} > {output}
         """
 
-rule insert_size_picard: # Only processed bam and PE. I put {bam_type} wildcard though to be able to use the function to get the input bam/bai
+rule insert_size_picard: 
+# Only processed bam and PE. I put {bam_type} wildcard though to be able
+# to use the function to get the input bam/bai
     input:
         lambda w: samples_table_2.loc[w.sample,'dedup_flt_both_strds_bam']
     output:
-        tab = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/{sample}.insert_size_picard.tab",
-        pdf = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/{sample}.insert_size_picard.pdf"
+        tab = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/"
+                "{sample}.insert_size_picard.tab",
+        pdf = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/"
+                "{sample}.insert_size_picard.pdf",
     threads: 2
     envmodules:
         config["picard"],
-        config["R"]
+        config["R"],
     shell:
         """
-    	picard CollectInsertSizeMetrics M=0.25 I={input} O={output.tab} H={output.pdf} VALIDATION_STRINGENCY=LENIENT ASSUME_SORTED=true VERBOSITY=INFO
+    	picard CollectInsertSizeMetrics M=0.25 I={input} O={output.tab} \\
+         H={output.pdf} VALIDATION_STRINGENCY=LENIENT ASSUME_SORTED=true \\
+         VERBOSITY=INFO
         """
 
-rule library_complexity_picard: # only raw bam and PE
+rule library_complexity_picard: 
+# only for raw bam and PE
     input:
-        lambda w: samples_table_2.loc[w.sample, 'raw_bam'] # If I don't convert the wildcards to list, it returns a warning
+        lambda w: samples_table_2.loc[w.sample, 'raw_bam']
     output:
-        "Results/{genomes_not_fused}/Qctrl/{sample}/Raw_bam/{sample}.picard_library_complexity.tab"
+        "Results/{genomes_not_fused}/Qctrl/{sample}/Raw_bam/"
+            "{sample}.picard_library_complexity.tab",
     threads: 2
     envmodules:
-        config["picard"]
+        config["picard"],
     shell:
         """
-    	picard EstimateLibraryComplexity I={input} O={output} VALIDATION_STRINGENCY=LENIENT VERBOSITY=INFO
+    	picard EstimateLibraryComplexity I={input} O={output} \\
+         VALIDATION_STRINGENCY=LENIENT VERBOSITY=INFO
         """
 
 rule multiqc:
     input:
         expand(
-        "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/{sample}.crosscorrelation.spp.out",
-        sample = samples_table['sample_name'].tolist()
+            "Results/FASTQ_reports/{sample}.{PE}.fastp.json",
+            sample = samples_table['sample_name'].tolist(),
+            PE = "PE" if samples_table['PE'].all() else "SE"
+            ),
+        expand(
+            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
+                "{sample}.crosscorrelation.spp.out",
+            sample = samples_table['sample_name'].tolist()
         ),
         expand(
-        "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/{sample}.insert_size_picard.tab",
-        sample = samples_table.loc[samples_table['PE'], 'sample_name'].tolist()
+            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
+                "{sample}.insert_size_picard.tab",
+            sample = samples_table.loc[
+                samples_table['PE'], 
+                'sample_name',
+                ].tolist()
         ), # insert size only applies for PE samples
         expand(
-        "Results/{{genomes_not_fused}}/Qctrl/{sample}/Raw_bam/{sample}.picard_library_complexity.tab",
-        sample = samples_table.loc[~samples_table['sample_name'].str.endswith("MERGED"), 'sample_name'].to_list() # Not applying this to merged files since they have already been dedupped. Before the command was: samples_table['sample_name'].tolist()
+            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Raw_bam/"
+                "{sample}.picard_library_complexity.tab",
+            sample = samples_table.loc[
+                ~samples_table['sample_name'].str.endswith("MERGED"), 
+                'sample_name',
+                ].to_list(), # Not applying this to merged files since they have already been dedupped. Before the command was: samples_table['sample_name'].tolist()
         ),
         expand(
-        "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/{sample}.{ext}",
-        sample = samples_table['sample_name'].tolist(),
-        ext = ["samstats.txt", "flagstat.txt"]
+            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
+                "{sample}.{ext}",
+            sample = samples_table['sample_name'].tolist(),
+            ext = ["samstats.txt", "flagstat.txt"],
         ),
         expand(
-        "Results/{{genomes_not_fused}}/Qctrl/{sample}/Raw_bam/{sample}.{ext}",
-        sample = samples_table.loc[~samples_table['sample_name'].str.endswith("MERGED"), 'sample_name'].to_list() ,
-        ext = ["samstats.txt", "flagstat.txt"] # Not applying this to merged files since they have already been dedupped. Before the command was: sample=samples_table['sample_name'].tolist()
+            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Raw_bam/"
+                "{sample}.{ext}",
+            sample = samples_table.loc[
+                ~samples_table['sample_name'].str.endswith("MERGED"), 
+                'sample_name',
+                ].to_list(),
+            ext = ["samstats.txt", "flagstat.txt"] # Not applying this to merged files since they have already been dedupped. Before the command was: sample=samples_table['sample_name'].tolist()
         )
     output:
-        directory("Results/{genomes_not_fused}/Qctrl/multiqc_report_{library}_data"),
-        html = "Results/{genomes_not_fused}/Qctrl/multiqc_report_{library}.html"
+        directory(
+            "Results/{genomes_not_fused}/Qctrl/multiqc_report_{library}_data"
+            ),
+        html = "Results/{genomes_not_fused}/Qctrl/"
+                    "multiqc_report_{library}.html",
     threads: 2
     envmodules:
-        config["multiqc"]
+        config["multiqc"],
     shell:
         """
 config_file_path="$(pwd)/Config/multiqc_config.yaml"
 cd Results/{wildcards.genomes_not_fused}/Qctrl && \
-multiqc --dirs --dirs-depth 1 --filename "multiqc_report_{wildcards.library}.html" --config $config_file_path ./
-# --dirs       : use directory name as part of sample name (not to overwrite data with same file name)
-# --dirs-depth : how many directories should be used for the name of the sample
+multiqc --dirs --dirs-depth 1 \\
+ --filename "multiqc_report_{wildcards.library}.html" \\
+ --config $config_file_path ./ ../../FASTQ_reports
+# --dirs       : use directory name as part of sample name 
+#               (not to overwrite data with same file name)
+# --dirs-depth : how many directories should be used for the name of 
+#                the sample
 # --config     : path for config file
         """
 
@@ -764,115 +941,138 @@ rule intersect_peaks_HSs_list:
     input:
         unpack(smkf.intersect_peaks_HSs_list_input)
     output:
-        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type_folder}/{peak_params}/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/{sample}.{genomes_final}{extension}.{peak_type}Peak"
-    wildcard_constraints:
-        peak_type="broad|narrow",
-        peak_type_folder="Broad|Narrow"
-    # log:
-    #     "Results/Log_files/intersect_peaks_HSs_list/{genomes_not_fused}/{peak_type_folder}.{peak_type}/{peak_params}/{sample}.{genomes_final}.{extension}log"
+        "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
+            "{peak_params}/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/"
+            "{sample}.{genomes_final}{extension}.{peak_type}Peak",
     threads: 1
     envmodules:
-        config["bedtools"]
+        config["bedtools"],
     shell:
         """
-        bedtools intersect -wa -a {input.sample_peaks} -b {input.hotspots} > {output} # comment
+        bedtools intersect -wa -a {input.sample_peaks} -b {input.hotspots} > \\
+            {output}
         """
 
 rule compute_matrix_outfiles_hs: 
-    # Use deeptools to generate a coverage matrix over a set of regions determined in a bedfile.
+    # Use deeptools to generate a coverage matrix over a set of regions 
+    # determined in a bedfile.
     input: 
-        unpack(smkf.compute_matrix_outfiles_hs_input) # before changing this I need to change the
-        # function that calls for this rule's output (function get_hs_agg_profs_inputs from process_aggregate_profiles rule)
+        unpack(smkf.compute_matrix_outfiles_hs_input),
     output:
-        filename = temp("Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/{cov_params}/filenames/{sample}.{genomes_final}{extension}{strand}.filename"), # This file is to be used by plotHeatmap
-        matrix = "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/{cov_params}/matrixes/{sample}.{genomes_final}{extension}{strand}.matrix", # This file is to do the aggregate profiles.
+        filename = temp(
+            "Results/{genomes_not_fused}/Analysis/"
+                "Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/"
+                "{cov_params}/filenames/"
+                "{sample}.{genomes_final}{extension}{strand}.filename"),
+        matrix = "Results/{genomes_not_fused}/Analysis/"
+            "Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/"
+                "{cov_params}/matrixes/"
+                "{sample}.{genomes_final}{extension}{strand}.matrix",
     # log:
     #     ""
     threads: 1
     envmodules:
         config["deeptools"]
-    params:
-        before_region = config['heatmaps']['before_region'],
-        after_region = config['heatmaps']['after_region'],
-        bin_size = config['heatmaps']['bin_size']
     shell:
         """
-computeMatrix reference-point -p max -R {input.region} -S {input.bigwig} --sortRegions keep -b {params.before_region} -a {params.after_region} --outFileName {output.filename} --outFileNameMatrix {output.matrix} --referencePoint center --binSize {params.bin_size}
+        computeMatrix reference-point -p max -R {input.region} \\
+          -S {input.bigwig} \\
+          --sortRegions keep \\
+          -b {config[heatmaps][before_region]} \\
+          -a {config[heatmaps][after_region]} \\
+          --outFileName {output.filename} \\
+          --outFileNameMatrix {output.matrix} \\
+          --referencePoint center \\
+          --binSize {config[heatmaps][bin_size]}
         """
 
 rule process_aggregate_profiles:
-    # This rule will make average over all loci, smooth and normalize the data from 
-    # the matrix generated by rule 'compute_matrix_outfiles_hs'
-    # 'hs_region' can be one of the following: 
-    # 'LibName_top_5000_plus_minus_2000',  'LibName_aggregate_profiles_data', 'LibName_top_5000_B6xCAST', 'LibName_B6xCAST_PRDM9_assymetric_hs_invading_strand' and 'LibName__B6xCAST_PRDM9_assymetric_hs_receiving_strand'. 
-    # The first 3 pertain mm10 (B6) aligned data. All the others are for data aligned to a B6-CAST fusion mm10 genome.
+    """Average over all loci, smooth and normalize signal from \
+    'compute_matrix_outfiles_hs' rule's output
+      
+     'hs_region' can be one of the following: 
+     'LibName_top_5000_plus_minus_2000',  'LibName_aggregate_profiles_data', 
+     'LibName_top_5000_B6xCAST', 
+     'LibName_B6xCAST_PRDM9_assymetric_hs_invading_strand' and 
+     'LibName__B6xCAST_PRDM9_assymetric_hs_receiving_strand'. 
+     
+     The first 3 pertain mm10 (B6) aligned data. All the others are for 
+     data aligned to a B6-CAST fusion (mm10 assembly).
+
+     Input function (process_aggregate_profiles_inputs) returns a list with
+     all available *.matrix files for that particular {hs_region}
+    """
+    # TODO: improve docstring
     input:
-        unpack(smkf.process_aggregate_profiles_inputs) # It returns a dict with 3 lists named as ""{strnd}_{reg}""
+        unpack(smkf.process_aggregate_profiles_inputs),
     output:
-        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{library_name}_{hs_region}.RData"
-    # log:
-    #     ""
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+            "Hotspots/{library_name}_{hs_region}.RData",
     threads: 1
     envmodules:
         config["R"],
-        config["bioconductor"]
+        config["bioconductor"],
     params:
         genomes = config['genomes'].keys(),
-        overwrite = config['aggregate_profiles']['process_outfile']['overwrite'],
-        smooth = config['aggregate_profiles']['process_outfile']['smooth']
     script:
         "Scripts/process_outfile_matrix.R"
 
 rule wrangle_X_nonPAR_asymmetric_HS:
     input:
-        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{libary}_x_non_par.RData",
-        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{libary}_autosomal_x_non_par_ctrl.RData",
-        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{libary}_asymetric_watson_strong.RData",
-        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{libary}_asymetric_crick_strong.RData",
-        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{libary}_top_5000_plus_minus_2000.RData"
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+            "Hotspots/{libary}_x_non_par.RData",
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+            "Hotspots/{libary}_autosomal_x_non_par_ctrl.RData",
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+            "Hotspots/{libary}_asymetric_watson_strong.RData",
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+            "Hotspots/{libary}_asymetric_crick_strong.RData",
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+            "Hotspots/{libary}_top_5000_plus_minus_2000.RData",
     output:
-        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{libary}_aggregate_profiles_data.RData"
-    # log:
-    #     ""
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+            "Hotspots/{libary}_aggregate_profiles_data.RData",
     threads: 1
     envmodules:
         config["R"],
-        config["bioconductor"]
+        config["bioconductor"],
     script:
         "Scripts/wrangle_X_nonPAR_asymmetric_HS.R"
 
 rule plot_heatmaps:
     input:
-        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/Both_strands/{cov_params}/filenames/{sample}.{genomes_final}{extension}{strand}.filename"
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+            "Hotspots/{hs_region}/Both_strands/{cov_params}/filenames/"
+            "{sample}.{genomes_final}{extension}{strand}.filename",
     output:
-        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/Both_strands/{cov_params}/Heatmaps/{sample}.{genomes_final}{extension}{strand}.png"
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+            "Hotspots/{hs_region}/Both_strands/{cov_params}/Heatmaps/"
+            "{sample}.{genomes_final}{extension}{strand}.png",
     wildcard_constraints:
-        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?"
-    # log:
-    #     ""
+        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
     threads: 1
     envmodules:
-        config["deeptools"]
-    params:
-        region =  lambda w: config['references'][w.genomes_not_fused]['spo11'][w.hs_region],
+        config["deeptools"],
     shell:
         """
-plotHeatmap --matrixFile {input} --sortRegions keep --plotTitle "{wildcards.sample}, {wildcards.strand} at {wildcards.hs_region}" -out {output} \
---legendLocation none
-#############
-### NOTES ###
-#############
-# --legendLocation none : applies to the legend inside the aggregate profile box.
+        plotHeatmap --matrixFile {input} --sortRegions keep \\
+          --plotTitle "{wildcards.sample}, {wildcards.strand} at {wildcards.hs_region}" \\
+          -out {output} \\
+          --legendLocation none
+        #############
+        ### NOTES ###
+        #############
+        # --legendLocation none : applies to the legend inside the aggregate profile box.
         """
 
 rule sumarize_peak_count:
     input:
-        unpack(smkf.sumarize_peak_count_input)
+        unpack(smkf.sumarize_peak_count_input),
     output:
-        "Results/{genomes_not_fused}/Analysis/Peaks_summary.tsv"
+        "Results/{genomes_not_fused}/Analysis/Peaks_summary.tsv",
     threads: 1
     params:
-        samples_table_2 = samples_table_2
+        samples_table_2 = samples_table_2,
     script:
         "Scripts/peaks_summary.py"
 
@@ -882,12 +1082,11 @@ rule markdown_report_aggregate_profiles:
         unpack(smkf.markdown_report_aggregate_profiles_input)
     output:
         html_report = "Results/{genomes_not_fused}/Analysis/{lib_name}.html",
-        xlsx_table = "Results/{genomes_not_fused}/Analysis/{lib_name}_for_NGS_files.xlsx"
-        #RData = "Results/{genomes_not_fused}/Analysis/{lib_name}_aggregate_profile_data.RData" # --> How to make this output conditional? --Make another rule
+        xlsx_table = "Results/{genomes_not_fused}/Analysis/"
+            "{lib_name}_for_NGS_files.xlsx",
     threads: 1
     envmodules:
         config["R"],
-        config["bioconductor"]
-    # log: "Results/Log_files/markdown_report_aggregate_profiles/{genomes_not_fused}/{lib_name}.log"
+        config["bioconductor"],
     script:
         "Scripts/html_report.R"
