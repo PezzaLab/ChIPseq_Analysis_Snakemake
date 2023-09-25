@@ -30,6 +30,6 @@ The pipeline can also merge FASTQ files and generate (drosophila) spike-in norma
 
 ## Running the pipeline  
 
-### With our libraries (add link here)  
+### [With our libraries](./Docs/Instructions_for_processing_own_library.md)  
 
-### With mined-data (add link here)
+### With mined-data (In construction)
