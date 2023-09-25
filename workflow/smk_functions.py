@@ -39,6 +39,26 @@ def check_sample_table_format(samples_table):
                     "'samples_table.csv' file:\n"
                     )
     exit_script = False
+    
+    # %% Boolean columns
+    # Check that all columns with false-true are actually boolean
+    cols_to_check = ["PE", "dros_spike_in", "get_single_strand",
+     "Clip_reads_to_1bp_on_5_prime", "top5000_HS_heatmap"
+     ]
+    booleans_check = [col for col in cols_to_check 
+         if samples_table[col].dtype != "bool"]
+    
+    if (len(booleans_check) > 0):
+        exit_bool_message = (
+            "* The following column/s has/ve at least one"
+            " row  filled with something different than 'T', 'F', 'True',"
+            " 'False', 'TRUE' or 'FALSE':\n"
+            f"\t({booleans_check})"
+        )
+        sys.exit(exit_bool_message)
+    # If any of this booleans is not boolean I need to exit now because
+    # following checks use the boolean value of some of this columns
+        
     # %% Samples names check
     # Check names of samples don't contain / or . or finish in "_MERGED"
     if (samples_table['sample_name'].str.contains(r"\.") |
@@ -136,21 +156,7 @@ def check_sample_table_format(samples_table):
             "assigned to it but has the field 'dros_spike_in' set as False.\n"
         )
         exit_script = True
-    # %% Column type
-    # Check that all columns with false-true are actually false true
-    booleans_check = samples_table[
-        ["PE", "dros_spike_in", "get_single_strand",
-         "Clip_reads_to_1bp_on_5_prime", "top5000_HS_heatmap"
-         ]
-    ].dtypes
-    if (booleans_check != "bool").any():
-        exit_message += (
-            "* One or more of the following columns ('PE','dros_spike_in', "
-            "'get_single_strand', 'Clip_reads_to_1bp_on_5_prime',"
-            "'top5000_HS_heatmap') has at lesat one row  filled with something"
-            " different than 'T', 'F', 'True', 'False', 'TRUE' or 'FALSE'.\n"
-        )
-        exit_script = True
+
     # %% peak_ctrl_file_alias
     # Convert peak_ctrl_file_alias series to str (in case it's all NaN values)
     peak_ctrls = samples_table['peak_ctrl_file_alias'].astype(str)
