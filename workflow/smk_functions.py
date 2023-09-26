@@ -39,15 +39,17 @@ def check_sample_table_format(samples_table):
                     "'samples_table.csv' file:\n"
                     )
     exit_script = False
-    
+
     # %% Boolean columns
     # Check that all columns with false-true are actually boolean
-    cols_to_check = ["PE", "dros_spike_in", "get_single_strand",
-     "Clip_reads_to_1bp_on_5_prime", "top5000_HS_heatmap"
-     ]
-    booleans_check = [col for col in cols_to_check 
-         if samples_table[col].dtype != "bool"]
-    
+    cols_to_check = [
+        "PE", "dros_spike_in", "get_single_strand",
+        "Clip_reads_to_1bp_on_5_prime", "top5000_HS_heatmap"
+    ]
+    booleans_check = [
+        col for col in cols_to_check if samples_table[col].dtype != "bool"
+    ]
+
     if (len(booleans_check) > 0):
         exit_bool_message = (
             "* The following column/s has/ve at least one"
@@ -58,7 +60,7 @@ def check_sample_table_format(samples_table):
         sys.exit(exit_bool_message)
     # If any of this booleans is not boolean I need to exit now because
     # following checks use the boolean value of some of this columns
-        
+
     # %% Samples names check
     # Check names of samples don't contain / or . or finish in "_MERGED"
     if (samples_table['sample_name'].str.contains(r"\.") |
@@ -162,7 +164,8 @@ def check_sample_table_format(samples_table):
     peak_ctrls = samples_table['peak_ctrl_file_alias'].astype(str)
     # Get list of wrongly filled samples
     bad_samples = samples_table.loc[
-        peak_ctrls.str.contains("/|\\.| ",regex=True,na=False)]
+        peak_ctrls.str.contains("/|\\.| ", regex=True, na=False)
+    ]
     # If necessary, assemble exit message
     if len(bad_samples) > 0:
         exit_message += (
@@ -248,6 +251,37 @@ def call_peaks_macs2_input(w):
             "ctrl_bai": ctrl_bai
         }
     return input_
+
+
+def clip_1bp_input(w):
+    """Get input for clip_1bp rule
+
+    Wildcards
+    ----------
+    genomes_not_fused : "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ"
+    sample_with_extensions : "[^/]+"
+    ss_PE: ((83-163|99-147).)?
+    ss_SR: (inc|exc)_16
+
+    Returns
+    -------
+    bam : string
+        path of input bam file
+
+    """
+    if (w.ss_PE == ""):
+        bam = (
+            f"Results/{w.genomes_not_fused}/Bams/Single_strand/"
+            f"Full_length_reads/{w.sample}.{w.genomes_final}.q_filt.srt."
+            f"nodup.mit_filt.{w.ss_SR}.bam"
+        )
+    else:
+        bam = (
+            f"Results/{w.genomes_not_fused}/Bams/Single_strand/"
+            f"Full_length_reads/{w.sample}.{w.genomes_final}.q_filt.srt."
+            f"nodup.mit_filt.{w.ss_PE}bam"
+        )
+    return bam
 
 
 def compute_matrix_outfiles_hs_input(w):
@@ -478,7 +512,9 @@ def intersect_peaks_HSs_list_input(w):
     genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
     peak_type: narrow|broad
     peak_params: (bco_[0-9]+_)?qv_[0-9]+__[^/]*
-    genomes_final : genomes_final="(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+(_f_d6\.((?P=interest_genome)|d6))?(?=\.)",
+    genomes_final : (
+        "(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+"
+        "(_f_d6\.((?P=interest_genome)|d6))?(?=\.)")
     extension : (\.q_filt\.srt\.nodup\.mit_filt)?
 
     Returns

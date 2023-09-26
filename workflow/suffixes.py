@@ -236,8 +236,30 @@ def generate_samples_table_2(samples_table, config):
         np.NaN)
 
     # %%% Coverage BIGWIG files
+    # These are all the potential coverage files:
+    # snwe == "sample name with extensions", flag extensions are excluded
+        # Results/{genome}/Bigwigs/Coverage/
+            # Both_strands/
+                # {cov_params}/{snwe}.bw
+                # {dros_cov_params}/{dros_eq_group}/{snwe}.bw
+            # Single_strand/
+                # Full_length_reads/
+                    # {dros_cov_params}/{snwe}.
+                        # 83-163.bw  --> for PE
+                        # 99-147.bw  --> for PE
+                        # inc_16.bw  --> for SE
+                        # exc_16.bw  --> for SE
+                # 1bp_clipped_reads/
+                    # {dros_cov_params}/{snwe}.
+                        # 83-163.inc_16.clipped_1_bp.bw  --> for PE
+                        # 99-147.inc_16.clipped_1_bp.bw  --> for PE
+                        # 83-163.exc_16.clipped_1_bp.bw  --> for PE
+                        # 99-147.exc_16.clipped_1_bp.bw  --> for PE
+                        # inc_16.clipped_1_bp.bw  --> for SE
+                        # exc_16.clipped_1_bp.bw  --> for SE
+                
     strands = ["83-163", "99-147", "inc_16", "exc_16", "Both_strands"]
-
+    
     for strand in strands:
         # Strings
         strand_string = "Both_strands/"
@@ -267,11 +289,12 @@ def generate_samples_table_2(samples_table, config):
         if re.match("83|99", strand):
             PE = samples_table["PE"]
             single_strand = samples_table["get_single_strand"]
+            
         elif re.match("inc_16|exc_16", strand):
             PE = ~samples_table["PE"]
             single_strand = samples_table["get_single_strand"]
 
-        # Generate column name and content for non-B6xCAST
+        # Generate column name and content for non-clipped non-B6xCAST
         samples_table_2[f"{strand}_coverage_bw"] = np.where(
             PE & single_strand,
             "Results/" + genome + "/Bigwigs/Coverage/"
@@ -280,8 +303,8 @@ def generate_samples_table_2(samples_table, config):
                 + strand2
                 + ".bw",
             np.NaN)
-
-        # Generate column name and content for B6xCAST
+        
+        # Generate column name and content for non-clipped B6xCAST
         samples_table_2[f"B6xCAST_{strand}_coverage_bw"] = np.where(
             PE & single_strand & samples_table['B6xCAST'],
             "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/"
@@ -290,26 +313,70 @@ def generate_samples_table_2(samples_table, config):
                 + strand2
                 + ".bw",
             np.NaN)
+        
+        # Generate column name and content for clipped profiles
+        ## non-B6xCAST
+        if re.match("83|99", strand):
+            for strand3 in ["inc_16", "exc_16"]:
+                samples_table_2[f"{strand}_{strand3}_clipped_coverage_bw"] = (
+                    np.where(
+                        PE & single_strand & clipped,
+                        "Results/"
+                            + genome
+                            + "/Bigwigs/Coverage/"
+                            + f"Single_strand/1bp_clipped_reads/{cov_params}"
+                            + samples_nodup_filt
+                            + strand2
+                            +"."
+                            + strand3
+                            + ".clipped_1_bp.bw",
+                        np.NaN
+                    )
+                )
+        elif re.match("(inc|exc)_16", strand):
+            samples_table_2[f"{strand}_clipped_coverage_bw"] = (
+                np.where(
+                    PE & single_strand & clipped,
+                    "Results/"
+                        + genome
+                        + "/Bigwigs/Coverage/"
+                        + f"Single_strand/1bp_clipped_reads/{cov_params}"
+                        + samples_nodup_filt
+                        + strand2
+                        + ".clipped_1_bp.bw",
+                    np.NaN
+                )
+            )
 
-        # Generate column name and content for clipped non-B6xCAST
-        samples_table_2[f"{strand}_clipped_coverage_bw"] = np.where(
-            PE & single_strand & clipped,
-            "Results/"
-                + genome
-                + "/Bigwigs/Coverage/"
-                + f"Single_strand/1bp_clipped_reads/{cov_params}"
-                + samples_nodup_filt
-                + strand2
-                + ".clipped_1_bp.bw",
-            np.NaN)
 
-        # Generate column name and content for B6xCAST
-        samples_table_2[f"B6xCAST_{strand}_clipped_coverage_bw"] = np.where(
-            PE & single_strand & B6xCAST & clipped,
-            "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/" 
-                + f"Single_strand/1bp_clipped_reads/{cov_params}"
-                + samples_nodup_filt_b6xcast + strand2 + ".clipped_1_bp.bw",
-            np.NaN)
+        ## B6xCAST
+        if re.match("83|99", strand):
+            for strand3 in ["inc_16", "exc_16"]:
+                samples_table_2[f"B6xCAST_{strand}_{strand3}_clipped_coverage_bw"] = (
+                    np.where(
+                        PE & single_strand & clipped,
+                        "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/" 
+                            + f"Single_strand/1bp_clipped_reads/{cov_params}"
+                            + samples_nodup_filt
+                            + strand2
+                            +"."
+                            + strand3
+                            + ".clipped_1_bp.bw",
+                        np.NaN
+                    )
+                )
+        elif re.match("(inc|exc)_16", strand):
+            samples_table_2[f"B6xCAST_{strand}_clipped_coverage_bw"] = (
+                np.where(
+                    PE & single_strand & clipped,
+                    "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/" 
+                        + f"Single_strand/1bp_clipped_reads/{cov_params}"
+                        + samples_nodup_filt
+                        + strand2
+                        + ".clipped_1_bp.bw",
+                    np.NaN
+                )
+            )
 
     # %%% Coverage MATRIX files
     # This files are generated by deeptools using a bw and a bed file

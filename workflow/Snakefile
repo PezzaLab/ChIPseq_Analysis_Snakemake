@@ -105,7 +105,7 @@ if config['qctrl']:
 coverage_bigwigs = [ a for a in 
     samples_table_2.filter(regex = ".*coverage_bw$").values.flatten().tolist() 
     if a == a 
-    ]
+    ] # a == a is to filter-out the NaNs
 
 ###########################
 ######### RULES  ##########
@@ -129,10 +129,11 @@ rule all:
 
 wildcard_constraints:
     bam_type = "Raw_bam|Processed_bam",
-    clipped_1bp_PE="((inc|exc)_16\.clipped_1_bp\.)?",
+    clipped_1bp_PE=r"((inc|exc)_16\.clipped_1_bp\.)?",
     cov_params="((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+",
     dros_eq_group="[^./ ]+",
-    extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
+    extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?",
+    flag = "(83|163|99|147|inc_16|exc_16)",
     fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6)",
     genomes_not_fused="mm10|d6|hg19|hg38|mm10_x_CAST_EiJ",
     genomes_final=(
@@ -154,17 +155,18 @@ wildcard_constraints:
     peak_params = "(bco_[0-9]+_)?qv_[0-9]+__[^/]*",
     peak_type = "narrow|broad",
     read = "[12]{1}",
-    strand = "(\.(83-163|99-147|inc_16|exc_16))?",
-    spike_genome="d6",
+    read_length = "Full_length_reads|1bp_clipped_reads",
     sample = "[^./ ]+", # Name of files cannot contain . or / or space
     sample_with_extensions = "[^/]+",
-    strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)",
-    ss_PE = "83-163|99-147",
+    spike_genome="d6",
+    ss_PE = "((83-163|99-147).)?",
     ss_SR = "(inc|exc)_16",
+    strand = "(\.(83-163|99-147|inc_16|exc_16))?",
+    strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)",
 # TODO: Automate wildcard constrain expressions for genomes according to
 # info on config or sample file (which genomes are there?)
     
-ruleorder: get_strand_sep_pe_bams > dedup_bam > index
+ruleorder: get_strand_sep_bams > dedup_bam > index
 ruleorder: merge_bams > align_fastq
 localrules: filter_peaks_blk_grey_list, filter_peaks_blk_grey_list, \
     intersect_peaks_HSs_list, sumarize_peak_count
@@ -396,26 +398,26 @@ rule filter_bam:
             # supplementary alignment
         """
 
-rule get_strand_sep_pe_bams: 
+rule get_strand_sep_bams: 
 #TODO: Do I need to separate 83 AND 163 or are the both the same?
     input:
         bam=(
             "Results/{genomes_not_fused}/Bams/Both_strands/"
-                "{sample_with_extensions}.bam"
+                "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.bam"
             ),
     output:
         bam=temp(
             "Results/{genomes_not_fused}/Bams/Single_strand/"
-                "Full_length_reads/{sample_with_extensions}.{flag}.bam"
+                "{read_length}/{sample}.{genomes_final}."
+                "q_filt.srt.nodup.mit_filt.{flag}.bam"
             ),
         bai=temp(
             "Results/{genomes_not_fused}/Bams/Single_strand/"
-                "Full_length_reads/{sample_with_extensions}.{flag}.bam.bai"
+                "{read_length}/{sample}.{genomes_final}."
+                "q_filt.srt.nodup.mit_filt.{flag}.bam.bai"
             ), 
         # Index is needed for next merge_watson_or_crick and is also 
         # temp, that is why it is not done by index rule
-    wildcard_constraints:
-        flag="(83|163|99|147)",
     threads: 2
     envmodules:
         config["samtools"],
@@ -428,20 +430,22 @@ rule get_strand_sep_pe_bams:
 rule merge_watson_or_crick: 
 # TODO: If the next rule works for both SR and PE, erase this rule
     input:
-        flag1="Results/{genomes_not_fused}/Bams/Single_strand/"
-                    "Full_length_reads/{sample_with_extensions}.{flag1}.bam",
+        bam_1="Results/{genomes_not_fused}/Bams/Single_strand/"
+                    "Full_length_reads/{sample}.{genomes_final}."
+                    "q_filt.srt.nodup.mit_filt.{flag1}.bam",
         index_1="Results/{genomes_not_fused}/Bams/Single_strand/"
-                    "Full_length_reads/"
-                    "{sample_with_extensions}.{flag1}.bam.bai",
-        flag2="Results/{genomes_not_fused}/Bams/Single_strand/"
-                    "Full_length_reads/"
-                    "{sample_with_extensions}.{flag2}.bam",
+                    "Full_length_reads/{sample}.{genomes_final}."
+                    "q_filt.srt.nodup.mit_filt.{flag1}.bam.bai",
+        bam_2="Results/{genomes_not_fused}/Bams/Single_strand/"
+                    "Full_length_reads/{sample}.{genomes_final}."
+                    "q_filt.srt.nodup.mit_filt.{flag2}.bam",
         index_2="Results/{genomes_not_fused}/Bams/Single_strand/"
-                    "Full_length_reads/"
-                    "{sample_with_extensions}.{flag2}.bam.bai",
+                    "Full_length_reads/{sample}.{genomes_final}."
+                    "q_filt.srt.nodup.mit_filt.{flag2}.bam.bai",
     output:
         "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/"
-        "{sample_with_extensions}.{flag1}-{flag2}.bam",
+        "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
+        "{flag1}-{flag2}.bam",
     wildcard_constraints:
         flag1="(83|99)",
         flag2="(163|147)",
@@ -450,33 +454,35 @@ rule merge_watson_or_crick:
         config["samtools"],
     shell:
         """
-        samtools merge {output} {input.flag1} {input.flag2}
+        samtools merge {output} {input.bam_1} {input.bam_2}
         """
 
-rule get_rv_fw_strand:
-# This rule only applies to single read (SR) samples with strand
-# information (ENDseq and such)
-# TODO: revise this rule and it's input function. Why would the input
-# have the PE single strand flags (99-147, etc)?
-    input:
-        smkf.get_rv_fw_strand_input,
-        #"Results/{genomes_not_fused}/Bams/Single_strand/"
-        #    "Full_length_reads/{sample_with_extensions}.bam",
-        #"Results/{genomes_not_fused}/Bams/Both_strands/"
-        #    "{sample_with_extensions}.bam"
-    output:
-        inc_16="Results/{genomes_not_fused}/Bams/Single_strand/"
-                    "Full_length_reads/{sample_with_extensions}.inc_16.bam",
-        exc_16="Results/{genomes_not_fused}/Bams/Single_strand/"
-                    "Full_length_reads/{sample_with_extensions}.exc_16.bam",
-    threads: 2
-    envmodules:
-        config["samtools"],
-    shell:
-        """
-        samtools view -b -f 16 {input} > {output.inc_16}
-        samtools view -b -F 16 {input} > {output.exc_16}
-        """
+# rule get_rv_fw_strand:
+# # This rule only applies to single read (SR) samples with strand
+# # information (ENDseq and such)
+# # TODO: revise this rule and it's input function. Why would the input
+# # have the PE single strand flags (99-147, etc)?
+#     input:
+#         smkf.get_rv_fw_strand_input,
+#         #"Results/{genomes_not_fused}/Bams/Single_strand/"
+#         #    "Full_length_reads/{sample_with_extensions}.bam",
+#         #"Results/{genomes_not_fused}/Bams/Both_strands/"
+#         #    "{sample_with_extensions}.bam"
+#     output:
+#         inc_16="Results/{genomes_not_fused}/Bams/Single_strand/"
+#                     "Full_length_reads/{sample_with_extensions}.inc_16.bam",
+#         exc_16="Results/{genomes_not_fused}/Bams/Single_strand/"
+#                     "Full_length_reads/{sample_with_extensions}.exc_16.bam",
+#     threads: 2
+#     envmodules:
+#         config["samtools"],
+#     shell:
+#         """
+#         samtools view -b -f 16 {input} > {output.inc_16}
+#         samtools view -b -F 16 {input} > {output.exc_16}
+
+#         # flag 16: read reverse strand 
+#         """
 
 rule create_coverage_bw:
     input:
@@ -491,8 +497,8 @@ rule create_coverage_bw:
         "{cov_params}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
         "{ss_condit}{clip_condit}bw",
     wildcard_constraints:
-        ss_condit="((83-163|99-147|inc_16|exc_16)\.)?",
-        clip_condit="(((inc|exc)_16\.)?clipped_1_bp\.)?",
+        ss_condit = r"((83-163|99-147|inc_16|exc_16)\.)?",
+        clip_condit = r"(((inc|exc)_16\.)?clipped_1_bp\.)?",
     threads: 2
     envmodules:
         config["deeptools"],
@@ -528,15 +534,16 @@ rule create_coverage_bw:
 
 rule clip_1bp:
     input:
-        "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/"
-            "{sample_with_extensions}{strand}.bam",
+        smkf.clip_1bp_input,
     output:
         bam="Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/"
-                "{sample_with_extensions}{strand}.clipped_1_bp.bam",
+                "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_PE}{ss_SR}"
+                ".clipped_1_bp.bam",
         tmp_dir=temp(
             directory(
                 "Results/{genomes_not_fused}/Bams/Single_strand/1bp_clipped_reads/"
-                    "{sample_with_extensions}{strand}/temp_clip_1bp"
+                    "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_PE}{ss_SR}/"
+                    "temp_clip_1bp"
                 )
             ),
     wildcard_constraints:
@@ -595,7 +602,7 @@ rule call_peaks_macs2:
         # the [0]. Appaerently params is a list, and the first item is 
         # the dict...
     wildcard_constraints:
-        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
+        extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?",
     threads: 2
     envmodules:
         config["macs2"],
@@ -621,7 +628,7 @@ rule filter_peaks_blk_grey_list:
                   "{peak_params}/Black-grey_filtered/{sample}."
                   "{genomes_final}{extension}.{peak_type}Peak",
     wildcard_constraints:
-        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
+        extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?",
     threads: 1
     envmodules:
         config["bedtools"],
