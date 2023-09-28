@@ -304,7 +304,7 @@ rule filter_spiked_in_bam_int_genome:
         """
         int_chromsomes=$(samtools idxstats {input.bam} | \\
          cut -f 1 | grep -v .*{params.spike_suffix} | \\
-         grep -v \* | paste  -sd ' ')
+         grep -v \\* | paste  -sd ' ')
         sambamba view --nthreads $SLURM_CPUS_PER_TASK --format bam \\
          -o {output} {input.bam} $int_chromsomes
         """
@@ -419,11 +419,12 @@ rule get_strand_sep_bams:
         # Index is needed for next merge_watson_or_crick and is also 
         # temp, that is why it is not done by index rule
     threads: 2
+    params: flag = lambda w: w.flag.removeprefix("inc_").removeprefix("exc_")
     envmodules:
         config["samtools"],
     shell:
         """
-        samtools view -b -f {wildcards.flag} {input.bam} > {output.bam}
+        samtools view -b -f {params.flag} {input.bam} > {output.bam}
         samtools index {output.bam}
         """
 
@@ -1056,7 +1057,7 @@ rule plot_heatmaps:
             "Hotspots/{hs_region}/Both_strands/{cov_params}/Heatmaps/"
             "{sample}.{genomes_final}{extension}{strand}.png",
     wildcard_constraints:
-        extension = "(\.q_filt\.srt\.nodup\.mit_filt)?",
+        extension = "(\\.q_filt\\.srt\\.nodup\\.mit_filt)?",
     threads: 1
     envmodules:
         config["deeptools"],

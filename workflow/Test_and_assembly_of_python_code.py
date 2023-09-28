@@ -89,8 +89,9 @@ class Wildcard():
 
 w = Wildcard()
 
-setattr(w, 'hs_region', "B6xCAST_top_5000_pm_1000bp")
-
-setattr(w, "genomes_not_fused", "mm10")
+w.hs_region = "B6"
+w.genomes_not_fused = "mm10"
 
 # %%
+a = samples_table_2.filter(regex = ".*coverage_bw$")
+a.columns
