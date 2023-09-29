@@ -503,6 +503,25 @@ def get_call_peaks_macs2_params(w):
         "ctrl": ctrl}
 
 
+def get_strand_sep_bams_params(w):
+    """Get parameters for rule get_strand_sep_bams
+
+    Wildcads
+    ----------
+    flag : "(83|163|99|147|inc_16|exc_16)"
+
+    Returns
+    -------
+    dict : string
+        (-f 83|99|163|99|16) | (-F 16)
+    """
+    filter_ = "-F " if "exc" in f"{w.flag}" else "-f "
+    flag = w.flag.removeprefix("inc_").removeprefix("exc_")
+    argument = filter_ + flag
+
+    return argument
+
+
 def intersect_peaks_HSs_list_input(w):
     r"""Get input for intersect_peaks_HSs_list rule.
 
