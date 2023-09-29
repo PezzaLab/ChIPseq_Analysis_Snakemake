@@ -47,6 +47,7 @@ MACS2:
   qvalue: "0.05" # 0.5 = MACS default
   control: # <techinque>_<ref_genome>_<frag._tech>_<library_tech>_<reads type and length>_<file_ID> # <chip|cyr|...>_<mm10_hg38...>_<sonic|mnase|...>_<accel|reg|...>_<(SR|PE)(50|75,etc)><1|2|...>
     no_input: ""
+    chip_mm10_sonic_testes_regular_SE75_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/INPUT_B180_2_28.mm10.q_filt.srt.nodup.mit_filt.bam"
     chip_mm10_sonic_testes_regular_PE50_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/INPUT_B180_2_28.mm10.q_filt.srt.nodup.mit_filt.bam"
     chip_mm10_sonic_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_7_Input_zyg_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
     chip_mm10_sonic_testes_adaptase_2: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/6-28-22_Input_8_Di_L_zyg_wtestes.mm10.q_filt.srt.nodup.mit_filt.bam"
