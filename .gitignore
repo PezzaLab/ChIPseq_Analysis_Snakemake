@@ -18,3 +18,5 @@ dag*
 Test_code/*
 process_outfile_matrix_image*
 *.RData
+*/.*
+!.gitignore
