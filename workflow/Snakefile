@@ -168,7 +168,7 @@ wildcard_constraints:
     
 ruleorder: get_strand_sep_bams > dedup_bam > index
 ruleorder: merge_bams > align_fastq
-localrules: filter_peaks_blk_grey_list, filter_peaks_blk_grey_list, \
+localrules: filter_peaks_blk_grey_list, \
     intersect_peaks_HSs_list, sumarize_peak_count
 # TODO: add dros_normalization_report and 
 # markdown_report_aggregate_profiles to localrules?
@@ -619,11 +619,7 @@ rule call_peaks_macs2:
 
 rule filter_peaks_blk_grey_list:
     input:
-        peaks = "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
-                  "{peak_params}/{sample}.{genomes_final}{extension}_peaks."
-                  "{peak_type}Peak",
-        blck_gry_lst=lambda w: config['references'][
-            w.genomes_not_fused]['black_grey'],
+        unpack(smkf.filter_peaks_blk_grey_list_input),
     output:
         final = "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
                   "{peak_params}/Black-grey_filtered/{sample}."
@@ -751,13 +747,7 @@ rule dros_normalization:
 
 rule FRIP:
     input:
-        peak = "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
-                   "{peak_params}/Black-grey_filtered/{sample}."
-                   "{genomes_final}{extension}.{peak_type}Peak",
-        bam = lambda w: samples_table_2.loc[
-                            w.sample, "dedup_flt_both_strds_bam"],
-        bai = lambda w: samples_table_2.loc[
-                            w.sample, "dedup_flt_both_strds_bam"] + ".bai",
+        unpack(smkf.FRIP_input),
     output:
         "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/"
             "MACS2_{peak_type}_{peak_params}_bl-gr_flt/"

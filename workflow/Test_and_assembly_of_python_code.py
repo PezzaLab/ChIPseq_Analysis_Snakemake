@@ -15,6 +15,8 @@ import os
 # Set current wd (I cannot get Spyder IDE to set wd as file's path...)
 os.chdir("/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/"
          "ChIPseq_Analysis_Snakemake/workflow")
+
+os.chdir("/Volumes/pezzar-lab/Lib3SMARCAD1HP1RPA_DiVa/workflow")
 import smk_functions as smkf
 import suffixes as sfxs
 
@@ -85,13 +87,9 @@ smkf.samples_table_2 = samples_table_2
 class Wildcard():
     def __init__(self):
         self
-
-
 w = Wildcard()
-
 w.hs_region = "B6"
-w.genomes_not_fused = "mm10"
+w.genomes_not_fused = "hg38"
 
 # %%
-a = samples_table_2.filter(regex = ".*coverage_bw$")
-a.columns
+smkf.markdown_report_aggregate_profiles_input(w)
