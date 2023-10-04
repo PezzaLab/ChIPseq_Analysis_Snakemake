@@ -336,7 +336,9 @@ def generate_samples_table_2(samples_table, config):
         elif re.match("(inc|exc)_16", strand):
             samples_table_2[f"{strand}_clipped_coverage_bw"] = (
                 np.where(
-                    PE & single_strand & clipped,
+                    PE 
+                        & single_strand 
+                        & clipped,
                     "Results/"
                         + genome
                         + "/Bigwigs/Coverage/"
@@ -354,7 +356,10 @@ def generate_samples_table_2(samples_table, config):
             for strand3 in ["inc_16", "exc_16"]:
                 samples_table_2[f"B6xCAST_{strand}_{strand3}_clipped_coverage_bw"] = (
                     np.where(
-                        PE & single_strand & clipped,
+                        PE 
+                            & single_strand 
+                            & clipped 
+                            & samples_table['B6xCAST'],
                         "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/" 
                             + f"Single_strand/1bp_clipped_reads/{cov_params}"
                             + samples_nodup_filt
@@ -368,7 +373,10 @@ def generate_samples_table_2(samples_table, config):
         elif re.match("(inc|exc)_16", strand):
             samples_table_2[f"B6xCAST_{strand}_clipped_coverage_bw"] = (
                 np.where(
-                    PE & single_strand & clipped,
+                    PE 
+                        & single_strand 
+                        & clipped
+                        & samples_table['B6xCAST'],
                     "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/" 
                         + f"Single_strand/1bp_clipped_reads/{cov_params}"
                         + samples_nodup_filt
