@@ -869,8 +869,9 @@ rule multiqc:
     input:
         expand(
             "Results/FASTQ_reports/{sample}.{PE}.fastp.json",
+            zip,
             sample = samples_table['sample_name'].tolist(),
-            PE = "PE" if samples_table['PE'].all() else "SE"
+            PE = ["PE" if x else "SE" for x in samples_table['PE']],
             ),
         expand(
             "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
