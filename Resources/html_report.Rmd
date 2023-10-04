@@ -97,15 +97,24 @@ if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
 ```{r}
 # Peak summary
   # Peaks found at "Results/{genomes_not_fused}/Analysis/Peaks_summary.tsv"
-if (is.null(snakemake@input[["peaks_summary"]])){
-  "No peaks were asked for" 
+if (is.null(snakemake@input[["peaks_summary"]])) {
+  "No peaks were asked for"
 } else{
   peaks <- read_tsv(snakemake@input[["peaks_summary"]])
-  peaks_sorted <- 
-    peaks %>% 
-    arrange(desc(broad_all)) %>% 
-    select("sample" = "sample_name", "broad_all", "broad_hs", "% brd peaks at HS",
-           "narrow_all", "narrow_hs", "% nrw peaks at HS")
+  peaks_sorted <-
+    peaks %>%
+    arrange(desc(broad_all)) %>%
+    select(any_of(
+      c(
+        "sample" = "sample_name",
+        "broad_all",
+        "broad_hs",
+        "% brd peaks at HS",
+        "narrow_all",
+        "narrow_hs",
+        "% nrw peaks at HS"
+      )
+    ))
 }
 ```
 
@@ -114,14 +123,11 @@ How may reads were in the fastq used for alignment (after fastp filtering), and 
 ```{r, get_number_of_reads}
 # Get fastp summary json files
 files_fastp <-  
-  list.files(path = "Results",
-    full.names = T,
-    recursive = T) %>% 
-  grep("fastp\\.json$",., value =T)
+  snakemake@input[["fastp"]]
 
 files_fastp_names <-
-  files_fastp %>%
-  basename %>%
+  snakemake@input[["fastp"]] %>% 
+  basename %>% 
   str_remove("\\.(PE|SE)\\.fastp\\.json")
 
 # Get number of reads in FASTQ file from fastp json files
@@ -476,15 +482,15 @@ table2 <-
          Container = "-",
          Full_path = "-",
          file_name = "-") %>% 
-  rename("experiment_name" = "sample",
+  rename(any_of(c("experiment_name" = "sample",
          "number_broad_peaks" = "broad_all",
          "number_narrow_peaks" = "narrow_all",
          "%_broad_peaks_in_HS_+-_2000bp" = "% brd peaks at HS",
          "%_narrow_peaks_in_HS_+-_2000bp" = "% nrw peaks at HS",
          "unique_q_filtered_reads[M]" = "# R1 in filtered BAM",
          "narrow_peaks_in_HS_+-_2000bp" = "narrow_hs",
-         "broad_peaks_in_HS_+-_2000bp" = "broad_hs") %>% 
-  dplyr::select(all_of(excel_col_names))
+         "broad_peaks_in_HS_+-_2000bp" = "broad_hs"))) %>% 
+  dplyr::select(any_of(excel_col_names))
 
 # Create header style for excel file
 hs <- createStyle(

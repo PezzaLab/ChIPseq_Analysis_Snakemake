@@ -115,7 +115,7 @@ rule all:
     input:
         multiqc,
         expand(
-        "Results/{genomes}/Analysis/{lib_name}.html",
+        "Results/{genomes}/Analysis/{lib_name}.{genomes}.html",
         genomes = samples_table["reference_genome"].unique().tolist(),
         lib_name = config['library']['name']
         ),
@@ -137,8 +137,8 @@ wildcard_constraints:
     fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6)",
     genomes_not_fused="mm10|d6|hg19|hg38|mm10_x_CAST_EiJ",
     genomes_final=(
-        "(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+"
-        "(_f_d6\.((?P=interest_genome)|d6))?(?=\.)"),
+        r"(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+"
+        r"(_f_d6\.((?P=interest_genome)|d6))?(?=\.)"),
     genomes_all=(
         "mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|"
         "mm10_x_CAST_EiJ"),
@@ -161,7 +161,7 @@ wildcard_constraints:
     spike_genome="d6",
     ss_PE = "((83-163|99-147).)?",
     ss_SR = "(inc|exc)_16",
-    strand = "(\.(83-163|99-147|inc_16|exc_16))?",
+    strand = r"(\.(83-163|99-147|inc_16|exc_16))?",
     strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)",
 # TODO: Automate wildcard constrain expressions for genomes according to
 # info on config or sample file (which genomes are there?)
@@ -1079,7 +1079,7 @@ rule markdown_report_aggregate_profiles:
     input:
         unpack(smkf.markdown_report_aggregate_profiles_input)
     output:
-        html_report = "Results/{genomes_not_fused}/Analysis/{lib_name}.html",
+        html_report = "Results/{genomes_not_fused}/Analysis/{lib_name}.{genomes_not_fused}.html",
         xlsx_table = "Results/{genomes_not_fused}/Analysis/"
             "{lib_name}_for_NGS_files.xlsx",
     threads: 1

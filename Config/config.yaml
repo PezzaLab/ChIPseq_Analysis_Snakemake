@@ -89,7 +89,7 @@ references:
       top_5000_plus_minus_2000: ""
       all_plus_minus_2000: ""
     TSS: ""
-    blacklist: "Resources/bed_files/GRCh38_unified_blacklist.bed.gz"
+    blacklist: "Resources/bed_files/GRCh38_unified_blacklist.bed"
     black_grey: ""
 
 heatmaps:
@@ -114,7 +114,7 @@ bwa: "bwa/0.7.15"
 cutadapt: "cutadapt/3.7"
 deeptools: "deeptools/3.4.3"
 fastp: "fastp/0.23.2"
-homer: "homer/4.7"
+homer: "homer/4.10"
 macs2: "macs2/2.2.7.1"
 multiqc: "multiqc/1.15"
 phantompeakqualtools: "phantompeakqualtools/1.2"

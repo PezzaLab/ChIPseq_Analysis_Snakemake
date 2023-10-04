@@ -389,11 +389,45 @@ def filter_bam_params(w):
         Filtering options for samtools view (-F and -f), according to wether
         the sample is SE or PE.
     """
-    if samples_table.loc[w.sample, "PE"] :
+    if samples_table.loc[w.sample, "PE"]:
         filter_ = "-F 3852 -f 3"
     else:
         filter_ = "-F 3844"
     return filter_
+
+
+def filter_peaks_blk_grey_list_input(w):
+    """Get input for rule filter_peaks_blk_grey_list
+
+    Output of rule:
+    ----------
+    ("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
+         "{peak_params}/Black-grey_filtered/{sample}."
+         "{genomes_final}{extension}.{peak_type}Peak"
+    )
+
+    Widcards
+    ----------
+    extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?"
+
+    Returns
+    -------
+    dict:
+        "peaks": list with paths of all peaks from that reference genome
+        "blck_gry_lst": path of black-greylist bed file if available, if not
+            path of black-list
+
+    """
+    peaks = (f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type}/"
+             f"{w.peak_params}/{w.sample}.{w.genomes_final}{w.extension}_"
+             f"peaks.{w.peak_type}Peak")
+
+    blck_gry_lst = config['references'][w.genomes_not_fused]['black_grey']
+    if (config['references'][w.genomes_not_fused]['black_grey'] == ""):
+        blck_gry_lst = config['references'][w.genomes_not_fused]['blacklist']
+
+    return {"peaks": peaks,
+            "blck_gry_lst": blck_gry_lst}
 
 
 def FRIP_input(w):
@@ -569,37 +603,80 @@ def markdown_report_aggregate_profiles_input(w):
     Returns
     -------
     Dictionary
-        'peaks_summary', path to table with summary of peaks for all samples,
-            no peaks were asked for, in which case it delivers an empty list.
-        'bamfiles_reads', paths to all samtools_flagstat outputs, from where
-            the number of reads is obtained,
-        'mm10_top5000_asmtric_auto_XnonPAR_ag_profs'|'mm10_top_5000_ag_profs',
-            path to .RData object containing the aggregate profiles in either
-            mm10 top 5000 hotspots, or in those same hotspots plus XnonPAR,
-            autosomal and assymetric (left vs right of DSB) hotspots. When all
-            hotsopots lists are asked for (later case), the rule that provides
-            the R object is the wrangle_X_nonPAR_asymmetric_HS rule, as opposed
-            to process_aggregate_profiles when it is only the top 5000.
-        'B6xCAST_top_5000_pm_1000bp', path to .RData object containing the
-            aggreagte profiles of all samples aligned to B6xCAST fused genome,
-            in top 5000 B6xCAST hotspots.
-        'B6xCAST_PRDM9_assymetric_hs_invading_strand', path to .RData object
-            containing the aggreagte profiles of all samples aligned to
+        'peaks_summary': string or list. Path to table with summary of peaks
+            for all samples with the same reference genome. If no peaks were
+            asked for, it delivers an empty list.
+        'bamfiles_reads': list. Paths to samtools_flagstat outputs (for
+            samples with the same reference genome as the markdown report).
+            These files will be used in the report to get the number of reads
+            of the sample in the filtered bam file.
+        'mm10_top5000_asmtric_auto_XnonPAR_ag_profs'|'mm10_top_5000_ag_profs':
+            string. Only for mm10. Path to '.RData' object containing the
+            aggregate profiles in either "mm10 top 5000 hotspots", or in those
+            same hotspots plus XnonPAR, autosomal and assymetric (left vs
+            right of DSB) hotspots. When all hotsopots lists are asked for
+            (later case), the rule that provides the R object is the
+            "wrangle_X_nonPAR_asymmetric_HS" rule, as opposed to
+            "process_aggregate_profiles" when it is only the top 5000.
+        'B6xCAST_top_5000_pm_1000bp': string. Only for mm10. Path to ".RData"
+            object containing the aggreagte profiles of all samples aligned to
+            B6xCAST fused genome, in top 5000 B6xCAST hotspots.
+        'B6xCAST_PRDM9_assymetric_hs_invading_strand': string. Path to ".RData"
+            object containing the aggreagte profiles of all samples aligned to
             B6xCAST fused genome, in B6xCAST hotspots that bind PRDM9
             asymmetrically, on the invading strand.
-        'B6xCAST_PRDM9_assymetric_hs_receiving_strand', same as previous but
-            receiving/template strand.
-        'B6xCAST_PRDM9_assymetric_hs_mm10_aligned', path to .RData object
-            containing the aggreagte profiles of all samples from B6xCAST mice,
-            aligned to mm10 genome (as opossed to B6xCAST fused genome).
+        'B6xCAST_PRDM9_assymetric_hs_receiving_strand': string. same as
+            previous but receiving/template strand.
+        'B6xCAST_PRDM9_assymetric_hs_mm10_aligned': string. path to ".RData"
+            object containing the aggreagte profiles of all samples from
+            B6xCAST mice, aligned to mm10 genome (as opossed to B6xCAST fused
+            genome).
     """
-    # TODO: add here the fastp files (now I am looking for them
-    # within the markdown file)
-    if pd.notna(samples_table['peak_ctrl_file_alias']).any():
-        peak_summary = (f"Results/{w.genomes_not_fused}/Analysis/Peaks_summary"
-                        ".tsv"),
+    # Get peak_summary path
+    ref_genome_peaks = samples_table.loc[
+        samples_table["reference_genome"] == w.genomes_not_fused,
+        'peak_ctrl_file_alias'
+    ]
+    if pd.notna(ref_genome_peaks).any():
+        peaks_summary = {
+            "peaks_summary": (f"Results/{w.genomes_not_fused}/Analysis/"
+                              "Peaks_summary.tsv")
+        }
     else:
-        peak_summary = []
+        peaks_summary = {
+            "peaks_summary": []
+        }
+
+    # Get processed_flagstat paths
+    selection_criteria = (
+        samples_table_2['reference_genome'] == w.genomes_not_fused
+    )
+    reads = samples_table_2.loc[selection_criteria, 'processed_flagstat']
+    reads = reads.values.tolist()
+    bamfiles_reads = {"bamfiles_reads": reads}
+
+    # Get fastp reports (fastq # of reads)
+    selection_criteria_pe = (
+        (samples_table_2['reference_genome'] == w.genomes_not_fused) &
+        samples_table_2['PE']
+    )
+    samples_fastp_pe = samples_table_2.loc[selection_criteria_pe, 
+                                           'sample_name']
+    samples_fastp_pe = samples_fastp_pe.values.tolist()
+    samples_fastp_pe = [f"Results/FASTQ_reports/{sample}.PE.fastp.json" for
+                        sample in samples_fastp_pe]
+
+    selection_criteria_se = (
+        (samples_table_2['reference_genome'] == w.genomes_not_fused) &
+        ~samples_table_2['PE']
+    )
+    samples_fastp_se = samples_table_2.loc[selection_criteria_se, 
+                                           'sample_name']
+    samples_fastp_se = samples_fastp_se.values.tolist()
+    samples_fastp_se = [f"Results/FASTQ_reports/{sample}.SE.fastp.json" for
+                        sample in samples_fastp_se]
+
+    samples_fastp = {"fastp": samples_fastp_pe + samples_fastp_se}
 
     mm10_agg_profiles = {}
     B6xCAST_agg_profiles = {}
@@ -651,13 +728,12 @@ def markdown_report_aggregate_profiles_input(w):
                 f"Hotspots/{config['library']['name']}_"
                 "B6xCAST_PRDM9_assymetric_hs_mm10_aligned.RData"),
         }
-
-    return {
-        "peaks_summary": peak_summary,
-        "bamfiles_reads": (
-            samples_table_2['processed_flagstat'].values.tolist()
-        ),
-    } | mm10_agg_profiles | B6xCAST_agg_profiles
+    # Return
+    if w.genomes_not_fused == "mm10":
+        return (peaks_summary | bamfiles_reads | samples_fastp |
+                mm10_agg_profiles | B6xCAST_agg_profiles)
+    else:
+        return peaks_summary | bamfiles_reads | samples_fastp
 
 
 def merge_bams_input(w):
@@ -734,24 +810,40 @@ def sumarize_peak_count_input(w):
     Returns
     -------
     peaks : dictionary
-        Contains 4 lists: combinatorial of narrow|broad and
-        black_grey-filtered|black_gery-filtered-hs-intersected
+        'narrow_all': contains paths for all bed files with black/grey-list-
+                    filtered narrow peaks (for that particular reference
+                    genome),
+        'broad_all': same but broad peaks,
+        'narrow_hs': bed files with black/grey-list-filtered peaks intersected
+                    with hs list (this files only exist for mm10),
+        'broad_hs': same as above but broad peaks
     """
     genome_filtered = samples_table_2[
         samples_table_2['reference_genome'] == w.genomes_not_fused
     ]
+
     peak_types = ["narrow", "broad"]
     peaks = {}
     for peak_type in peak_types:
+        selection_criteria_all = (
+            genome_filtered[f'{peak_type}_peak_bl_gr_flt'].notnull()
+        )
+        selection_criteria_hs = (
+            genome_filtered[f'{peak_type}_peak_bl_gr_flt_hs_int'].notnull()
+        )
+
         peaks |= {
             f"{peak_type}_all": genome_filtered.loc[
-                genome_filtered[f'{peak_type}_peak_bl_gr_flt'].notnull(),
-                f'{peak_type}_peak_bl_gr_flt'].values.tolist(),
+                selection_criteria_all,
+                f'{peak_type}_peak_bl_gr_flt'
+                ].values.tolist(),
             f"{peak_type}_hs": genome_filtered.loc[
-                genome_filtered[
-                    f'{peak_type}_peak_bl_gr_flt_hs_int'].notnull(),
-                f'{peak_type}_peak_bl_gr_flt_hs_int'].values.tolist(),
+                selection_criteria_hs,
+                f'{peak_type}_peak_bl_gr_flt_hs_int'
+                ].values.tolist(),
         }
+    if not (len(peaks['narrow_all']) > 1):
+        exit
     return peaks
 
 
@@ -801,4 +893,4 @@ def trim_adapters_PE_input(w):
         Fastq/s path/s, taken from samples_table.csv
     """
     return {"fastq1": samples_table.loc[w.sample, "fastq1"],
-              "fastq2": samples_table.loc[w.sample, "fastq2"]}
+            "fastq2": samples_table.loc[w.sample, "fastq2"]}

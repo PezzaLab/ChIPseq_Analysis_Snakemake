@@ -15,21 +15,8 @@ import os
 # Set current wd (I cannot get Spyder IDE to set wd as file's path...)
 os.chdir("/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/"
          "ChIPseq_Analysis_Snakemake/workflow")
-
-os.chdir("/Volumes/pezzar-lab/Lib3SMARCAD1HP1RPA_DiVa/workflow")
 import smk_functions as smkf
 import suffixes as sfxs
-
-# from snakemake.utils import Paramspace
-
-
-# TEST FOLDER sample table
-# samples_table = pd.read_csv(
-#     "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/Snake_make/Config/samples.csv",
-#     true_values=["True", "TRUE", "T"],
-#     false_values=["False", "FALSE", "F"],
-#     na_values={"dros_equalization_group": "-",
-#                "fastq2": "-"}).set_index("sample_name", drop=False)
 
 # Read sample table
 samples_table = pd.read_csv("../Config/samples.csv",
@@ -80,16 +67,19 @@ smkf.config = config
 # Remove this from here when move previous to smk_functions.py
 smkf.cov_config_params_string = cov_config_params_string
 smkf.samples_table_2 = samples_table_2
-# %% Tests
+# %% Set wildcards
 # Create wildcards to test code
-
-
 class Wildcard():
     def __init__(self):
         self
 w = Wildcard()
-w.hs_region = "B6"
+# Set wilcard attributes
+w.sample = ""
+w.hs_region = ""
 w.genomes_not_fused = "hg38"
+w.genomes_final = ""
+w.extension = ".q_filt.srt.nodup.mit_filt"
+w.peak_type = ""
+w.peak_params = ""
 
-# %%
-smkf.markdown_report_aggregate_profiles_input(w)
+#%% Do tests
