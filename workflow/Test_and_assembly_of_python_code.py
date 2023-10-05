@@ -82,4 +82,6 @@ w.extension = ".q_filt.srt.nodup.mit_filt"
 w.peak_type = ""
 w.peak_params = ""
 
+# Filter columns by regex
+samples_table_2.filter(regex = ".*")
 #%% Do tests
