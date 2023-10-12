@@ -18,17 +18,6 @@ os.chdir("/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/"
 import smk_functions as smkf
 import suffixes as sfxs
 
-# from snakemake.utils import Paramspace
-
-
-# TEST FOLDER sample table
-# samples_table = pd.read_csv(
-#     "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/Snake_make/Config/samples.csv",
-#     true_values=["True", "TRUE", "T"],
-#     false_values=["False", "FALSE", "F"],
-#     na_values={"dros_equalization_group": "-",
-#                "fastq2": "-"}).set_index("sample_name", drop=False)
-
 # Read sample table
 samples_table = pd.read_csv("../Config/samples.csv",
                             true_values=["True", "TRUE", "T"],
@@ -78,19 +67,21 @@ smkf.config = config
 # Remove this from here when move previous to smk_functions.py
 smkf.cov_config_params_string = cov_config_params_string
 smkf.samples_table_2 = samples_table_2
-# %% Tests
+# %% Set wildcards
 # Create wildcards to test code
-
-
 class Wildcard():
     def __init__(self):
         self
-
-
 w = Wildcard()
+# Set wilcard attributes
+w.sample = ""
+w.hs_region = ""
+w.genomes_not_fused = "hg38"
+w.genomes_final = ""
+w.extension = ".q_filt.srt.nodup.mit_filt"
+w.peak_type = ""
+w.peak_params = ""
 
-setattr(w, 'hs_region', "B6xCAST_top_5000_pm_1000bp")
-
-setattr(w, "genomes_not_fused", "mm10")
-
-# %%
+# Filter columns by regex
+samples_table_2.filter(regex = ".*")
+#%% Do tests

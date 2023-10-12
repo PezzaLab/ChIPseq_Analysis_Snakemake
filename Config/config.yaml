@@ -47,12 +47,14 @@ MACS2:
   qvalue: "0.05" # 0.5 = MACS default
   control: # <techinque>_<ref_genome>_<frag._tech>_<library_tech>_<reads type and length>_<file_ID> # <chip|cyr|...>_<mm10_hg38...>_<sonic|mnase|...>_<accel|reg|...>_<(SR|PE)(50|75,etc)><1|2|...>
     no_input: ""
-    chip_mm10_sonic_testes_regular_PE50_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/INPUT_B180_2_28.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_regular_SE75_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/INPUT_B180_2_28.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_regular_PE50_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/Input_11-6-19.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_regular_PE150_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2021_1_12_input_zyg.mm10.q_filt.srt.nodup.mit_filt.bam"
     chip_mm10_sonic_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_7_Input_zyg_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
     chip_mm10_sonic_testes_adaptase_2: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/6-28-22_Input_8_Di_L_zyg_wtestes.mm10.q_filt.srt.nodup.mit_filt.bam"
     chip_mm10_MNAse_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_28_CHD4_7dpp_MNAse_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
     chip_mm10_sonic_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_24_input_7dpp_sonic_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
-    cyr_mm10_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/Agustin/Lib14_H2az_H33_CyR_dmc1ko/Processed_old_way/Merged_files/Nodup/MitDel/RaG_IgG_merge_R4_and_R7_from_3-22_and_3-24_2022.filt.srt.nodup._filt.chr.bam"
+    cyr_mm10_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/3_22_22_RaG_IgG_R4_MERGED.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
     
   # Single read arguments
   extension: "300"
@@ -87,7 +89,7 @@ references:
       top_5000_plus_minus_2000: ""
       all_plus_minus_2000: ""
     TSS: ""
-    blacklist: ""
+    blacklist: "Resources/bed_files/GRCh38_unified_blacklist.bed"
     black_grey: ""
 
 heatmaps:
@@ -112,7 +114,7 @@ bwa: "bwa/0.7.15"
 cutadapt: "cutadapt/3.7"
 deeptools: "deeptools/3.4.3"
 fastp: "fastp/0.23.2"
-homer: "homer/4.7"
+homer: "homer/4.10"
 macs2: "macs2/2.2.7.1"
 multiqc: "multiqc/1.15"
 phantompeakqualtools: "phantompeakqualtools/1.2"

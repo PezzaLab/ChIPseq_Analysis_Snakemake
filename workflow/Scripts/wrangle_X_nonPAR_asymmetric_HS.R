@@ -1,7 +1,7 @@
 # For debugging 
-save.image(file = paste0("wragle_X_nonPAR_asymmetric_HS_image.",
-                         runif(n=1, min=0, max = 9999),
-                         ".RData"))
+# save.image(file = paste0("wragle_X_nonPAR_asymmetric_HS_image.",
+#                          runif(n=1, min=0, max = 9999),
+#                          ".RData"))
 # Load library ----
 library(tidyverse)
 
