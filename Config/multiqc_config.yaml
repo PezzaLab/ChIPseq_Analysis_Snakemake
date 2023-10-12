@@ -18,14 +18,22 @@ show_hide_buttons: # legend of buttons used to filter samples
   - Cut&run
   - ATAC-seq
   - ChIP-seq
+  - MERGED_samples
 show_hide_mode: # 'show' or 'hide' samples that match criteria below
   - show
   - show
   - hide
-show_hide_patterns: # Regex to filter samples
+  - show
+show_hide_patterns: # Globbin expresion or regex to filter samples
   - CyR
   - ATAC
   - ["CyR", "ATAC"]
+  - _MERGED$
+show_hide_regex: # Weather the expression is a regex or not
+  - False
+  - False
+  - False
+  - True
 
 # Remove sections
 remove_sections:
@@ -43,7 +51,7 @@ table_columns_visible:
 
 
 # Change order of columns in the General Statistics table.
-# High values push columns to the right hand side of the table and low 
+# High values push columns to the right hand side of the table and low
 # to the left. The default value is 1000
 # table_columns_placement:
 #   Samtools:
@@ -51,7 +59,7 @@ table_columns_visible:
 #     properly_paired: 1010
 #     secondary: 1020
 
-# Report time and analysis paths 
+# Report time and analysis paths
 show_analysis_paths: True
 show_analysis_time: True
 
