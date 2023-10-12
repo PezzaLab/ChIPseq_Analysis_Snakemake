@@ -657,7 +657,6 @@ def markdown_report_aggregate_profiles_input(w):
     )
     reads = samples_table_2.loc[selection_criteria, 'processed_flagstat']
     reads = reads.values.tolist()
-    reads = [x for x in reads if not re.search("_MERGED\\.", x)]
     bamfiles_reads = {"bamfiles_reads": reads}
 
     # Get fastp reports (fastq # of reads)
