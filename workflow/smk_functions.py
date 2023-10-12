@@ -606,6 +606,10 @@ def markdown_report_aggregate_profiles_input(w):
         'peaks_summary': string or list. Path to table with summary of peaks
             for all samples with the same reference genome. If no peaks were
             asked for, it delivers an empty list.
+        'fastp': list. Path to fatp reports (output of trim_adapters_SE or
+            trim_adapters_PE rule) for samples with the same reference genome
+            as the the markdown report. These files will be used to get the
+            number of reads of the raw FASTQ file.
         'bamfiles_reads': list. Paths to samtools_flagstat outputs (for
             samples with the same reference genome as the markdown report).
             These files will be used in the report to get the number of reads
