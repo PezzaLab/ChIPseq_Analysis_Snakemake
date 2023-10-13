@@ -117,9 +117,12 @@ rule all:
     input:
         multiqc,
         expand(
-        "Results/{genomes}/Analysis/{lib_name}.{genomes}.html",
+        "Results/{genomes}/Analysis/{lib_name}.{genomes}.{smooth}.html",
         genomes = samples_table["reference_genome"].unique().tolist(),
-        lib_name = config['library']['name']
+        lib_name = config['library']['name'],
+        smooth = ("smoothed" if
+            config['aggregate_profiles']['process_outfile']['smooth']
+            else "not_smoothed"),
         ),
         heatmaps,
         annotated_peaks,
@@ -160,6 +163,7 @@ wildcard_constraints:
     read_length = "Full_length_reads|1bp_clipped_reads",
     sample = "[^./ ]+", # Name of files cannot contain . or / or space
     sample_with_extensions = "[^/]+",
+    smooth = "(smoothed|not_smoothed)+",
     spike_genome="d6",
     ss_PE = "((83-163|99-147).)?",
     ss_SR = "(inc|exc)_16",
@@ -1006,7 +1010,7 @@ rule process_aggregate_profiles:
         unpack(smkf.process_aggregate_profiles_inputs),
     output:
         "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
-            "Hotspots/{library_name}_{hs_region}.RData",
+            "Hotspots/{library_name}_{hs_region}.{smooth}.RData",
     threads: 1
     envmodules:
         config["R"],
@@ -1019,18 +1023,18 @@ rule process_aggregate_profiles:
 rule wrangle_X_nonPAR_asymmetric_HS:
     input:
         "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
-            "Hotspots/{libary}_x_non_par.RData",
+            "Hotspots/{libary}_x_non_par.{smooth}.RData",
         "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
-            "Hotspots/{libary}_autosomal_x_non_par_ctrl.RData",
+            "Hotspots/{libary}_autosomal_x_non_par_ctrl.{smooth}.RData",
         "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
-            "Hotspots/{libary}_asymetric_watson_strong.RData",
+            "Hotspots/{libary}_asymetric_watson_strong.{smooth}.RData",
         "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
-            "Hotspots/{libary}_asymetric_crick_strong.RData",
+            "Hotspots/{libary}_asymetric_crick_strong.{smooth}.RData",
         "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
-            "Hotspots/{libary}_top_5000_plus_minus_2000.RData",
+            "Hotspots/{libary}_top_5000_plus_minus_2000.{smooth}.RData",
     output:
         "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
-            "Hotspots/{libary}_aggregate_profiles_data.RData",
+            "Hotspots/{libary}_aggregate_profiles_data.{smooth}.RData",
     threads: 1
     envmodules:
         config["R"],
@@ -1080,9 +1084,9 @@ rule markdown_report_aggregate_profiles:
     input:
         unpack(smkf.markdown_report_aggregate_profiles_input)
     output:
-        html_report = "Results/{genomes_not_fused}/Analysis/{lib_name}.{genomes_not_fused}.html",
+        html_report = "Results/{genomes_not_fused}/Analysis/{lib_name}.{genomes_not_fused}.{smooth}.html",
         xlsx_table = "Results/{genomes_not_fused}/Analysis/"
-            "{lib_name}_for_NGS_files.xlsx",
+            "{lib_name}_for_NGS_files.{smooth}.xlsx",
     threads: 1
     envmodules:
         config["R"],

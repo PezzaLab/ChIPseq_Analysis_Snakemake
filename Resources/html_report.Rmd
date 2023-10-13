@@ -207,7 +207,6 @@ if (is.null(snakemake@input[["peaks_summary"]])){
 ### B6 hotspots  
 
 #### Top 5000 Hotspots  
-
 ```{r, include=!b6_profile}
 "Aggregate profiles were not requested for any of the samples"
 ```

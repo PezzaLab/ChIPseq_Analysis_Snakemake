@@ -124,10 +124,13 @@ averages <-
   lapply(snakemake@input, average_signal_per_coordinate)
 
 ## Smooth --------------------------------
-if (tolower(
-  snakemake@config[['aggregate_profiles']][['process_outfile']][['smooth']]) == "true") {
+if (
+  snakemake@config[['aggregate_profiles']][['process_outfile']][['smooth']]) {
   averages <-
-    lapply(averages,smooth_fun)
+    lapply(averages, smooth_fun)
+  writeLines("Plots will be smoothed")
+} else {
+  writeLines("Plots will NOT be smoothed")
   }
 
 ## Add prot, strand, hotspot region, library and role metadata -------------

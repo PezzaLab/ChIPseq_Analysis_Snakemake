@@ -597,7 +597,8 @@ def markdown_report_aggregate_profiles_input(w):
 
     Wildcards
     ----------
-    genomes_not_fused: mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused = "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ"
+    smooth_bs = "(smoothed|not_smoothed)+"
 
 
     Returns
@@ -698,7 +699,8 @@ def markdown_report_aggregate_profiles_input(w):
             "mm10_top5000_asmtric_auto_XnonPAR_ag_profs": (
                 f"Results/{w.genomes_not_fused}/Analysis/"
                 "Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{config['library']['name']}_aggregate_profiles_data.RData"
+                f"{config['library']['name']}_aggregate_profiles_data."
+                f"{w.smooth}.RData"
             )
         }
     elif ((samples_table['top5000_HS_heatmap'] &
@@ -707,7 +709,8 @@ def markdown_report_aggregate_profiles_input(w):
             "mm10_top_5000_ag_profs": (
                 f"Results/{w.genomes_not_fused}/Analysis"
                 "/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{config['library']['name']}_top_5000_plus_minus_2000.RData"
+                f"{config['library']['name']}_top_5000_plus_minus_2000."
+                f"{w.smooth}.RData"
             )
         }
 
@@ -717,24 +720,26 @@ def markdown_report_aggregate_profiles_input(w):
             "B6xCAST_top_5000_pm_1000bp": (
                 f"Results/{w.genomes_not_fused}/Analysis"
                 "/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{config['library']['name']}_B6xCAST_top_5000_pm_1000bp.RData"
+                f"{config['library']['name']}_B6xCAST_top_5000_pm_1000bp."
+                f"{w.smooth}.RData"
             ),
             "B6xCAST_PRDM9_assymetric_hs_invading_strand": (
                 "Results/mm10_x_CAST_EiJ/Analysis/"
                 "Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_"
-                "invading_strand.RData"
+                "invading_strand.{w.smooth}.RData"
             ),
             "B6xCAST_PRDM9_assymetric_hs_receiving_strand": (
                 "Results/mm10_x_CAST_EiJ/Analysis/"
                 "Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_"
-                "receiving_strand.RData"
+                "receiving_strand.{w.smooth}.RData"
             ),
             "B6xCAST_PRDM9_assymetric_hs_mm10_aligned": (
                 "Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/"
                 f"Hotspots/{config['library']['name']}_"
-                "B6xCAST_PRDM9_assymetric_hs_mm10_aligned.RData"),
+                "B6xCAST_PRDM9_assymetric_hs_mm10_aligned."
+                f"{w.smooth}.RData"),
         }
     # Return
     if w.genomes_not_fused == "mm10":
