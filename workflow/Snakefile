@@ -27,10 +27,12 @@ smkf.check_sample_table_format(samples_table_no_merged_samples)
 cov_config_params_string=(
     f"{config['coverage']['normalization']}_"
     f"bs{config['coverage']['bin_size']}_sm{config['coverage']['smooth']}"
+    f"ex{config['coverage']['extend_reads']}"
 )
 dros_norm_cov_config_params_string=(
     f"drosNormalized_bs{config['coverage']['bin_size']}_sm"
     f"{config['coverage']['smooth']}"
+    f"ex{config['coverage']['extend_reads']}"
 )
 
 ############################################################
@@ -134,10 +136,12 @@ rule all:
 
 wildcard_constraints:
     bam_type = "Raw_bam|Processed_bam",
+    bin_size = "[0-9]+",
     clipped_1bp_PE=r"((inc|exc)_16\.clipped_1_bp\.)?",
-    cov_params="((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+",
+    cov_params ="((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+_ex[0-9]+",
     dros_eq_group="[^./ ]+",
     extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?",
+    extension_size = "[0-9]+",
     flag = "(83|163|99|147|inc_16|exc_16)",
     fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6)",
     genomes_not_fused="mm10|d6|hg19|hg38|mm10_x_CAST_EiJ",
@@ -156,6 +160,7 @@ wildcard_constraints:
         "autosomal_x_non_par_ctrl"),
     int_genome = "mm10|hg19|hg38|mm10_x_CAST_EiJ",
     library_name = config['library']['name'],
+    norm = "[^_/.]+",
     n_ends = "(SE|PE)",
     peak_params = "(bco_[0-9]+_)?qv_[0-9]+__[^/]*",
     peak_type = "narrow|broad",
@@ -164,6 +169,7 @@ wildcard_constraints:
     sample = "[^./ ]+", # Name of files cannot contain . or / or space
     sample_with_extensions = "[^/]+",
     smooth = "(smoothed|not_smoothed)+",
+    smooth_size = "[0-9]+",
     spike_genome="d6",
     ss_PE = "((83-163|99-147).)?",
     ss_SR = "(inc|exc)_16",
@@ -501,8 +507,9 @@ rule create_coverage_bw:
                 "{ss_condit}{clip_condit}bam.bai",
     output:
         "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/"
-        "{cov_params}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
+        "{norm}_bs{bin_size}_sm{smooth_size}_ex{extension_size}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
         "{ss_condit}{clip_condit}bw",
+
     wildcard_constraints:
         ss_condit = r"((83-163|99-147|inc_16|exc_16)\.)?",
         clip_condit = r"(((inc|exc)_16\.)?clipped_1_bp\.)?",
@@ -520,10 +527,10 @@ rule create_coverage_bw:
         then
         echo "Doing smooth and bin according to config file (not clipped profile)"
         bamCoverage --numberOfProcessors max -b {input.bam} \\
-         -bs {config[coverage][bin_size]} \\
-         --smoothLength {config[coverage][smooth]} \\
-         --extendReads {config[coverage][extend_reads]} \\
-         --normalizeUsing {config[coverage][normalization]} \\
+         -bs {wildcards.bin_size} \\
+         --smoothLength {wildcards.smooth_size} \\
+         --extendReads {wildcards.extension_size} \\
+         --normalizeUsing {wildcards.norm} \\
          -o {output}
         else
         echo "Doing smooth 1 and bin 1 (clipped profile)"
@@ -719,7 +726,8 @@ rule dros_normalization:
     input:
         unpack(smkf.dros_normalization_input),
     output:
-        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/{cov_params}/"
+        "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/"
+            "drosNormalized_bs{bin_size}_sm{smooth_size}_ex{extension_size}/"
             "{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}."
             "dros_norm.bw",
     threads: 1
@@ -740,9 +748,9 @@ rule dros_normalization:
         echo "Sample will be scaled down with a scale factor of $scaleFactor"
 
         bamCoverage --numberOfProcessors max -b {input.bam} \\
-         -bs {config[coverage][bin_size]} \\
-         --smoothLength {config[coverage][smooth]} \\
-         --extendReads {config[coverage][extend_reads]} \\
+         -bs {wildcards.bin_size} \\
+         --smoothLength {wildcards.smooth_size} \\
+         --extendReads {wildcards.extension_size} \\
          -o {output} \\
          --scaleFactor $scaleFactor
         """

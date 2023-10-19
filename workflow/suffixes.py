@@ -70,13 +70,20 @@ def generate_samples_table_2(samples_table, config):
         samples_table_2['sample_name'] + final_genomes_b6xcast + nodup_filt
     )
 
-    cov_params = (f"{config['coverage']['normalization']}_bs"
-                  f"{config['coverage']['bin_size']}_sm"
-                  f"{config['coverage']['smooth']}/")
+    cov_params = (f"{config['coverage']['normalization']}_"
+                  f"bs{config['coverage']['bin_size']}_"
+                  f"sm{config['coverage']['smooth']}_"
+                  f"ex{config['coverage']['extend_reads']}"
+                  "/"
+    )
 
     dros_norm_cov_config_params_string = (
-        f"drosNormalized_bs""{config['coverage']['bin_size']}_sm"
-        f"{config['coverage']['smooth']}/")
+        f"drosNormalized_"
+        f"bs{config['coverage']['bin_size']}_"
+        f"sm{config['coverage']['smooth']}_"
+        f"ex{config['coverage']['extend_reads']}"
+        "/"
+    )
 
     # %% Create columns with file names
     # %%% Dros bam
@@ -226,9 +233,7 @@ def generate_samples_table_2(samples_table, config):
         "Results/"
             + samples_table['reference_genome']
             + "/Bigwigs/Coverage/Both_strands/"
-            + f"bs{config['coverage']['bin_size']}_"
-            + f"sm{config['coverage']['smooth']}"
-            + "/"
+            + dros_norm_cov_config_params_string
             + samples_table['dros_equalization_group']
             + "/"
             + samples_nodup_filt
