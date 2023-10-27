@@ -309,7 +309,7 @@ def compute_matrix_outfiles_hs_input(w):
     if samples_table.loc[w.sample, 'B6xCAST']:
         hotspot_protein = "dmc1"
 
-    hotspots = config['references']['mm10'][hotspot_protein][w.hs_region]
+    hotspots = config['references'][w.genomes_not_fused][hotspot_protein][w.hs_region]
     bigwig = (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
               f"{w.cov_params}/{w.sample}.{w.genomes_final}{w.extension}"
               f"{w.strand}.bw"
@@ -598,7 +598,7 @@ def markdown_report_aggregate_profiles_input(w):
     Wildcards
     ----------
     genomes_not_fused = "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ"
-    smooth_bs = "(smoothed|not_smoothed)+"
+    smooth = "(smoothed|not_smoothed)+"
 
 
     Returns
@@ -718,7 +718,7 @@ def markdown_report_aggregate_profiles_input(w):
          samples_table['B6xCAST']).any()):
         B6xCAST_agg_profiles = {
             "B6xCAST_top_5000_pm_1000bp": (
-                f"Results/{w.genomes_not_fused}/Analysis"
+                f"Results/mm10_x_CAST_EiJ/Analysis"
                 "/Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_B6xCAST_top_5000_pm_1000bp."
                 f"{w.smooth}.RData"
@@ -727,13 +727,13 @@ def markdown_report_aggregate_profiles_input(w):
                 "Results/mm10_x_CAST_EiJ/Analysis/"
                 "Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_"
-                "invading_strand.{w.smooth}.RData"
+                f"invading_strand.{w.smooth}.RData"
             ),
             "B6xCAST_PRDM9_assymetric_hs_receiving_strand": (
                 "Results/mm10_x_CAST_EiJ/Analysis/"
                 "Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_"
-                "receiving_strand.{w.smooth}.RData"
+                f"receiving_strand.{w.smooth}.RData"
             ),
             "B6xCAST_PRDM9_assymetric_hs_mm10_aligned": (
                 "Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/"

@@ -72,8 +72,9 @@ references:
       x_non_par: "Resources/bed_files/SPO11_X-nonPAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
       autosomal_all: ""
       autosomal_x_non_par_ctrl: "Resources/bed_files/SPO11_autosomal-MATCHED-TO-X_non_PAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
+  mm10_x_CAST_EiJ:
     dmc1:
-      B6xCAST_top_5000_pm_1000bp: "Resources/bed_files/B6xCAST_CASTxB6_common_HSs_autosomal_top_5000.bed"
+      B6xCAST_top_5000_pm_1000bp: "Resources/bed_files/B6xCAST_CASTxB6_common_HSs_top_5000.mm10_x_CAST_EiJ.bed"
       B6xCAST_PRDM9_assymetric_hs_invading_strand: "Resources/bed_files/PRDM9_assymetric.autosomal.invading.dmc1_coords.bed"
       B6xCAST_PRDM9_assymetric_hs_receiving_strand: "Resources/bed_files/PRDM9_assymetric.autosomal.receiving.dmc1_coords.bed"
       B6xCAST_PRDM9_assymetric_hs_mm10_aligned: "Resources/bed_files/PRDM9_assymetric.autosomal.mm10.dmc1_coords.bed"

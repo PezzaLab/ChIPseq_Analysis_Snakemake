@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+8#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Fri Apr 21 15:04:24 2023
@@ -215,9 +215,8 @@ def generate_samples_table_2(samples_table, config):
     )
     samples_table_2['heatmap_B6xCAST_top_5000_hs'] = np.where(
         samples_table_2["top5000_HS_heatmap"] & samples_table_2["B6xCAST"],
-        "Results/"
-            + samples_table_2['reference_genome']
-            + "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+        "Results/mm10_x_CAST_EiJ/"
+            + "Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
             + "B6xCAST_top_5000_pm_1000bp/Both_strands/"
             + cov_params
             + "Heatmaps/"
@@ -447,7 +446,7 @@ def generate_samples_table_2(samples_table, config):
             elif re.match("inc_16|exc_16", strand):
                 PE = ~samples_table_2["PE"]
 
-            if re.match("B6xCAST_PRDM9_assymetric_hs_(invading|receiving)",
+            if re.match("B6xCAST",
                         hs):
                 genome = "mm10_x_CAST_EiJ"
                 samples_nodup_filt2 = samples_nodup_filt

@@ -74,14 +74,20 @@ class Wildcard():
         self
 w = Wildcard()
 # Set wilcard attributes
-w.sample = ""
-w.hs_region = ""
-w.genomes_not_fused = "hg38"
-w.genomes_final = ""
+w.sample = "first"
+w.hs_region = "B6xCAST_top_5000_pm_1000bp"
+w.genomes_not_fused = "mm10_x_CAST_EiJ_f_d6.mm10_x_CAST_EiJ"
+w.genomes_final = "mm10_x_CAST_EiJ_f_d6"
 w.extension = ".q_filt.srt.nodup.mit_filt"
 w.peak_type = ""
 w.peak_params = ""
+w.strands = "Single_strand/Full_length_reads"
+w.cov_params = "CPM_bs4_sm1_ex250"
+w.interest_genome = "mm10_x_CAST_EiJ"
+w.strand = ".83-163"
+
 
 # Filter columns by regex
-samples_table_2.filter(regex = ".*")
+samples_table_2.filter(regex = "B6xCAST_top_5000_pm_1000bp.*").columns
 #%% Do tests
+samples_table_2['B6xCAST_top_5000_pm_1000bp_Both_strands_matrix']['first']
