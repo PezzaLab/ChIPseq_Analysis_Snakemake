@@ -578,7 +578,7 @@ def intersect_peaks_HSs_list_input(w):
     """
     if samples_table.loc[w.sample, 'B6xCAST']:
         hotspots = config[
-            'references']['mm10']['dmc1']['B6xCAST_top_5000_pm_1000bp']
+            'references']['mm10']['dmc1']['B6xCAST_pm_2000bp']
     else:
         hotspots = config[
             'references']['mm10']['spo11']['top_5000_plus_minus_2000']
@@ -727,13 +727,13 @@ def markdown_report_aggregate_profiles_input(w):
                 "Results/mm10_x_CAST_EiJ/Analysis/"
                 "Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_"
-                "invading_strand.{w.smooth}.RData"
+                f"invading_strand.{w.smooth}.RData"
             ),
             "B6xCAST_PRDM9_assymetric_hs_receiving_strand": (
                 "Results/mm10_x_CAST_EiJ/Analysis/"
                 "Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_"
-                "receiving_strand.{w.smooth}.RData"
+                f"receiving_strand.{w.smooth}.RData"
             ),
             "B6xCAST_PRDM9_assymetric_hs_mm10_aligned": (
                 "Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/"
