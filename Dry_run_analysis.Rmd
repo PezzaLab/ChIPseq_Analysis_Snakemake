@@ -58,26 +58,22 @@ library(tidyverse)
 a <- readLines("dry_run.txt")
 b <- paste0(a, collapse = "XX")
 d <- b %>% str_split_1("XXXX") %>% str_replace_all("XX", " ")
-head(d,3)
-```
-
-### Get rid of everything but the job declaration  
-```{r}
+# Get rid of everything but the job declaration
 e <- d[str_detect(d,"\\[")]
-head(e, n=3)
+# Keep only 1 sample (sample "small")
+f <- e[str_detect(e, "b6\\.")]
+head(f, 1)
 ```
 
-### Keep only 1 sample (sample "small")  
+# Whatever you want to explore  
 ```{r}
-f <- e[str_detect(e, "small")]
-head(f, 3)
+g <- f[str_detect(f, "rule compute_matrix_outfiles_hs")]
 ```
-
-
-# Why is it doing crosscorrelation?
 ```{r}
-f[str_detect(f, "rule crosscorrelation")]
+h <- g[str_detect(g, "Resources/bed_files/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_TOP_5000_center_plus_minus_2000.bed")]
+h %>% str_remove("output.*")
 ```
+
 who is asking for **Results/mm10/Bams/Both_strands/small.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam**?
 
 ```{r}
