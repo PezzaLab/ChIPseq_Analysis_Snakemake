@@ -4,7 +4,6 @@ import pandas as pd
 import re
 import sys
 
-
 def check_sample_table_format(samples_table):
     """Check if samples_table.csv has been properly filled.
 
@@ -176,6 +175,25 @@ def check_sample_table_format(samples_table):
             exit_message += "\t" + i + "\n"
         exit_script = True
 
+    # %% Clip_reads and get_single_strand
+    # To be clipped samples
+    clip_Y_get_ss_N = [
+        i for i in samples_table.index
+        if samples_table["Clip_reads_to_1bp_on_5_prime"][i] and
+        not samples_table["get_single_strand"][i]
+    ]
+    if len(clip_Y_get_ss_N) > 0:
+        exit_message += (
+            "* The following samples are set TRUE for "
+            "`Clip_reads_to_1bp_on_5_prime` but FALSE for `get_single_strand`"
+            "\n"
+        )
+        for i in clip_Y_get_ss_N:
+            exit_message += "\t" + i + "\n"
+        exit_message += ("Either set `Clip_reads_to_1bp_on_5_prime` to FALSE "
+                         "or `get_single_strand` to TRUE"
+        )
+        exit_script = True
     # %% Exit
     # Exit if any previous condition is met
     if exit_script:
@@ -284,19 +302,39 @@ def clip_1bp_input(w):
     return bam
 
 
+def clip_1bp_param(w):
+    if re.search("inc", w.ss_SR):
+        return "f"
+    else:
+        return "F"
+
+
 def compute_matrix_outfiles_hs_input(w):
     """Get input for rule compute_matrix_outfiles_hs.
+    Rule's output
+    -------------
+    "Results/{genomes_not_fused}/Analysis/"
+                "Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/"
+                "{cov_params}/filenames/"
+                "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
+                "{ss_condit}{clip_strand}filename")
 
     Wildcards
     ----------
-    sample : [^./ ]+
     hs_region : B6xCAST_(top_5000_pm_1000bp|
                          PRDM9_assymetric_hs_((invading|receiving)_strand|
                                               mm10_aligned)
                          )|
                 top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|
                 x_non_par|autosomal_x_non_par_ctrl
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    
+    genomes_not_fused = mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)"
+    cov_params = "((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+_ex[0-9]+"
+    sample = [^./ ]+
+    genomes_final =
+    ss_condit = r"((83-163|99-147|inc_16|exc_16)\.)?"
+    clip_condit = r"(((inc|exc)_16\.)?clipped_1_bp\.)?",
 
     Returns
     -------
@@ -305,15 +343,13 @@ def compute_matrix_outfiles_hs_input(w):
         'bigwig', path to bigwig file
 
     """
-    hotspot_protein = "spo11"
-    if samples_table.loc[w.sample, 'B6xCAST']:
-        hotspot_protein = "dmc1"
-
-    hotspots = config['references']['mm10'][hotspot_protein][w.hs_region]
-    bigwig = (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
-              f"{w.cov_params}/{w.sample}.{w.genomes_final}{w.extension}"
-              f"{w.strand}.bw"
-              )
+    hotspots = config['references']['mm10'][w.hs_region]
+    bigwig =  (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
+               f"{w.cov_params}/{w.sample}.{w.genomes_final}"
+               ".q_filt.srt.nodup.mit_filt."
+               f"{w.ss_condit}{w.clip_condit}bw"
+    )
+           
 
     return {"region": hotspots,
             "bigwig": bigwig}
@@ -451,7 +487,6 @@ def FRIP_input(w):
         'bam', path to bam file
         'bai', path to bai file
     """
-    sample = samples_table_2.loc[w.sample, "dedup_flt_both_strds_bam"]
     bam = (f"Results/{w.genomes_not_fused}/Bams/Both_strands/" +
            f"{w.sample}.{w.genomes_final}{w.extension}.bam")
 
@@ -598,21 +633,24 @@ def markdown_report_aggregate_profiles_input(w):
     Wildcards
     ----------
     genomes_not_fused = "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ"
-    smooth_bs = "(smoothed|not_smoothed)+"
+    smooth = "(smoothed|not_smoothed)+"
 
 
     Returns
     -------
     Dictionary
-        'peaks_summary': string or list. Path to table with summary of peaks
+        'peaks_summary':
+            string or list. Path to table with summary of peaks
             for all samples with the same reference genome. If no peaks were
             asked for, it delivers an empty list.
-        'fastp': list. Path to fatp reports (output of trim_adapters_SE or
+        'fastp':
+            list. Path to fatp reports (output of trim_adapters_SE or
             trim_adapters_PE rule) for samples with the same reference genome
             as the the markdown report. These files will be used to get the
             number of reads of the raw FASTQ file.
-        'bamfiles_reads': list. Paths to samtools_flagstat outputs (for
-            samples with the same reference genome as the markdown report).
+        'bamfiles_reads':
+            list. Paths to samtools_flagstat outputs (for samples with the same
+            reference genome as the markdown report).
             These files will be used in the report to get the number of reads
             of the sample in the filtered bam file.
         'mm10_top5000_asmtric_auto_XnonPAR_ag_profs'|'mm10_top_5000_ag_profs':
@@ -623,19 +661,24 @@ def markdown_report_aggregate_profiles_input(w):
             (later case), the rule that provides the R object is the
             "wrangle_X_nonPAR_asymmetric_HS" rule, as opposed to
             "process_aggregate_profiles" when it is only the top 5000.
-        'B6xCAST_top_5000_pm_1000bp': string. Only for mm10. Path to ".RData"
-            object containing the aggreagte profiles of all samples aligned to
-            B6xCAST fused genome, in top 5000 B6xCAST hotspots.
-        'B6xCAST_PRDM9_assymetric_hs_invading_strand': string. Path to ".RData"
-            object containing the aggreagte profiles of all samples aligned to
-            B6xCAST fused genome, in B6xCAST hotspots that bind PRDM9
-            asymmetrically, on the invading strand.
-        'B6xCAST_PRDM9_assymetric_hs_receiving_strand': string. same as
-            previous but receiving/template strand.
-        'B6xCAST_PRDM9_assymetric_hs_mm10_aligned': string. path to ".RData"
-            object containing the aggreagte profiles of all samples from
-            B6xCAST mice, aligned to mm10 genome (as opossed to B6xCAST fused
-            genome).
+        'top_5000_plus_minus_2000_clipped':
+            string. Only for mm10. Path to '.RData' object containing the
+            processed agggregate profiles of 1-bp clipped samples. If there is
+            no clipped samples it delivers and empty list.
+        'B6xCAST_top_5000_pm_1000bp':
+            string. Only for mm10. Path to ".RData" object containing the
+            aggreagte profiles of all samples aligned to B6xCAST fused genome,
+            in top 5000 B6xCAST hotspots.
+        'B6xCAST_PRDM9_assymetric_hs_invading_strand':
+            string. Path to ".RData" object containing the aggreagte profiles
+            of all samples aligned to B6xCAST fused genome, in B6xCAST hotspots
+            that bind PRDM9 asymmetrically, on the invading strand.
+        'B6xCAST_PRDM9_assymetric_hs_receiving_strand':
+            string. same as previous but receiving/template strand.
+        'B6xCAST_PRDM9_assymetric_hs_mm10_aligned':
+            string. Path to ".RData" object containing the aggreagte profiles
+            of all samples from B6xCAST mice, aligned to mm10 genome (as
+            opossed to B6xCAST fused genome).
     """
     # Get peak_summary path
     ref_genome_peaks = samples_table.loc[
@@ -677,7 +720,7 @@ def markdown_report_aggregate_profiles_input(w):
         (samples_table_2['reference_genome'] == w.genomes_not_fused) &
         ~samples_table_2['PE']
     )
-    samples_fastp_se = samples_table_2.loc[selection_criteria_se, 
+    samples_fastp_se = samples_table_2.loc[selection_criteria_se,
                                            'sample_name']
     samples_fastp_se = samples_fastp_se.values.tolist()
     samples_fastp_se = [x for x in samples_fastp_se if not
@@ -687,8 +730,11 @@ def markdown_report_aggregate_profiles_input(w):
 
     samples_fastp = {"fastp": samples_fastp_pe + samples_fastp_se}
 
+    # Get processed aggregate profiles
     mm10_agg_profiles = {}
     B6xCAST_agg_profiles = {}
+    B6xCAST_agg_profiles_clipped = {}
+    top_5000_plus_minus_2000_clipped = {}
     if (samples_table['top5000_HS_heatmap'] &
         samples_table['get_single_strand'] &
             ~samples_table['B6xCAST']).any():
@@ -741,10 +787,39 @@ def markdown_report_aggregate_profiles_input(w):
                 "B6xCAST_PRDM9_assymetric_hs_mm10_aligned."
                 f"{w.smooth}.RData"),
         }
+
+    # Clipped profiles
+    if ((samples_table['top5000_HS_heatmap']
+         & samples_table['B6xCAST']
+         & samples_table['get_single_strand']
+         & samples_table['Clip_reads_to_1bp_on_5_prime']).any()):
+        B6xCAST_agg_profiles_clipped = {
+            "B6xCAST_top_5000_pm_1000bp_clipped": (
+                f"Results/{w.genomes_not_fused}/Analysis"
+                "/Heatmaps_and_aggregate_profiles/Hotspots/"
+                f"{config['library']['name']}"
+                "_B6xCAST_top_5000_pm_1000bp_clipped."
+                f"{w.smooth}.RData"
+            )}
+    if ((samples_table['top5000_HS_heatmap'] 
+         & ~samples_table['B6xCAST']
+         & samples_table['get_single_strand']
+         & samples_table['Clip_reads_to_1bp_on_5_prime']).any()):
+        top_5000_plus_minus_2000_clipped = {
+            "top_5000_plus_minus_2000_clipped": (
+                f"Results/{w.genomes_not_fused}/Analysis"
+                "/Heatmaps_and_aggregate_profiles/Hotspots/"
+                f"{config['library']['name']}"
+                "_top_5000_plus_minus_2000_clipped."
+                f"{w.smooth}.RData"
+            )}
+
     # Return
     if w.genomes_not_fused == "mm10":
         return (peaks_summary | bamfiles_reads | samples_fastp |
-                mm10_agg_profiles | B6xCAST_agg_profiles)
+                mm10_agg_profiles | B6xCAST_agg_profiles |
+                B6xCAST_agg_profiles_clipped |
+                top_5000_plus_minus_2000_clipped)
     else:
         return peaks_summary | bamfiles_reads | samples_fastp
 
@@ -778,6 +853,59 @@ def merge_bams_input(w):
             second_bam = f"Results/{sample}.{w.genomes_all}.bam"
             samples += [second_bam]
     return samples
+
+
+def process_aggregate_profiles_clipped_input(w):
+    """Get inputs for rule process_aggregate_profiles_clipped.
+    Rule output
+    -----------
+    "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+        "Hotspots/{libary}_{hs_region}_clipped.{smooth}.RData"
+
+    Wildcards used
+    --------------
+    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    hs_region : B6xCAST_(top_5000_pm_1000bp|
+                         PRDM9_assymetric_hs_((invading|receiving)_strand|
+                                              mm10_aligned))|
+                top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|
+                x_non_par|autosomal_x_non_par_ctrl
+    smooth : (smoothed|not_smoothed)+
+
+    Returns
+    -------
+    Only need ss profiles.
+    """
+    cov_params = (f"{config['coverage']['normalization']}_"
+                  f"bs{config['coverage']['bin_size']}_"
+                  f"sm{config['coverage']['smooth']}_"
+                  f"ex{config['coverage']['extend_reads']}")
+
+    strand_se = ["inc_16", "exc_16"]
+
+    strand_pe = [a + "." + b
+                 for a in ["83-163", "99-147"]
+                 for b in strand_se
+                 ]
+
+    files = list({
+      "Results/"
+          + f"{w.genomes_not_fused}"
+          + "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+          + f"{w.hs_region}/Single_strand/1bp_clipped_reads/"
+          + f"{cov_params}/matrixes/{sample}."
+          + f"{genome}.q_filt.srt.nodup.mit_filt."
+          + (f"{s_pe}" if samples_table_2["PE"][sample]
+             else f"{s_se}")
+          + ".clipped_1_bp.matrix"
+      for sample, genome in zip(samples_table_2.index,
+                                samples_table_2['final_genome'])
+      if samples_table_2['Clip_reads_to_1bp_on_5_prime'][sample]
+      for s_pe in strand_pe
+      for s_se in strand_se
+    }) # I do set comprehension because if I do list comprehension
+       # I get items duplicated
+    return files
 
 
 def process_aggregate_profiles_inputs(w):

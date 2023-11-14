@@ -43,31 +43,36 @@ def generate_samples_table_2(samples_table, config):
 
     aligned_genomes = (
         np.where(samples_table_2['dros_spike_in'],
-                 "." + samples_table_2['reference_genome'] + "_f_d6",
-                 "." + samples_table_2['reference_genome'])
+                 samples_table_2['reference_genome'] + "_f_d6",
+                 samples_table_2['reference_genome'])
     )
 
     final_genomes = (
         np.where(
             samples_table_2['dros_spike_in'],
-            aligned_genomes + "." + samples_table_2['reference_genome'],
-            aligned_genomes)
+           aligned_genomes + "." + samples_table_2['reference_genome'],
+           aligned_genomes)
     )
+    samples_table_2['final_genome'] = final_genomes
 
     final_genomes_b6xcast = []
     for i in samples_table_2.index:
         if samples_table_2.loc[i, "dros_spike_in"]:
             final_genomes_b6xcast.append(
-                ".mm10_x_CAST_EiJ_f_d6.mm10_x_CAST_EiJ")
+                "mm10_x_CAST_EiJ_f_d6.mm10_x_CAST_EiJ")
         else:
-            final_genomes_b6xcast.append(".mm10_x_CAST_EiJ")
+            final_genomes_b6xcast.append("mm10_x_CAST_EiJ")
+    samples_table_2['final_genome_b6xcast'] = final_genomes_b6xcast
 
     samples_nodup_filt = (
-        samples_table_2['sample_name'] + final_genomes + nodup_filt
+        samples_table_2['sample_name'] + "." + final_genomes + nodup_filt
     )
 
     samples_nodup_filt_b6xcast = (
-        samples_table_2['sample_name'] + final_genomes_b6xcast + nodup_filt
+        samples_table_2['sample_name']
+            + "."
+            + final_genomes_b6xcast
+            + nodup_filt
     )
 
     cov_params = (f"{config['coverage']['normalization']}_"
@@ -91,7 +96,7 @@ def generate_samples_table_2(samples_table, config):
         np.where(samples_table_2['dros_spike_in'],
                  "Results/d6/Bams/Both_strands/"
                      + samples_table_2['sample_name']
-                     + aligned_genomes
+                     + "." + aligned_genomes
                      + ".d6"
                      + nodup_filt
                      + ".bam",
@@ -101,7 +106,7 @@ def generate_samples_table_2(samples_table, config):
     # Both strands bam
     samples_table_2['raw_bam'] = (
         "Results/" + samples_table_2['sample_name']
-        + aligned_genomes + ".bam"
+        + "." + aligned_genomes + ".bam"
     )
     samples_table_2['dedup_flt_both_strds_bam'] = (
         "Results/" + samples_table_2['reference_genome']
@@ -120,8 +125,8 @@ def generate_samples_table_2(samples_table, config):
             # Modify default values accordingly
             if peak_type == "broad":
                 peak_params = (
-                    "bco_" + config['MACS2']['broad_cutoff'].split(".")[1] 
-                    + "_qv_" + config['MACS2']['qvalue'].split(".")[1] + "__" 
+                    "bco_" + config['MACS2']['broad_cutoff'].split(".")[1]
+                    + "_qv_" + config['MACS2']['qvalue'].split(".")[1] + "__"
                     + samples_table_2['peak_ctrl_file_alias']
                 )
 
@@ -175,12 +180,12 @@ def generate_samples_table_2(samples_table, config):
 
     # %%% samtools flagstat
     samples_table_2['raw_flagstat'] = (
-        "Results/" 
+        "Results/"
         + samples_table_2['reference_genome']
-        + "/Qctrl/" 
-        + samples_table_2['sample_name'] 
+        + "/Qctrl/"
+        + samples_table_2['sample_name']
         + "/Raw_bam/"
-        + samples_table_2['sample_name'] 
+        + samples_table_2['sample_name']
         + ".flagstat.txt"
     )
     samples_table_2['processed_flagstat'] = (
@@ -264,7 +269,7 @@ def generate_samples_table_2(samples_table, config):
                         # exc_16.clipped_1_bp.bw  --> for SE
                 
     strands = ["83-163", "99-147", "inc_16", "exc_16", "Both_strands"]
-    
+
     for strand in strands:
         # Strings
         strand_string = "Both_strands/"
@@ -294,7 +299,7 @@ def generate_samples_table_2(samples_table, config):
         if re.match("83|99", strand):
             PE = samples_table["PE"]
             single_strand = samples_table["get_single_strand"]
-            
+
         elif re.match("inc_16|exc_16", strand):
             PE = ~samples_table["PE"]
             single_strand = samples_table["get_single_strand"]
@@ -308,7 +313,7 @@ def generate_samples_table_2(samples_table, config):
                 + strand2
                 + ".bw",
             np.NaN)
-        
+
         # Generate column name and content for non-clipped B6xCAST
         samples_table_2[f"B6xCAST_{strand}_coverage_bw"] = np.where(
             PE & single_strand & samples_table['B6xCAST'],
@@ -318,7 +323,7 @@ def generate_samples_table_2(samples_table, config):
                 + strand2
                 + ".bw",
             np.NaN)
-        
+
         # Generate column name and content for clipped profiles
         ## non-B6xCAST
         if re.match("83|99", strand):
@@ -341,8 +346,8 @@ def generate_samples_table_2(samples_table, config):
         elif re.match("(inc|exc)_16", strand):
             samples_table_2[f"{strand}_clipped_coverage_bw"] = (
                 np.where(
-                    PE 
-                        & single_strand 
+                    PE
+                        & single_strand
                         & clipped,
                     "Results/"
                         + genome
@@ -359,13 +364,15 @@ def generate_samples_table_2(samples_table, config):
         ## B6xCAST
         if re.match("83|99", strand):
             for strand3 in ["inc_16", "exc_16"]:
-                samples_table_2[f"B6xCAST_{strand}_{strand3}_clipped_coverage_bw"] = (
+                samples_table_2[
+                    f"B6xCAST_{strand}_{strand3}_clipped_coverage_bw"
+                ] = (
                     np.where(
-                        PE 
-                            & single_strand 
-                            & clipped 
+                        PE
+                            & single_strand
+                            & clipped
                             & samples_table['B6xCAST'],
-                        "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/" 
+                        "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/"
                             + f"Single_strand/1bp_clipped_reads/{cov_params}"
                             + samples_nodup_filt
                             + strand2
@@ -378,11 +385,11 @@ def generate_samples_table_2(samples_table, config):
         elif re.match("(inc|exc)_16", strand):
             samples_table_2[f"B6xCAST_{strand}_clipped_coverage_bw"] = (
                 np.where(
-                    PE 
-                        & single_strand 
+                    PE
+                        & single_strand
                         & clipped
                         & samples_table['B6xCAST'],
-                    "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/" 
+                    "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/"
                         + f"Single_strand/1bp_clipped_reads/{cov_params}"
                         + samples_nodup_filt
                         + strand2
@@ -393,21 +400,21 @@ def generate_samples_table_2(samples_table, config):
 
     # %%% Coverage MATRIX files
     # This files are generated by deeptools using a bw and a bed file
-    hotspots = ["top_5000_plus_minus_2000", 
+    hotspots = ["top_5000_plus_minus_2000",
                 "x_non_par",
-                "autosomal_x_non_par_ctrl", 
+                "autosomal_x_non_par_ctrl",
                 "asymetric_watson_strong",
-                "asymetric_crick_strong", 
+                "asymetric_crick_strong",
                 "B6xCAST_top_5000_pm_1000bp",
                 "B6xCAST_PRDM9_assymetric_hs_invading_strand",
                 "B6xCAST_PRDM9_assymetric_hs_receiving_strand",
                 "B6xCAST_PRDM9_assymetric_hs_mm10_aligned"
                 ]
 
-    strands = ["83-163", 
-               "99-147", 
-               "inc_16", 
-               "exc_16", 
+    strands = ["83-163",
+               "99-147",
+               "inc_16",
+               "exc_16",
                "Both_strands"]
 
     for hs in hotspots:
@@ -432,7 +439,7 @@ def generate_samples_table_2(samples_table, config):
             if re.match("83|99|inc_16|exc_16", strand):
                 strand_string = "Single_strand/Full_length_reads/"
                 single_strand = samples_table_2["get_single_strand"]
-                
+
             if re.match("watson|crick|x_non_par|", hs):
                 single_strand = samples_table_2["get_single_strand"]
                 # Only profiles in which ssDNA is asked for we evaluate the
@@ -450,9 +457,9 @@ def generate_samples_table_2(samples_table, config):
 
             # Generate column name and content
             samples_table_2[f"{hs}_{strand}_matrix"] = np.where(
-                samples_table_2["top5000_HS_heatmap"] 
-                    & b6xcast 
-                    & PE 
+                samples_table_2["top5000_HS_heatmap"]
+                    & b6xcast
+                    & PE
                     & single_strand,
                 "Results/"
                     + genome
@@ -465,4 +472,3 @@ def generate_samples_table_2(samples_table, config):
                 np.NaN)
     # %% Return
     return samples_table_2
-

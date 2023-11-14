@@ -18,7 +18,8 @@ samples_table_no_merged_samples = pd.read_csv(
                 "merge_with":"-",
                 "fastq2":"-",
                 "peak_ctrl_file_alias":"-",
-                }
+                },
+    comment='#',
                 ).set_index("sample_name", drop=False)
 
 smkf.check_sample_table_format(samples_table_no_merged_samples)
@@ -138,6 +139,8 @@ wildcard_constraints:
     bam_type = "Raw_bam|Processed_bam",
     bin_size = "[0-9]+",
     clipped_1bp_PE=r"((inc|exc)_16\.clipped_1_bp\.)?",
+    clip_condit = r"(((inc|exc)_16\.)?clipped_1_bp\.)?",
+    clip_strand = r"((inc_|exc)_16\.)?",
     cov_params ="((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+_ex[0-9]+",
     dros_eq_group="[^./ ]+",
     extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?",
@@ -171,6 +174,7 @@ wildcard_constraints:
     smooth = "(smoothed|not_smoothed)+",
     smooth_size = "[0-9]+",
     spike_genome="d6",
+    ss_condit = r"((83-163|99-147|inc_16|exc_16)\.)?",
     ss_PE = "((83-163|99-147).)?",
     ss_SR = "(inc|exc)_16",
     strand = r"(\.(83-163|99-147|inc_16|exc_16))?",
@@ -509,10 +513,6 @@ rule create_coverage_bw:
         "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/"
         "{norm}_bs{bin_size}_sm{smooth_size}_ex{extension_size}/{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
         "{ss_condit}{clip_condit}bw",
-
-    wildcard_constraints:
-        ss_condit = r"((83-163|99-147|inc_16|exc_16)\.)?",
-        clip_condit = r"(((inc|exc)_16\.)?clipped_1_bp\.)?",
     threads: 2
     envmodules:
         config["deeptools"],
@@ -563,6 +563,8 @@ rule clip_1bp:
     wildcard_constraints:
         flag16="inc_16|exc_16"
     threads: 2
+    params:
+        flag = smkf.clip_1bp_param,
     envmodules:
         config["samtools"],
         config["bamutil"]
@@ -578,7 +580,7 @@ rule clip_1bp:
 
         # Clip reads
 
-        samtools view {input} | \\
+        samtools view {input} -{params.flag} 16 | \\
         awk -v dir="${{temp_dir}}" '{{read_length=length($10)}} \\
           {{print $0 >> dir "/" read_length ".sam" }} '
 
@@ -974,11 +976,13 @@ rule compute_matrix_outfiles_hs:
             "Results/{genomes_not_fused}/Analysis/"
                 "Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/"
                 "{cov_params}/filenames/"
-                "{sample}.{genomes_final}{extension}{strand}.filename"),
+                "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
+                "{ss_condit}{clip_condit}filename"),
         matrix = "Results/{genomes_not_fused}/Analysis/"
             "Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/"
                 "{cov_params}/matrixes/"
-                "{sample}.{genomes_final}{extension}{strand}.matrix",
+                "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
+                "{ss_condit}{clip_condit}matrix",
     # log:
     #     ""
     threads: 1
@@ -1049,6 +1053,19 @@ rule wrangle_X_nonPAR_asymmetric_HS:
         config["bioconductor"],
     script:
         "Scripts/wrangle_X_nonPAR_asymmetric_HS.R"
+
+rule process_aggregate_profiles_clipped:
+    input:
+        smkf.process_aggregate_profiles_clipped_input,
+    output:
+        "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+        "Hotspots/{libary}_{hs_region}_clipped.{smooth}.RData",
+    threads: 1
+    envmodules:
+        config["R"],
+        config["bioconductor"],
+    script:
+        "Scripts/process_outfile_matrix_clipped.R"
 
 rule plot_heatmaps:
     input:
