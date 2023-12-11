@@ -611,12 +611,7 @@ def intersect_peaks_HSs_list_input(w):
         'hotspots', path to hotspots (from either mm10 or B6xCAST) bed file
         'sample_peaks', path to peaks bed file
     """
-    if samples_table.loc[w.sample, 'B6xCAST']:
-        hotspots = config[
-            'references']['mm10']['dmc1']['B6xCAST_pm_2000bp']
-    else:
-        hotspots = config[
-            'references']['mm10']['spo11']['top_5000_plus_minus_2000']
+    hotspots = config['references']['mm10']['top_5000_plus_minus_2000']
     return {
         "hotspots": hotspots,
         "sample_peaks": (

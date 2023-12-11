@@ -88,8 +88,9 @@ references:
       top_5000_plus_minus_2000: ""
       all_plus_minus_2000: ""
     TSS: ""
-    blacklist: "Resources/bed_files/GRCh38_unified_blacklist.bed"
+    blacklist: ""
     black_grey: ""
+
 
 heatmaps:
   before_region: "3000"
