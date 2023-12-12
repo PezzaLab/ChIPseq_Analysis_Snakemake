@@ -36,7 +36,7 @@ cluster-status: "status-sacct.sh"
 #     b: c2
 # here "a" is a list that contains 2 intems (each item is a dictionary)
 default-resources:
-  - runtime="01:00:00" # Slurm format is (among others) hours:minutes:seconds. Check https://slurm.schedmd.com/sbatch.html for more
+  - runtime="1hour" # Slurm format is (among others) hours:minutes:seconds. Check https://slurm.schedmd.com/sbatch.html for more
   - mem_mb=2000
   - disk_mb=1000000
   - partition="serial"
