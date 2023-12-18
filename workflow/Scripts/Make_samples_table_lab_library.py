@@ -10,6 +10,7 @@ import os
 import re
 import shutil as shu
 import pandas as pd
+import yaml
 import git  # To get snakepipeline current's commit hash
 
 
@@ -89,6 +90,7 @@ not_copy = shu.ignore_patterns(
     '.*', 'tmp*', '_*_', 'Test_and_assembly_of_python_code.py',
     'samples_table_processed.csv', 'Results*', 'logs*', '*dry_run*',
     'commands_develop.sh', 'dag*', 'Test_code*', 'test_FASTQs',
+    'rstudio-server*', 'slurm-*'
 )
 try:
     shu.copytree(source_path, dest_path, ignore=not_copy)
@@ -169,17 +171,9 @@ for a in fastq1_paths:
     exp_names += [re.sub("_S[0-9]+_R[0-9]_[0-9]+.fastq.gz", '', b)]
 
 dros = ["True" if re.search("_dros|CyR", i) else "False" for i in exp_names]
-
-with open("../Config/config.yaml", 'r') as stream:
-    try:
-        config = yaml.safe_load(stream)
-    except yaml.YAMLError as exc:
-        print(exc)
-    finally:
-        stream.close()
         
 # Read config file
-with open("../Config/config.yaml", 'r') as stream:
+with open(config_path, 'r') as stream:
     try:
         config = yaml.safe_load(stream)
     except yaml.YAMLError as exc:

@@ -341,7 +341,7 @@ rule align_fastq:
         config["samtools"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            18000 + (attempt-1) * 6000
+            19000 + (attempt-1) * 6000
         ),
         runtime = lambda wildcards, input, attempt: (
             # "{minutes}min".format(
@@ -771,12 +771,12 @@ rule call_peaks_macs2:
         config["macs2"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            2500 * attempt
+            5000 * attempt
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                   20 * attempt
+                   30 * attempt
                 )
             )
         ),
@@ -833,12 +833,12 @@ rule annotate_peaks:
         config["homer"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            1500 * attempt
+            3000 * attempt
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                   attempt * 3
+                   attempt * 10
                 ),
             )
         ),
@@ -1017,12 +1017,12 @@ rule crosscorrelation:
         config["deeptools"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            input.size_mb * 1.2 * attempt + 200
+            attempt * 200
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                    attempt * input.size_mb / 72
+                    attempt * 20
                 ),
             )
         ),
@@ -1140,12 +1140,12 @@ rule library_complexity_picard:
         config["picard"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            input.size_mb * 0.5 + 3100 + (attempt - 1) * 2000
+            input.size_mb * 0.5 + 4100 + (attempt - 1) * 2000
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                   (input.size_mb / 30 - 30 + (attempt - 1) * 60) + 5
+                   (input.size_mb / 15 - 30 + (attempt - 1) * 60) + 5
                 ),
             )
         ),
@@ -1342,7 +1342,7 @@ rule process_aggregate_profiles:
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                   attempt * 5
+                   attempt * 15
                 ),
             )
         ),
