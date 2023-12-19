@@ -22,3 +22,5 @@ process_outfile_matrix_image*
 .*
 !.gitignore
 benchmarks/
+log*
+!log.xlsx
