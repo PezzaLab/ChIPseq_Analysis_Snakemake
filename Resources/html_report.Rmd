@@ -67,6 +67,11 @@ if (!is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs)) {
   aggregate_profiles[["top_5000_plus_minus_2000"]] <- 
     final_table 
 }
+# Load B6 clipped profiles
+if(!is.null(snakemake@input$top_5000_plus_minus_2000_clipped)) {
+  load(snakemake@input$top_5000_plus_minus_2000_clipped)
+  aggregate_profiles[["top_5000_plus_minus_2000_clipped"]] <- 
+    final_table }
 
 # Load B6xCAST
 if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
@@ -91,6 +96,12 @@ if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
   rm(B6xCAST_PRDM9_assymetric_hs_receiving_strand,
      B6xCAST_PRDM9_assymetric_hs_invading_strand)
 }
+
+# Load B6xCAST clipped profiles 
+if(!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
+  load(snakemake@input$B6xCAST_top_5000_pm_1000bp)
+  aggregate_profiles[["B6xCAST_top_5000_pm_1000bp_clipped"]] <- 
+    final_table}
 ```
 
 ## Peaks  
@@ -207,7 +218,6 @@ if (is.null(snakemake@input[["peaks_summary"]])){
 ### B6 hotspots  
 
 #### Top 5000 Hotspots  
-
 ```{r, include=!b6_profile}
 "Aggregate profiles were not requested for any of the samples"
 ```
@@ -239,6 +249,45 @@ lapply(prots,
    }
   }
   )
+```
+
+##### Clipped profiles  
+```{r, include=is.null(snakemake@input$top_5000_plus_minus_2000_clipped)}
+"Aggregate profiles were not requested for any of the samples"
+```
+
+```{r, eval = !is.null(snakemake@input$top_5000_plus_minus_2000_clipped), include = !is.null(snakemake@input$top_5000_plus_minus_2000_clipped)}
+# If data is PE, then the strand info will be as "83-163.inc_16",
+  # If it is SE, it won't have the first part and will be just "inc_16".
+  # I will call the first part of the PE (83-163) "strand" and the second
+  # "clip_strand". In SE data strand == clip_strand 
+
+prots <- levels(aggregate_profiles$top_5000_plus_minus_2000_clipped$Protein)
+names(prots) <- prots # So that name of each protein is printed (in the next loop) and can be searched in the web browser as text
+
+lapply(prots,
+       function(prot) {
+         dta <- filter(aggregate_profiles$top_5000_plus_minus_2000_clipped,
+                       Protein == prot)
+           lapply(dta$Strand %>% unique %>% as.character,
+                  function(strand) {
+                    a <- ggplot(
+                      aggregate_profiles$top_5000_plus_minus_2000 %>% 
+                        filter(Strand == strand, Protein == prot),
+                      aes(x = Coordinates,
+                          y = Mean_Max_Normalized_Coverage)
+                    ) +
+                      geom_line(color = "black", alpha = 0.5)
+                    b <- ggplot(
+                      dta %>% filter(Strand == strand),
+                      aes(x = Coordinates,
+                          y = Mean_Max_Normalized_Coverage,
+                          color = Clip_strand)
+                    ) +
+                      geom_line()
+                    rasterize(a | b)
+                  })
+         })
 ```
 
 #### X-nonPAR vs autosomal  

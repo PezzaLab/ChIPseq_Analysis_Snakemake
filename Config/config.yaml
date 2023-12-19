@@ -34,11 +34,11 @@ coverage:
 
 # Peaks
 MACS2:
-  # Efective genome sizes, according to MACS: 
+  # Efective genome sizes, according to MACS:
     # These are estimates. This parameter is not expected to change results
-    # drastically. The real number depends on the actual genome build, 
+    # drastically. The real number depends on the actual genome build,
     # the read length and weather sequencing was done as SR or PE.
-  gsize: 
+  gsize:
     hs: 2.7e9
     mm: 1.87e9
     ce: 9e7
@@ -55,28 +55,28 @@ MACS2:
     chip_mm10_MNAse_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_28_CHD4_7dpp_MNAse_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
     chip_mm10_sonic_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_24_input_7dpp_sonic_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
     cyr_mm10_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/3_22_22_RaG_IgG_R4_MERGED.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
-    
+    chip_B6xCAST_sonic_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/09_06_2023_ChIPseq_B6xCAST_input_B6xCAST_Wt_dros_8Di_whole_tt_douncer.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
+
   # Single read arguments
   extension: "300"
 
 # Bed files
 references:
   mm10:
-    spo11:
-      top_5000_plus_minus_2000: "Resources/bed_files/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_TOP_5000_center_plus_minus_2000.bed"
-      all_plus_minus_2000: "Resources/bed_files/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_center_plus_inus_2000.bed"
-      asymetric_watson_strong: "Resources/bed_files/asymetric_hotspots_watson_strong.bed"
-      asymetric_crick_strong: "Resources/bed_files/asymetric_hotspots_crick_strong.bed" 
-      symetric_all: ""
-      symetric_asym_ctrl: ""
-      x_non_par: "Resources/bed_files/SPO11_X-nonPAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
-      autosomal_all: ""
-      autosomal_x_non_par_ctrl: "Resources/bed_files/SPO11_autosomal-MATCHED-TO-X_non_PAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
-    dmc1:
-      B6xCAST_top_5000_pm_1000bp: "Resources/bed_files/B6xCAST_CASTxB6_common_HSs_autosomal_top_5000.bed"
-      B6xCAST_PRDM9_assymetric_hs_invading_strand: "Resources/bed_files/PRDM9_assymetric.autosomal.invading.dmc1_coords.bed"
-      B6xCAST_PRDM9_assymetric_hs_receiving_strand: "Resources/bed_files/PRDM9_assymetric.autosomal.receiving.dmc1_coords.bed"
-      B6xCAST_PRDM9_assymetric_hs_mm10_aligned: "Resources/bed_files/PRDM9_assymetric.autosomal.mm10.dmc1_coords.bed"
+    top_5000_plus_minus_2000: "Resources/bed_files/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_TOP_5000_center_plus_minus_2000.bed"
+    all_plus_minus_2000: "Resources/bed_files/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_center_plus_inus_2000.bed"
+    asymetric_watson_strong: "Resources/bed_files/asymetric_hotspots_watson_strong.bed"
+    asymetric_crick_strong: "Resources/bed_files/asymetric_hotspots_crick_strong.bed"
+    symetric_all: ""
+    symetric_asym_ctrl: ""
+    x_non_par: "Resources/bed_files/SPO11_X-nonPAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
+    autosomal_all: ""
+    autosomal_x_non_par_ctrl: "Resources/bed_files/SPO11_autosomal-MATCHED-TO-X_non_PAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
+    B6xCAST_top_5000_pm_1000bp: "Resources/bed_files/B6xCAST_CASTxB6_common_HSs_top_5000_plus_minus_2000_bp.bed"
+    B6xCAST_pm_1000bp: "Resources/bed_files/B6xCAST_CASTxB6_common_HSs_plus_minus_2000_bp.bed"
+    B6xCAST_PRDM9_assymetric_hs_invading_strand: "Resources/bed_files/PRDM9_assymetric.autosomal.invading.dmc1_coords.bed"
+    B6xCAST_PRDM9_assymetric_hs_receiving_strand: "Resources/bed_files/PRDM9_assymetric.autosomal.receiving.dmc1_coords.bed"
+    B6xCAST_PRDM9_assymetric_hs_mm10_aligned: "Resources/bed_files/PRDM9_assymetric.autosomal.mm10.dmc1_coords.bed"
     TSS: ""
     blacklist: "Resources/bed_files/mm10.blacklist_merge1000.bed"
     black_grey: "Resources/bed_files/GREYLIST_PE150_ZYG_sonic_ACELL.bed"
@@ -89,8 +89,9 @@ references:
       top_5000_plus_minus_2000: ""
       all_plus_minus_2000: ""
     TSS: ""
-    blacklist: "Resources/bed_files/GRCh38_unified_blacklist.bed"
+    blacklist: ""
     black_grey: ""
+
 
 heatmaps:
   before_region: "3000"
@@ -102,7 +103,7 @@ heatmaps:
 aggregate_profiles:
   process_outfile:
     overwrite: "TRUE" # Overwrite output of process_aggregate_profiles rule?
-    smooth: "FALSE" # Smooth aggregate profiles?
+    smooth: True # Smooth aggregate profiles?
 
 ######################
 #### ENV. MODULES ####

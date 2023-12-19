@@ -11,19 +11,29 @@
 # Load libraries -----------
 library(tidyverse)
 # Functions ----------------------------------------------------------
+  # If data is PE, then the strand info will be as "83-163.inc_16",
+  # If it is SE, it won't have the first part and will be just "inc_16".
+  # I will call the first part of the PE (83-163) "strand" and the second
+  # "clip_strand". In SE data strand == clip_strand 
 get_strands <- 
   function(path){
     file_name <- 
       path %>% 
       basename
-    if (grepl("mit_filt\\.matrix$", file_name)) {
-      strand <- as.factor("Both_strands")
+    if (grepl("83|99", file_name)) {
+      strand <- as.factor(str_extract(file_name, "(83|99)-(163|147)"))
     } else {
-      strand <- 
-        as.factor(str_extract(
-          file_name,"(?<=mit_filt\\.)83-163|99-147|inc_16|exc_16(?=\\.matrix)"))
+      strand <- as.factor(str_extract(file_name, "(in|ex)c_16"))
     }
     strand
+  }
+
+get_clip_strand <- 
+  function(path){
+    file_name <- 
+      path %>% 
+      basename
+      as.factor(str_extract(file_name, "(in|ex)c_16"))
   }
 
 get_file_name <- function(path) basename(path) %>% str_remove("\\..*") %>% as.factor
@@ -113,6 +123,7 @@ normalize <-
 
 # Process reads ------------------------------------------------------
 strands <- lapply(snakemake@input, get_strands)
+clip_strands <- lapply(snakemake@input, get_clip_strand)
 
 file_names <- 
   lapply(snakemake@input, get_file_name)
@@ -140,6 +151,8 @@ for (i in seq_along(averages)) {
     
     averages[[i]][["Strand"]] <- 
       strands[[i]]
+    averages[[i]][["Clip_strand"]] <- 
+      clip_strands[[i]]
     
     averages[[i]][["Region"]] <- 
       as.factor(snakemake@wildcards[["hs_region"]])
@@ -157,7 +170,7 @@ table_all <-
 
 ## Normalize --------------------------------
 final_table_dsDNA <- 
-  normalize(table_all %>% filter(Strand == "Both_strands"))
+  normalize(table_all)
 
 final_table_ssDNA <- 
   normalize(table_all %>% filter(Strand != "Both_strands"))

@@ -1,0 +1,89 @@
+---
+title: "Title"
+author: "Quio"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+    code_folding: hide # or show
+    toc: TRUE
+    toc_float:
+      collapsed: TRUE
+    toc_depth: 5
+  pdf_document:
+    toc: yes
+    toc_depth: 5
+# Put the following inside the chunck in order for that chunk to be visible (in case the default is to hide all chunkcs): "class.source = 'fold-show'", or
+#"class.source = 'fold-hide'"
+# To insert a brake after an image (so the text won't be next to it) put '<br/><br/>'
+# To colorize text use the following:
+  # <span style="color: red;">This text will be red</span>
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = F,
+                      warning = F)
+```
+
+# Load libraries and data  
+```{r, libraries, message=F, error=F}
+library(tidyverse)
+# library(clipr) # to copy text to the clipboard
+# library(tidygenomics) 
+# library(Hmisc) # to divide the vector in equal parts using cut2()
+# library(biomaRt)# To get gene names out of refseq accessions
+# library(ggrepel) # To put names on plots
+# library(ggfortify) # To plot PCAs with ggplot
+# library(factoextra) # To easily get info from PCA analysis
+# library(ViSEAGO) # To analyze GO terms, although I don't think I am going to use it.
+# library(qpcR) # To bind vectors of different length using qpcR:::cbind.na
+# library(openxlsx) # To write xls files (with format and everything)
+# library(readxl) # To read exel files (I think this can also be done with the package above)
+# library(eulerr) # To draw proportional venn diagrams (need to have the numbers though)
+# library(R.utils) # To count number of lines of a file
+# library(DT) To make interactive tables
+# library(scales) # To rescale data
+# library(ggrastr) # to rasterize images (and so occupy less space)
+# library(patchwork) # To organize plots one next to the other and so
+# <br/><br/>    ---> That is to insert a break in the page so that the text don't wrap the images when they don't occupy the whole width
+```
+<!-- The following are useful things in RMardown -->
+<!-- <br/><br/> -->
+<!-- <span style="color: red;">This is some red text</span>, this is black, and <span style="color: blue;">this is blue</span>.   -->
+<!-- **<span style="color: red;">This should be bold red</span>** -->
+<!-- asas&darr;ssas -->
+
+# Load data  
+```{r}
+a <- readLines("dry_run.txt")
+b <- paste0(a, collapse = "XX")
+d <- b %>% str_split_1("XXXX") %>% str_replace_all("XX", " ")
+# Get rid of everything but the job declaration
+e <- d[str_detect(d,"\\[")]
+# Keep only 1 sample (sample "small")
+f <- e[str_detect(e, "b6\\.")]
+head(f, 1)
+```
+
+# Whatever you want to explore  
+```{r}
+g <- f[str_detect(f, "rule compute_matrix_outfiles_hs")]
+```
+```{r}
+h <- g[str_detect(g, "Resources/bed_files/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_TOP_5000_center_plus_minus_2000.bed")]
+h %>% str_remove("output.*")
+```
+
+who is asking for **Results/mm10/Bams/Both_strands/small.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam**?
+
+```{r}
+str_view(f,"output: .*Results/mm10/Bams/Both_strands/small.*mit_filt.*bam .*(?=jobid)")
+```
+
+etc...
+
+# Session Info  
+```{r session_info}
+utils::sessionInfo()
+```
+

@@ -10,6 +10,7 @@ import os
 import re
 import shutil as shu
 import pandas as pd
+import yaml
 import git  # To get snakepipeline current's commit hash
 
 
@@ -89,6 +90,7 @@ not_copy = shu.ignore_patterns(
     '.*', 'tmp*', '_*_', 'Test_and_assembly_of_python_code.py',
     'samples_table_processed.csv', 'Results*', 'logs*', '*dry_run*',
     'commands_develop.sh', 'dag*', 'Test_code*', 'test_FASTQs',
+    'rstudio-server*', 'slurm-*'
 )
 try:
     shu.copytree(source_path, dest_path, ignore=not_copy)
@@ -168,6 +170,21 @@ for a in fastq1_paths:
     b = os.path.basename(a).strip("\n")
     exp_names += [re.sub("_S[0-9]+_R[0-9]_[0-9]+.fastq.gz", '', b)]
 
+dros = ["True" if re.search("_dros|CyR", i) else "False" for i in exp_names]
+        
+# Read config file
+with open(config_path, 'r') as stream:
+    try:
+        config = yaml.safe_load(stream)
+    except yaml.YAMLError as exc:
+        print(exc)
+    finally:
+        stream.close()
+
+# Get peak control options from config file
+peak_ctrl_file_alias = list(config['MACS2']['control'].keys())
+peak_ctrl_file_aliases = " or ".join(peak_ctrl_file_alias)
+
 # Assemble dataframe
 sample_table = pd.DataFrame(
     {"sample_name": exp_names,
@@ -176,17 +193,12 @@ sample_table = pd.DataFrame(
      "PE": pe_dic[pe_sr],
      "library_technology": lib_tech_dic[lib_tech],
      "reference_genome": "mm10",
-     "peak_ctrl_file_alias": ("'chip_mm10_sonic_testes_adaptase_1' or "
-                              "'chip_mm10_sonic_testes_regular_1' or "
-                              "'chip_mm10_MNAse_testes_adaptase_7dpp' or "
-                              "'chip_mm10_sonic_testes_accel_7dpp'or "
-                              "'cyr_mm10_testes_adaptase_1' or "
-                              "'-' for no peak calling"),
-     "dros_spike_in": "'True' or 'False'",
-     "get_single_strand": "'True' or 'False'",
-     "Clip_reads_to_1bp_on_5_prime": "'True' or 'False'",
-     "top5000_HS_heatmap": "'True' or 'False'",
-     "Size_DNA_top_5000_HS": "'True' or 'False'",
+     "peak_ctrl_file_alias": peak_ctrl_file_aliases,
+     "dros_spike_in": dros,
+     "get_single_strand": "True",
+     "Clip_reads_to_1bp_on_5_prime": "False",
+     "top5000_HS_heatmap": "True",
+     "Size_DNA_top_5000_HS": "False",
      "merge_with": "-",
      "dros_equalization_group": "-",
      "B6xCAST": "False",

@@ -22,6 +22,7 @@ import suffixes as sfxs
 samples_table = pd.read_csv("../Config/samples.csv",
                             true_values=["True", "TRUE", "T"],
                             false_values=["False", "FALSE", "F"],
+                            comment='#',
                             na_values={"dros_equalization_group": "-",
                                        "merge_with": "-",
                                        "peak_ctrl_file_alias": "-",
@@ -76,12 +77,66 @@ w = Wildcard()
 # Set wilcard attributes
 w.sample = ""
 w.hs_region = ""
-w.genomes_not_fused = "hg38"
+w.genomes_not_fused = "mm10"
 w.genomes_final = ""
 w.extension = ".q_filt.srt.nodup.mit_filt"
 w.peak_type = ""
 w.peak_params = ""
-
+w.smooth = "smoothed"
+w.hs_region = "B6xCAST_efojf"
 # Filter columns by regex
 samples_table_2.filter(regex = ".*")
 #%% Do tests
+# Get input for process_aggregate_profiles_clipped_input:
+# all matrix files to be processed, which there is one per each bw file
+# Type of cov files to eventually deal with:
+    # NAME.mm10.q_filt.srt.nodup.mit_filt.83-163.inc_16.clipped_1_bp.bw
+    # NAME.mm10.q_filt.srt.nodup.mit_filt.99-147.exc_16.clipped_1_bp.bw
+    # NAME.mm10.q_filt.srt.nodup.mit_filt.exc_16.clipped_1_bp.bw
+    # NAME.mm10.q_filt.srt.nodup.mit_filt.inc_16.clipped_1_bp.bw
+# Available wildcards in their context
+Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
+    "Hotspots/{libary}_{hs_region}_clipped.{smooth}.RData"
+# Target path
+"Results/{genomes_not_fused}/Analysis/"
+            "Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/"
+                "{cov_params}/matrixes/"
+                "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
+                "{ss_condit}{clip_condit}matrix"
+
+strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)"
+clip_condit = r"(((inc|exc)_16\.)?clipped_1_bp\.)?"
+
+# Function
+cov_params = (f"{config['coverage']['normalization']}_"
+              f"bs{config['coverage']['bin_size']}_"
+              f"sm{config['coverage']['smooth']}_"
+              f"ex{config['coverage']['extend_reads']}")
+
+strand_se = ["inc_16", "exc_16"]
+
+strand_pe = [ a + "." + b
+             for a in ["83-163", "99-147"]
+             for b in strand_se
+             ]
+                
+list({
+  "Results/"
+      + f"{w.genomes_not_fused}"
+      + "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+      + f"{w.hs_region}/Single_strand/1bp_clipped_reads/"
+      + f"{cov_params}/matrixes/{sample}."
+      + f"{genome}.q_filt.srt.nodup.mit_filt."  
+      + (f"{s_pe}" if samples_table_2["PE"][sample]
+         else f"{s_se}")
+      + ".matrix" 
+      for sample, genome in zip(samples_table_2.index, 
+                                samples_table_2['final_genome'])
+      if samples_table_2['Clip_reads_to_1bp_on_5_prime'][sample]
+      for s_pe in strand_pe
+      for s_se in strand_se
+})
+
+def a():
+    return ["a", "b"]
+a()
