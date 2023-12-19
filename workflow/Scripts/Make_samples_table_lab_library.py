@@ -90,8 +90,9 @@ not_copy = shu.ignore_patterns(
     '.*', 'tmp*', '_*_', 'Test_and_assembly_of_python_code.py',
     'samples_table_processed.csv', 'Results*', 'logs*', '*dry_run*',
     'commands_develop.sh', 'dag*', 'Test_code*', 'test_FASTQs',
-    'rstudio-server*', 'slurm-*'
+    'rstudio-server*', 'slurm-*', 'benchmarks*'
 )
+
 try:
     shu.copytree(source_path, dest_path, ignore=not_copy)
 except FileExistsError:
@@ -102,6 +103,16 @@ except FileExistsError:
     )
     positive = ["1", "y", "Y", "yes", "YES", "Yes"]
     if overwrite in positive:
+        # Make backup copy of samples.csv in case there is one already
+        dest_file=f"{dest_path}/Config/samples_backup.csv"
+        source_file=f"{dest_path}/Config/samples.csv"
+        if not os.path.exists(dest_file):
+            shu.copy(source_file, dest_file)
+            print("'Config/samples.csv' backed up in file "
+                  "'Config/samples_backup.csv' file")
+        else:
+            print("'Config/samples_backup.csv' present, not copying")
+        # Copy everything (overwrite)
         shu.copytree(
             source_path, dest_path, dirs_exist_ok=True,
             ignore=not_copy
@@ -110,7 +121,7 @@ except FileExistsError:
         print("Quiting now")
         exit
 else:
-    print(f"Copying {dest_path}")
+    print(f"{dest_path} copied")
 
 # %% Modify 'commands.sh' file with library-specific info
 # %%% Get git info
