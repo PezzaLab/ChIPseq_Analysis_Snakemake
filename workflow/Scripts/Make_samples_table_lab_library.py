@@ -12,9 +12,10 @@ import shutil as shu
 import pandas as pd
 import yaml
 import git  # To get snakepipeline current's commit hash
-
+from datetime import datetime
 
 # %% Functions
+
 
 def get_lib_name():
     library_name = input(
@@ -86,11 +87,14 @@ source_path = (
 )
 dest_path = library_paths['scratch']
 
+# Files and dirs not to copy (not copy samples.csv, which might be in 
+# destination already):
 not_copy = shu.ignore_patterns(
     '.*', 'tmp*', '_*_', 'Test_and_assembly_of_python_code.py',
     'samples_table_processed.csv', 'Results*', 'logs*', '*dry_run*',
-    'commands_develop.sh', 'dag*', 'Test_code*', 'test_FASTQs',
-    'rstudio-server*', 'slurm-*', 'benchmarks*'
+    'commands*', 'dag*', 'Test_code*', 'test_FASTQs',
+    'rstudio-server*', 'slurm-*', 'benchmarks*', 'samples.csv',
+    'log*',
 )
 
 try:
@@ -103,53 +107,60 @@ except FileExistsError:
     )
     positive = ["1", "y", "Y", "yes", "YES", "Yes"]
     if overwrite in positive:
-        # Make backup copy of samples.csv in case there is one already
-        dest_file=f"{dest_path}/Config/samples_backup.csv"
-        source_file=f"{dest_path}/Config/samples.csv"
-        if not os.path.exists(dest_file):
-            shu.copy(source_file, dest_file)
-            print("'Config/samples.csv' backed up in file "
-                  "'Config/samples_backup.csv' file")
-        else:
-            print("'Config/samples_backup.csv' present, not copying")
-        # Copy everything (overwrite)
         shu.copytree(
             source_path, dest_path, dirs_exist_ok=True,
             ignore=not_copy
         )
+        # Make backup copy of samples.csv in case there is one already
+        samples_csv = "Config/samples.csv"
+        dest_file = f"{dest_path}/{samples_csv}"
+        source_file = f"{source_path}/{samples_csv}"
+        if not os.path.exists(dest_file):
+            shu.copy(source_file, dest_file)
+            print(f"Copying '{samples_csv}' template")
     else:
         print("Quiting now")
         exit
 else:
     print(f"{dest_path} copied")
 
-# %% Modify 'commands.sh' file with library-specific info
-# %%% Get git info
-# Get git curent commit hash
+# %% Write or update 'commands_X.sh'
+
+# Get pipeline-git info
 repo = git.Repo(
-    "/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/"
-    "ChIPseq_Analysis_Snakemake"
+    source_path
 )
 sha = repo.head.object.hexsha
 mod_time = str(repo.head.object.committed_datetime)
-# %%% Modify file
-# Read in the file
-commands_path = f"{library_paths['scratch']}/commands.sh"
-with open(commands_path, 'r') as file:
-    commands = file.read()
-# Replace the target strings
-commands = commands.replace('{library_name}', library_paths["library_name"])
-commands = commands.replace('{sha}', sha)
-commands = commands.replace('{commit_date}', mod_time)
-# Write the file out again
-commands_new_path = (
+
+# If commands_X file already there just update with new pipeline-git info,
+commands_source_path = f"{source_path}/commands.sh"
+commands_destination_path = (
     f"{library_paths['scratch']}/"
     f'commands_{library_paths["library_name"]}.sh'
 )
-with open(commands_new_path, 'w') as file:
-    file.write(commands)
-# Erase `commands.sh`
-os.remove(commands_path)
+if os.path.exists(commands_destination_path):
+    # Get the current date
+    current_date = datetime.now()
+    # Format the date as "yyyy-mm-dd"
+    formatted_date = current_date.strftime("%Y-%m-%d")
+    
+    text_append = (f"\n# On {formatted_date}, all pipeline was updated with "
+                   f"commit hash:\n# {sha}\n")
+    with open(commands_destination_path, 'a') as file:
+        file.write(text_append)
+else:
+    # Read in the file
+    with open(commands_source_path, 'r') as file:
+        commands = file.read()
+    # Replace the target strings
+    commands = commands.replace('{library_name}', library_paths["library_name"])
+    commands = commands.replace('{sha}', sha)
+    commands = commands.replace('{commit_date}', mod_time)
+    # Write the file out again
+    
+    with open(commands_destination_path, 'w') as file:
+        file.write(commands)
 
 # %% Modify config file
 config_path = f"{library_paths['scratch']}/Config/config.yaml"
