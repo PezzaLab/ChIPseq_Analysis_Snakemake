@@ -304,7 +304,7 @@ rule trim_adaptase:
         config["cutadapt"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            300 * attempt
+            400 * attempt
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
@@ -341,15 +341,14 @@ rule align_fastq:
         config["samtools"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            19000 + (attempt-1) * 6000
+            21000 + (attempt-1) * 6000
         ),
         runtime = lambda wildcards, input, attempt: (
-            # "{minutes}min".format(
-            #     minutes= int(
-            #         ((input.size_mb - 1900) / 70) * attempt
-            #     ),
-            # )
-            "1second"
+            "{minutes}min".format(
+                minutes= int(
+                    ((input.size_mb - 1900) / 70) * attempt
+                ),
+            )
         ),
     benchmark:
         "benchmarks/align_fastq/{sample}.{genomes_all}.tsv",
@@ -771,7 +770,7 @@ rule call_peaks_macs2:
         config["macs2"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            5000 * attempt
+            6000 * attempt
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
@@ -833,7 +832,7 @@ rule annotate_peaks:
         config["homer"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            3000 * attempt
+            4000 * attempt
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
@@ -1017,12 +1016,12 @@ rule crosscorrelation:
         config["deeptools"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            attempt * 200
+            attempt * 6500
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                    attempt * 20
+                    attempt * 90
                 ),
             )
         ),
@@ -1211,12 +1210,12 @@ rule multiqc:
         config["multiqc"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-           50 * attempt
+           200 * attempt
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                   10 * attempt
+                   30 * attempt
                 ),
             )
         ),
