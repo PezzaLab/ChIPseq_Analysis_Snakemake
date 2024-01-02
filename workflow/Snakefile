@@ -758,7 +758,7 @@ rule call_peaks_macs2:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/"
             "{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak",
     params:
-        smkf.get_call_peaks_macs2_params,
+        smkf.call_peaks_macs2_params,
         # Within params, `unpack` is not allowed, instead return a
         # dictionary and access it via {params[0][mykey]}. Not sure why
         # the [0]. Appaerently params is a list, and the first item is

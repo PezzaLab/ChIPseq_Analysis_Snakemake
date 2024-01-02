@@ -271,6 +271,58 @@ def call_peaks_macs2_input(w):
     return input_
 
 
+def call_peaks_macs2_params(w):
+    """Get parameters for rule call_peaks_macs2.
+
+    Wildcards
+    ----------
+    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+        Genomes not fused to spike-in genome
+    peak_params : (bco_[0-9]+_)?qv_[0-9]+__[^/]*
+        The first part (before the double underscore (__) of the wildcard are
+            bco (if peak is broad) and qv parameters. The second part is the
+            value of `peak_ctrl_file_alias` column for that sample.
+
+    Returns
+    -------
+    dict
+        Contains strings that will be used to assemble the shell script.
+        More specifically: genome, PE, extension, peak_type_options, qv_bco
+        and ctrl
+    """
+    if re.match(".*mm.*", w.genomes_not_fused):
+        genome = "mm"
+    elif re.match(".*hg.*", w.genomes_not_fused):
+        genome = "hs"
+    PE = ""
+    ext = ""
+    parameters = w.peak_params.split("__")
+    bco_qv = parameters[0].split("_")
+    ctrl_alias = parameters[-1]
+    ctrl_bam = config['MACS2']['control'][ctrl_alias]
+    if parameters[-1] == "no_input":
+        ctrl = ""
+    else:
+        ctrl = f"-c {ctrl_bam}"
+    if samples_table.loc[w.sample, "PE"]:
+        PE = "--format BAMPE"
+    else:
+        ext = f"--extsize {config['MACS2']['extension']}"
+    if w.peak_type == "narrow":
+        peak_type = "--call-summits"
+        q = f"-q 0.{bco_qv[1]}"
+    else:
+        peak_type = "--broad"
+        q = f"-q 0.{bco_qv[3]} --broad-cutoff 0.{bco_qv[1]}"
+    return {
+        "genome": genome,
+        "PE": PE,
+        "extension": ext,
+        "peak_type_options": peak_type,
+        "qv_bco": q,
+        "ctrl": ctrl}
+
+
 def clip_1bp_input(w):
     """Get input for clip_1bp rule
 
@@ -518,58 +570,6 @@ def get_rv_fw_strand_input(w):
         strand = "Both_strands"
     return (f"Results/{w.genomes_not_fused}/Bams/{strand}/"
             f"{w.sample_with_extensions}.bam")
-
-
-def get_call_peaks_macs2_params(w):
-    """Get parameters for rule call_peaks_macs2.
-
-    Wildcards
-    ----------
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
-        Genomes not fused to spike-in genome
-    peak_params : (bco_[0-9]+_)?qv_[0-9]+__[^/]*
-        The first part (before the double underscore (__) of the wildcard are
-            bco (if peak is broad) and qv parameters. The second part is the
-            value of `peak_ctrl_file_alias` column for that sample.
-
-    Returns
-    -------
-    dict
-        Contains strings that will be used to assemble the shell script.
-        More specifically: genome, PE, extension, peak_type_options, qv_bco
-        and ctrl
-    """
-    if re.match(".*mm.*", w.genomes_not_fused):
-        genome = "mm"
-    elif re.match(".*hg.*", w.genomes_not_fused):
-        genome = "hs"
-    PE = ""
-    ext = ""
-    parameters = w.peak_params.split("__")
-    bco_qv = parameters[0].split("_")
-    ctrl_alias = parameters[-1]
-    ctrl_bam = config['MACS2']['control'][ctrl_alias]
-    if parameters[-1] == "no_input":
-        ctrl = ""
-    else:
-        ctrl = f"-c {ctrl_bam}"
-    if samples_table.loc[w.sample, "PE"]:
-        PE = "--format BAMPE"
-    else:
-        ext = f"--extsize {config['MACS2']['extension']}"
-    if w.peak_type == "narrow":
-        peak_type = "--call-summits"
-        q = f"-q 0.{bco_qv[1]}"
-    else:
-        peak_type = "--broad"
-        q = f"-q 0.{bco_qv[3]} --broad-cutoff 0.{bco_qv[1]}"
-    return {
-        "genome": genome,
-        "PE": PE,
-        "extension": ext,
-        "peak_type_options": peak_type,
-        "qv_bco": q,
-        "ctrl": ctrl}
 
 
 def get_strand_sep_bams_params(w):
