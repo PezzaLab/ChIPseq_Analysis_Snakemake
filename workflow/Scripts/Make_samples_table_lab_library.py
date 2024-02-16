@@ -193,7 +193,10 @@ for a in fastq1_paths:
     exp_names += [re.sub("_S[0-9]+_R[0-9]_[0-9]+.fastq.gz", '', b)]
 
 dros = ["True" if re.search("_dros|CyR", i) else "False" for i in exp_names]
-        
+B6xCAST = ["True" if re.search("_B6XCAST_", i, flags=re.IGNORECASE) 
+           else "False" for i in exp_names]
+print(B6xCAST)
+
 # Read config file
 with open(config_path, 'r') as stream:
     try:
@@ -223,7 +226,7 @@ sample_table = pd.DataFrame(
      "Size_DNA_top_5000_HS": "False",
      "merge_with": "-",
      "dros_equalization_group": "-",
-     "B6xCAST": "False",
+     "B6xCAST": B6xCAST,
      })
 
 # Save table
