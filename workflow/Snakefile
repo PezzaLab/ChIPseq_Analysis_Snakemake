@@ -271,12 +271,12 @@ rule trim_adapters_PE:
         config["fastp"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            3500 * attempt
+            3700 * attempt
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes=max(
-                    int((input.size_mb // 800) * attempt),
+                    int((input.size_mb // 400) * attempt),
                     2)
             )
         ),
@@ -308,7 +308,7 @@ rule trim_adaptase:
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
-                minutes= 5 * attempt,
+                minutes= 15 * attempt,
             )
         ),
     benchmark:
@@ -341,12 +341,12 @@ rule align_fastq:
         config["samtools"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            21000 + (attempt-1) * 6000
+            21000 + (attempt-1) * 10000
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                    ((input.size_mb - 1900) / 70) * attempt
+                    ((input.size_mb - 1900) / 50) * attempt
                 ),
             )
         ),
@@ -604,7 +604,7 @@ rule merge_watson_or_crick:
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                   attempt * 7
+                   attempt * 20
                 ),
             )
         ),
@@ -770,12 +770,12 @@ rule call_peaks_macs2:
         config["macs2"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            6000 * attempt
+            7000 * attempt
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                   30 * attempt
+                   50 * attempt
                 )
             )
         ),
@@ -832,7 +832,7 @@ rule annotate_peaks:
         config["homer"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            4000 * attempt
+            6000 * attempt
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
@@ -1016,12 +1016,12 @@ rule crosscorrelation:
         config["deeptools"],
     resources:
         mem_mb = lambda wildcards, input, attempt: (
-            attempt * 6500
+            attempt * 7500
         ),
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                    attempt * 90
+                    attempt * 150
                 ),
             )
         ),
