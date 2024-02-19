@@ -74,9 +74,9 @@ if(!is.null(snakemake@input$top_5000_plus_minus_2000_clipped)) {
     final_table }
 
 # Load B6xCAST
-if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
-  load(snakemake@input$B6xCAST_top_5000_pm_1000bp)
-  B6xCAST_top_5000_pm_1000bp <- final_table
+if (!is.null(snakemake@input$B6xCAST_top_5000_pm_2000bp)) {
+  load(snakemake@input$B6xCAST_top_5000_pm_2000bp)
+  B6xCAST_top_5000_pm_2000bp <- final_table
   
   load(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)
   B6xCAST_PRDM9_assymetric_hs_invading_strand <- final_table
@@ -98,9 +98,9 @@ if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
 }
 
 # Load B6xCAST clipped profiles 
-if(!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
-  load(snakemake@input$B6xCAST_top_5000_pm_1000bp)
-  aggregate_profiles[["B6xCAST_top_5000_pm_1000bp_clipped"]] <- 
+if(!is.null(snakemake@input$B6xCAST_top_5000_pm_2000bp)) {
+  load(snakemake@input$B6xCAST_top_5000_pm_2000bp)
+  aggregate_profiles[["B6xCAST_top_5000_pm_2000bp_clipped"]] <- 
     final_table}
 ```
 
@@ -377,24 +377,24 @@ lapply(ss_prots,
 
 #### Top 5000 hotspots  
 Hotspot list was taken from DMC1 ChIP-seq done with kinetic enrichement by [Smagulova *et al*](http://genesdev.cshlp.org/content/30/3/266) on B6xCAST mix.  
-```{r, include=is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)}
+```{r, include=is.null(snakemake@input$B6xCAST_top_5000_pm_2000bp)}
 "No B6xCAST experiments were done on this library"
 ```
-```{r, eval=!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)}
-prots <- levels(B6xCAST_top_5000_pm_1000bp$Protein)
+```{r, eval=!is.null(snakemake@input$B6xCAST_top_5000_pm_2000bp)}
+prots <- levels(B6xCAST_top_5000_pm_2000bp$Protein)
 names(prots) <- prots
 
 lapply(prots,
   function(i) {
-    strands_n <- B6xCAST_top_5000_pm_1000bp$Strand %>% nlevels
-    a <- ggplot(data = filter(B6xCAST_top_5000_pm_1000bp ,
+    strands_n <- B6xCAST_top_5000_pm_2000bp$Strand %>% nlevels
+    a <- ggplot(data = filter(B6xCAST_top_5000_pm_2000bp ,
                         Protein == i,
                         Strand == "Both_strands")) +
     geom_line(mapping = aes(x = Coordinates,
                             y = Mean_Max_Normalized_Coverage)) +
       theme(legend.position="top")
    if (strands_n > 1){
-     b <- ggplot(data = filter(B6xCAST_top_5000_pm_1000bp,
+     b <- ggplot(data = filter(B6xCAST_top_5000_pm_2000bp,
                         Protein == i,
                         Strand != "Both_strands")) +
     geom_line(mapping = aes(x = Coordinates,
@@ -458,7 +458,7 @@ map(prots,
 Here are the aggregate profiles for both strands of DNA (watson or crick) on either 'invading' or 'receiving' DNA (B6 or CAST depending on the hostpot).  
 ```{r, include=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand), eval=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
 
-prots <- levels(B6xCAST_top_5000_pm_1000bp$Protein)
+prots <- levels(B6xCAST_top_5000_pm_2000bp$Protein)
 names(prots) <- prots
 
 map(prots,

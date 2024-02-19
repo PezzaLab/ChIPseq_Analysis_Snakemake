@@ -611,7 +611,11 @@ def intersect_peaks_HSs_list_input(w):
         'hotspots', path to hotspots (from either mm10 or B6xCAST) bed file
         'sample_peaks', path to peaks bed file
     """
-    hotspots = config['references']['mm10']['top_5000_plus_minus_2000']
+    if (samples_table.loc[w.sample, "B6xCAST"]):
+        hotspots = config['references']['mm10']['B6xCAST_pm_2000bp']
+    else:
+        hotspots = config['references']['mm10']['all_plus_minus_2000']
+        
     return {
         "hotspots": hotspots,
         "sample_peaks": (
@@ -660,7 +664,7 @@ def markdown_report_aggregate_profiles_input(w):
             string. Only for mm10. Path to '.RData' object containing the
             processed agggregate profiles of 1-bp clipped samples. If there is
             no clipped samples it delivers and empty list.
-        'B6xCAST_top_5000_pm_1000bp':
+        'B6xCAST_top_5000_pm_2000bp':
             string. Only for mm10. Path to ".RData" object containing the
             aggreagte profiles of all samples aligned to B6xCAST fused genome,
             in top 5000 B6xCAST hotspots.
@@ -758,10 +762,10 @@ def markdown_report_aggregate_profiles_input(w):
     if ((samples_table['top5000_HS_heatmap'] &
          samples_table['B6xCAST']).any()):
         B6xCAST_agg_profiles = {
-            "B6xCAST_top_5000_pm_1000bp": (
+            "B6xCAST_top_5000_pm_2000bp": (
                 f"Results/{w.genomes_not_fused}/Analysis"
                 "/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{config['library']['name']}_B6xCAST_top_5000_pm_1000bp."
+                f"{config['library']['name']}_B6xCAST_top_5000_pm_2000bp."
                 f"{w.smooth}.RData"
             ),
             "B6xCAST_PRDM9_assymetric_hs_invading_strand": (
@@ -789,11 +793,11 @@ def markdown_report_aggregate_profiles_input(w):
          & samples_table['get_single_strand']
          & samples_table['Clip_reads_to_1bp_on_5_prime']).any()):
         B6xCAST_agg_profiles_clipped = {
-            "B6xCAST_top_5000_pm_1000bp_clipped": (
+            "B6xCAST_top_5000_pm_2000bp_clipped": (
                 f"Results/{w.genomes_not_fused}/Analysis"
                 "/Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}"
-                "_B6xCAST_top_5000_pm_1000bp_clipped."
+                "_B6xCAST_top_5000_pm_2000bp_clipped."
                 f"{w.smooth}.RData"
             )}
     if ((samples_table['top5000_HS_heatmap'] 
