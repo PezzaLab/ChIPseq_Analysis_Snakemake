@@ -346,7 +346,7 @@ rule align_fastq:
         runtime = lambda wildcards, input, attempt: (
             "{minutes}min".format(
                 minutes= int(
-                    ((input.size_mb - 1900) / 50) * attempt
+                    max(((input.size_mb - 1900) / 50) * attempt, 150)
                 ),
             )
         ),
