@@ -14,7 +14,11 @@ import yaml
 import git  # To get snakepipeline current's commit hash
 from datetime import datetime
 
-# %% Functions
+# %% Functions and default values
+
+fastq_base_path = "/archive/pezza/Agustin/"
+results_base_path = "/s/pezzar-lab/"
+pipeline_path = "/hpc-prj/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake"
 
 
 def get_lib_name():
@@ -22,8 +26,9 @@ def get_lib_name():
         "What is the library name?\nKeep in mind that it has to be "
         "the same name provided to Stuart Glenn\n")
     return {"library_name": library_name,
-            "archive": f"/archive/pezza/Agustin/{library_name}",
-            "scratch": f"/s/pezzar-lab/{library_name}"}
+            "archive": fastq_base_path + library_name,
+            "scratch": results_base_path + library_name
+            }
 
 
 def get_seq_mode():
@@ -81,10 +86,6 @@ while True:
 lib_tech_dic = {"1": "adaptase", "2": "regular"}
 
 # %% Create library folder and copy snakemake pipeline
-source_path = (
-    "/Volumes/Pezza/hpc-nobackup/Agustin/"
-    "test_folder/ChIPseq_Analysis_Snakemake"
-)
 dest_path = library_paths['scratch']
 
 # Files and dirs not to copy (not copy samples.csv, which might be in 
@@ -98,7 +99,7 @@ not_copy = shu.ignore_patterns(
 )
 
 try:
-    shu.copytree(source_path, dest_path, ignore=not_copy)
+    shu.copytree(pipeline_path, dest_path, ignore=not_copy)
 except FileExistsError:
     overwrite = input(
         f"'{dest_path}' already exists, would you like to overwrite? \n"
@@ -108,13 +109,13 @@ except FileExistsError:
     positive = ["1", "y", "Y", "yes", "YES", "Yes"]
     if overwrite in positive:
         shu.copytree(
-            source_path, dest_path, dirs_exist_ok=True,
+            pipeline_path, dest_path, dirs_exist_ok=True,
             ignore=not_copy
         )
         # Make backup copy of samples.csv in case there is one already
         samples_csv = "Config/samples.csv"
         dest_file = f"{dest_path}/{samples_csv}"
-        source_file = f"{source_path}/{samples_csv}"
+        source_file = f"{pipeline_path}/{samples_csv}"
         if not os.path.exists(dest_file):
             shu.copy(source_file, dest_file)
             print(f"Copying '{samples_csv}' template")
@@ -128,13 +129,13 @@ else:
 
 # Get pipeline-git info
 repo = git.Repo(
-    source_path
+    pipeline_path
 )
 sha = repo.head.object.hexsha
 mod_time = str(repo.head.object.committed_datetime)
 
 # If commands_X file already there just update with new pipeline-git info,
-commands_source_path = f"{source_path}/commands.sh"
+commands_source_path = f"{pipeline_path}/commands.sh"
 commands_destination_path = (
     f"{library_paths['scratch']}/"
     f'commands_{library_paths["library_name"]}.sh'
@@ -173,10 +174,20 @@ with open(config_path, 'w') as file:
     file.write(config)
 # %% Do samples_table
 # Get fastqs' filepaths
-fastqs_temp = os.listdir(library_paths['archive'])
+subfolder = os.listdir(library_paths['archive'])
+if len(subfolder) > 1:
+    print(f"There is more than one folder within {library_paths['archive']}"
+          f":\n{subfolder}\n\nModify the script and try again")
+    exit()
+elif len(subfolder) == 0:
+    print(f"There is no subfolder within {library_paths['archive']}"
+          f"\n\nModify the script and try again")
+    exit()
+fastqs_folder = library_paths['archive'] + "/" + subfolder[0]
+fastqs_temp = os.listdir(fastqs_folder)
 fastqs_temp2 = [x for x in fastqs_temp if re.search(r".*\.fastq\.gz$", x)]
 fastqs = sorted(fastqs_temp2, key=str.lower)
-fastqs = [library_paths['archive'] + "/" +
+fastqs = [fastqs_folder + "/" +
           file for file in fastqs]
 
 # Define values of table
@@ -251,4 +262,4 @@ print(
 
 
 # Run this script:
-# ml slurm python/3.10.2 pandas/1.4.2 && python /Volumes/Pezza/hpc-nobackup/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow/Scripts/Make_samples_table_lab_library.py
+# ml slurm python/3.10.2 pandas/1.4.2 && python /hpc-prj/pezza//Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow/Scripts/Make_samples_table_lab_library.py

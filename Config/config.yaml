@@ -8,10 +8,10 @@ qctrl: True
 # Reference genomes' paths
 genomes:
     mm10: "/Volumes/hts_core/Shared/mus_musculus/mm10/bwa_0.7.12_indexed/mm10.fasta"
-    mm10_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drodophila6_mm10/final_files/dm6_mm10_fusion.fa"
-    mm10CAST_EiJ: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10cast/mm10.CAST_EiJ.fasta"
-    mm10_x_CAST_EiJ: "/Volumes/Pezza/hpc-nobackup/References/Genomes/mm10_CAST_plus_B6/mm10_B6plusCAST.fasta"
-    mm10_x_CAST_EiJ_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10_CAST_plus_B6/d6_mm10_fusion.B6plusCAST.fasta"
+    mm10_f_d6: "/hpc-prj/pezza/References/Genomes/fusion_drodophila6_mm10/final_files/dm6_mm10_fusion.fa"
+    mm10CAST_EiJ: "/hpc-prj/pezza/References/Genomes/fusion_drosophila_mm10cast/mm10.CAST_EiJ.fasta"
+    mm10_x_CAST_EiJ: "/hpc-prj/pezza/References/Genomes/mm10_CAST_plus_B6/mm10_B6plusCAST.fasta"
+    mm10_x_CAST_EiJ_f_d6: "/hpc-prj/pezza/References/Genomes/fusion_drosophila_mm10_CAST_plus_B6/d6_mm10_fusion.B6plusCAST.fasta"
     hg38: "/Volumes/shared-refs/gatk_resources/hg38/v0/Homo_sapiens_assembly38.fasta"
     hg38_f_d6: ""
 
@@ -47,15 +47,15 @@ MACS2:
   qvalue: "0.05" # 0.5 = MACS default
   control: # <techinque>_<ref_genome>_<frag._tech>_<library_tech>_<reads type and length>_<file_ID> # <chip|cyr|...>_<mm10_hg38...>_<sonic|mnase|...>_<accel|reg|...>_<(SR|PE)(50|75,etc)><1|2|...>
     no_input: ""
-    chip_mm10_sonic_testes_regular_SE75_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/INPUT_B180_2_28.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_regular_PE50_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/Input_11-6-19.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_regular_PE150_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2021_1_12_input_zyg.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_7_Input_zyg_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_adaptase_2: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/6-28-22_Input_8_Di_L_zyg_wtestes.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_MNAse_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_28_CHD4_7dpp_MNAse_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_24_input_7dpp_sonic_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
-    cyr_mm10_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/3_22_22_RaG_IgG_R4_MERGED.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_B6xCAST_sonic_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/09_06_2023_ChIPseq_B6xCAST_input_B6xCAST_Wt_dros_8Di_whole_tt_douncer.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_regular_SE75_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/INPUT_B180_2_28.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_regular_PE50_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/Input_11-6-19.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_regular_PE150_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/2021_1_12_input_zyg.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_adaptase_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/2022_1_7_Input_zyg_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_adaptase_2: "/hpc-prj/pezza/References/Mice/Inputs/Bam/6-28-22_Input_8_Di_L_zyg_wtestes.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_MNAse_testes_adaptase_7dpp: "/hpc-prj/pezza/References/Mice/Inputs/Bam/2022_1_28_CHD4_7dpp_MNAse_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_adaptase_7dpp: "/hpc-prj/pezza/References/Mice/Inputs/Bam/2022_1_24_input_7dpp_sonic_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
+    cyr_mm10_testes_adaptase_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/3_22_22_RaG_IgG_R4_MERGED.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_B6xCAST_sonic_testes_adaptase_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/09_06_2023_ChIPseq_B6xCAST_input_B6xCAST_Wt_dros_8Di_whole_tt_douncer.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
 
   # Single read arguments
   extension: "300"
