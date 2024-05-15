@@ -49,7 +49,7 @@ def get_library_tech():
 
 
 # %% Get user's input
-# %%% Get input by user (library name, sequencing techonology, PE/SR,)
+# %%% Get library name
 while True:
     library_paths = get_lib_name()
     if not os.path.exists(library_paths['archive']):
@@ -62,6 +62,46 @@ while True:
         continue
     else:
         break
+
+# %%% Check if library has files and or subfolders
+# Depending on the time the library was uploaded, the fastq files might be
+# right inside the library folder, or they might be inside another folder
+# within the library folder (called as the Illumina run). Some  very few times,
+# there might be 2 sequencing runs within the library folder.
+
+# Get fastqs' filepaths
+directories_count = 0
+files_count = 0
+
+dir_and_files = os.listdir(library_paths['archive'])
+
+# Iterate over the contents of the folder
+print(f"Subcontent of {library_paths['archive']}:")
+
+for entry in dir_and_files:
+    print(entry)
+    full_path = os.path.join(library_paths['archive'], entry)
+    # Check if the entry is a directory
+    if os.path.isdir(full_path):
+        directories_count += 1
+        subfolder = full_path
+    elif os.path.isfile(full_path):
+        files_count += 1
+
+# If more than 1 directory abort
+print("\n")
+if directories_count > 1:
+    print("More than one subdirectory found, aborting...")
+    exit()
+elif (directories_count == 0) & (files_count == 0):
+    print(f"No files or directories found at {library_paths['archive']}")
+    exit()
+elif (directories_count == 1) & (files_count == 0):
+    print(f"Using subfolder {subfolder}\n")
+    fastqs_folder = os.path.join(library_paths['archive'], subfolder)
+elif (directories_count == 0) & (files_count > 0):
+    print(f"Using main folder: {library_paths['archive']}\n")
+    fastqs_folder = library_paths['archive']
 
 # %%% Get library sequencing mode (PE or SR)
 while True:
@@ -88,7 +128,7 @@ lib_tech_dic = {"1": "adaptase", "2": "regular"}
 # %% Create library folder and copy snakemake pipeline
 dest_path = library_paths['scratch']
 
-# Files and dirs not to copy (not copy samples.csv, which might be in 
+# Files and dirs not to copy (not copy samples.csv, which might be in
 # destination already):
 not_copy = shu.ignore_patterns(
     '.*', 'tmp*', '_*_', 'Test_and_assembly_of_python_code.py',
@@ -121,7 +161,7 @@ except FileExistsError:
             print(f"Copying '{samples_csv}' template")
     else:
         print("Quiting now")
-        exit
+        exit()
 else:
     print(f"{dest_path} copied")
 
@@ -145,7 +185,7 @@ if os.path.exists(commands_destination_path):
     current_date = datetime.now()
     # Format the date as "yyyy-mm-dd"
     formatted_date = current_date.strftime("%Y-%m-%d")
-    
+
     text_append = (f"\n# On {formatted_date}, all pipeline was updated with "
                    f"commit hash:\n# {sha}\n")
     with open(commands_destination_path, 'a') as file:
@@ -155,11 +195,12 @@ else:
     with open(commands_source_path, 'r') as file:
         commands = file.read()
     # Replace the target strings
-    commands = commands.replace('{library_name}', library_paths["library_name"])
+    commands = commands.replace('{library_name}',
+                                library_paths["library_name"])
     commands = commands.replace('{sha}', sha)
     commands = commands.replace('{commit_date}', mod_time)
     # Write the file out again
-    
+
     with open(commands_destination_path, 'w') as file:
         file.write(commands)
 
@@ -173,17 +214,7 @@ config = config.replace('Test_library', library_paths["library_name"])
 with open(config_path, 'w') as file:
     file.write(config)
 # %% Do samples_table
-# Get fastqs' filepaths
-subfolder = os.listdir(library_paths['archive'])
-if len(subfolder) > 1:
-    print(f"There is more than one folder within {library_paths['archive']}"
-          f":\n{subfolder}\n\nModify the script and try again")
-    exit()
-elif len(subfolder) == 0:
-    print(f"There is no subfolder within {library_paths['archive']}"
-          f"\n\nModify the script and try again")
-    exit()
-fastqs_folder = library_paths['archive'] + "/" + subfolder[0]
+
 fastqs_temp = os.listdir(fastqs_folder)
 fastqs_temp2 = [x for x in fastqs_temp if re.search(r".*\.fastq\.gz$", x)]
 fastqs = sorted(fastqs_temp2, key=str.lower)
@@ -204,9 +235,8 @@ for a in fastq1_paths:
     exp_names += [re.sub("_S[0-9]+_R[0-9]_[0-9]+.fastq.gz", '', b)]
 
 dros = ["True" if re.search("_dros|CyR", i) else "False" for i in exp_names]
-B6xCAST = ["True" if re.search("_B6XCAST_", i, flags=re.IGNORECASE) 
+B6xCAST = ["True" if re.search("_B6XCAST_", i, flags=re.IGNORECASE)
            else "False" for i in exp_names]
-print(B6xCAST)
 
 # Read config file
 with open(config_path, 'r') as stream:
@@ -241,10 +271,31 @@ sample_table = pd.DataFrame(
      })
 
 # Save table
-sample_table.to_csv(f"{library_paths['scratch']}/Config/samples.csv",
-                    index=False,
-                    na_rep="-",
-                    )
+try:
+    sample_table.to_csv(f"{library_paths['scratch']}/Config/samples.csv",
+                        index=False,
+                        na_rep="-",
+                        mode="x"  # Do not overwrite
+                        )
+except FileExistsError:
+    overwrite = input(
+        "'samples.csv' already exists, would you like to overwrite? \n"
+        "1) Yes\n"
+        "2) No\n"
+    )
+    positive = ["1", "y", "Y", "yes", "YES", "Yes"]
+    if overwrite in positive:
+        sample_table.to_csv(f"{library_paths['scratch']}/Config/samples.csv",
+                            index=False,
+                            na_rep="-",
+                            mode="w"  # Overwrites file
+                            )
+        print("samples.csv copied")
+    else:
+        print("Keeping original samples.csv file")
+else:
+    print("samples.csv copied")
+
 
 # %% Final message
 print(
