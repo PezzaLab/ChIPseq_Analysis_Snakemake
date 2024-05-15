@@ -12,25 +12,45 @@ Usage example in the cluster:
     ml python pandas numpy && \
     cd /project/path && \
     python workflow/Scripts/rename_samples.py
+    
+Requirements:
+    ./Config/renaming_info.tsv: 
+        1st column should contain the old sample name (full), 2nd column the 
+        new sample name
+    pandas:
+        This script should be run on an environment with pandas installed
 
 Description:
     Script will rename files and folders within the '../../Results/'
-    directory using information stored "./Config/renaming_info.tsv".
+    directory using information stored at "./Config/renaming_info.tsv".
+    It will also modify the 'samples.csv' file with the new names and save a
+    copy of the old samples.csv file named as 'samples.original_i.csv', where
+    i is the iteration index.
+    How do the script changes the file names?
     It will do so by looking for a specific STRING (first column of
     renaming_info.tsv) and replacing it by another STRING (second column in
-    renaming_info.tsv) in all files and subdirectories' names.
+    renaming_info.tsv) in all files and subdirectories' names within ./Results
     How to fill "./Config/renaming_info.tsv"?
     First column is the word to be replaced and second the replacement word.
+    What if there there is already a 'renaming_info.tsv' file because this is
+    the second renaming event?
+    In this case, you should save the original file with a different name and
+    modify the existinf file with the new names.
+    samples.csv and save it as 'samples.original_i.csv', being i the iteration
+    number.
 
+Output:
+    './Config/samples.original_i.csv': 
+        copy of the previous 'sample.csv' file, where i is a number that grows
+        with every renaming iteration.
+    
 Tips:
     To make sure you don't rename something unintentionally, always use full
     experiment name in first column of "./Config/renaming_info.tsv".
-
-Requirements:
-    This script should be run on an environment with pandas installed
 """
 
 import os
+import shutil as shu
 import pandas as pd
 
 
@@ -52,10 +72,6 @@ def rename_files(folder_path, old_word, new_word):
     new_files = []
     old_dirs = []
     new_dirs = []
-    
-    # Set default values
-    no_files_with_old_name = True
-    no_dirs_with_old_name = True
 
     # Change names
     for root, dirnames, filenames in os.walk(folder_path, topdown=False):
@@ -91,7 +107,7 @@ def rename_files(folder_path, old_word, new_word):
         print("No dirs or files were found for this name.\n")
 
 
-# Read table with renaming info
+#%% Rename files
 # rename_info_tsv_path = "/Volumes/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake/Config/renaming_info.tsv"
 rename_info_tsv_path = "./Config/renaming_info.tsv"
 renaming_info = pd.read_csv(
@@ -109,4 +125,49 @@ for i in renaming_info.index:
     print(old_name)
     rename_files(folder_path, old_name, new_name)
     print("\n\n")
+
+#%% Make copy of original samples.csv
+# In case more than one consecutive renaming events occur, the original 
+# samples.csv will be saved as samples.original_i.csv, i being the interation
+# index.
+# In the first renaming event, the script will make a copy of samples table
+# called 'samples.original_1.csv', and modify the 'samples.csv' with new names.
+
+samples_csv_dest = os.path.join("Config", "samples.original_1.csv")
+samples_csv_source = os.path.join("Config", "samples.csv")
+
+i = 1
+while (os.path.exists(samples_csv_dest)) & (i < 20):  # i<20 just in case
+    i += 1
+    samples_csv_dest = os.path.join("Config", f"samples.original_{i}.csv")
+    if i > 1:
+        samples_csv_source = os.path.join("Config",
+                                          f"samples.original_{i-1}.csv")
+
+print(f"Making copy of {samples_csv_source} in file {samples_csv_dest}")
+shu.copy(samples_csv_source, samples_csv_dest)
+
+#%% Modify samples.csv['sample_name']
+
+# Change column 'sample_name'
+samples_table = pd.read_csv(
+    "Config/samples.csv",
+    true_values=["True", "TRUE", "T"],
+    false_values=["False", "FALSE", "F"],
+    na_values={"dros_equalization_group": "-",
+               "merge_with": "-",
+               "fastq2": "-",
+               "peak_ctrl_file_alias": "-",
+               },
+    comment='#',
+    ).set_index("sample_name", drop=False)
+
+for i in renaming_info.index:
+    old_name, new_name = renaming_info.loc[i, ["old_name", "new_name"]]
+    samples_table['sample_name'] = samples_table['sample_name'].str.replace(
+        old_name,
+        new_name)
+# Save modified samples.csv
+samples_table.to_csv(path_or_buf="./Config/samples.csv", index=False)
+
 print("Finished!")
