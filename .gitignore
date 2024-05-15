@@ -24,3 +24,6 @@ process_outfile_matrix_image*
 benchmarks/
 log*
 !log.xlsx
+Config/renaming_info.tsv
+Config/samples.orig*
+
