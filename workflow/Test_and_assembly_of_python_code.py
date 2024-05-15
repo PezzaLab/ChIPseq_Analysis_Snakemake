@@ -12,9 +12,10 @@ import numpy as np
 import re
 import yaml
 import os
+import shutil as shu
 # Set current wd (I cannot get Spyder IDE to set wd as file's path...)
-os.chdir("/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/"
-         "ChIPseq_Analysis_Snakemake/workflow")
+os.chdir("/Volumes/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow")
+os.chdir("/Volumes/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake")
 import smk_functions as smkf
 import suffixes as sfxs
 
@@ -100,6 +101,8 @@ w.peak_params = ""
 w.smooth = "smoothed"
 w.hs_region = "B6xCAST_efojf"
 # Filter columns by regex
-samples_table_2.filter(regex = ".*")
+samples_table_2.filter(regex=".*")
+
 #%% Do tests
-smkf.intersect_peaks_HSs_list_input(w)
+
+    

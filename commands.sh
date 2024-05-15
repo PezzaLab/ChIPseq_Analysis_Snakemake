@@ -1,6 +1,6 @@
 ################
 # Note:
-# To do each step copy all the lines (together) from that step 
+# To do each step copy all the lines (together) from that step
 # (up to the next step and paste them on the command line. Steps 2 to 4
 #  (included) are optional, 1 and 4 are mandatory.
 ################
@@ -17,22 +17,20 @@ snakemake --profile Config/Profiles/slurm_quio -np --quiet
 cd /s/pezzar-lab/{library_name} && \
 snakemake --profile Config/Profiles/slurm_quio -np | tee dry_run.txt
 
-# 3) OPTIONAL. DAG (A plot to see the dependencies between the rules). 
+# 3) OPTIONAL. DAG (A plot to see the dependencies between the rules).
 cd /s/pezzar-lab/{library_name} && \
 snakemake --profile Config/Profiles/slurm_quio -np --rulegraph | \
 dot -Tsvg > dag.svg
 
 
 # 4) Real run (This will actually create the files3)
-# You can add `--mail-user your_email@omrf.org` after `sbatch` to 
-# receive an email in case the pipeline fails.
 cd /s/pezzar-lab/{library_name} && \
-sbatch --job-name snkmk --mem 400 --wrap \
+sbatch --mail-type END,FAIL --job-name snkmk --mem 400 --wrap \
 "snakemake --profile Config/Profiles/slurm_quio --notemp"
 
 # -----------
 # Info on snakemake pipeline used to process this library:
-# Commit hash: 
+# Commit hash:
 # {sha}
 # Commit date:
 # {commit_date}
