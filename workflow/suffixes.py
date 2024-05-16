@@ -225,7 +225,7 @@ def generate_samples_table_2(samples_table, config):
         "Results/"
             + samples_table_2['reference_genome']
             + "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-            + "B6xCAST_top_5000_pm_1000bp/Both_strands/"
+            + "B6xCAST_top_5000_pm_2000bp/Both_strands/"
             + cov_params
             + "Heatmaps/"
             + samples_nodup_filt
@@ -407,7 +407,7 @@ def generate_samples_table_2(samples_table, config):
                 "autosomal_x_non_par_ctrl",
                 "asymetric_watson_strong",
                 "asymetric_crick_strong",
-                "B6xCAST_top_5000_pm_1000bp",
+                "B6xCAST_top_5000_pm_2000bp",
                 "B6xCAST_PRDM9_assymetric_hs_invading_strand",
                 "B6xCAST_PRDM9_assymetric_hs_receiving_strand",
                 "B6xCAST_PRDM9_assymetric_hs_mm10_aligned"
