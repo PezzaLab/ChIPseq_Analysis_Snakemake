@@ -135,7 +135,7 @@ not_copy = shu.ignore_patterns(
     'samples_table_processed.csv', 'Results*', 'logs*', '*dry_run*',
     'commands*', 'dag*', 'Test_code*', 'test_FASTQs',
     'rstudio-server*', 'slurm-*', 'benchmarks*', 'samples.csv',
-    'log*',
+    'log*', 'renaming_info.tsv'
 )
 
 try:
