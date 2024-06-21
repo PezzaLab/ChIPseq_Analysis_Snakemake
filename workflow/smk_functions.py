@@ -194,6 +194,24 @@ def check_sample_table_format(samples_table):
                          "or `get_single_strand` to TRUE"
         )
         exit_script = True
+
+    # %% library_technology
+    allowed_values = {'adaptase', 'regular'}
+
+    # Find the rows where 'library_technology' is not in the allowed values
+    mask = ~samples_table['library_technology'].isin(allowed_values)
+
+    # Extract the indexes and values of the matching rows
+    non_matching_rows = samples_table.loc[mask, ['library_technology']]
+
+    if not non_matching_rows.empty:
+        exit_message += (
+            f"\n* 'library_technology' can only one of: {allowed_values}.\n"
+            "The following samples have other values." +
+            non_matching_rows.to_string()
+        )
+        exit_script = True
+
     # %% Exit
     # Exit if any previous condition is met
     if exit_script:
