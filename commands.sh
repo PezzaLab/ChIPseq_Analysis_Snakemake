@@ -6,7 +6,8 @@
 ################
 
 # 1) load modules
-ml slurm python/3.10.2 pandas/1.4.2
+source /hpc-prj/pezza/conda/bin/activate
+conda activate snakemake
 
 # 2) OPTIONAL. Dry run summary ("mock" run, no files are created)
 cd /s/pezzar-lab/{library_name} && \
@@ -19,8 +20,8 @@ snakemake --profile Config/Profiles/slurm_quio -np | tee dry_run.txt
 
 # 3) OPTIONAL. DAG (A plot to see the dependencies between the rules).
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio -np --rulegraph | \
-dot -Tsvg > dag.svg
+snakemake --profile Config/Profiles/slurm_quio --rulegraph | \
+dot -Tsvg > rulegraph.svg
 
 
 # 4) Real run (This will actually create the files3)

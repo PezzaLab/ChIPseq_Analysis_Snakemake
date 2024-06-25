@@ -199,20 +199,8 @@ rule index:
     output:
         "{sample,.+}.bam.bai",
         # In particular case, sample can be anything (path included)
-    threads: 2
     envmodules:
         config['sambamba'],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            200 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes=max(
-                    int((input.size_mb / 5000) * attempt),
-                    1)
-            )
-        ),
     shell:
         """
         sambamba index {input}
@@ -225,21 +213,8 @@ rule trim_adapters_SE:
         fq1 = temp("Results/{sample}.adap_trimmed.R1.SE.fq.gz"),
         html = "Results/FASTQ_reports/{sample}.SE.fastp.html",
         json = "Results/FASTQ_reports/{sample}.SE.fastp.json",
-    threads: 2
     envmodules:
         config["fastp"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            3500 * attempt if (input.size_mb > 2000) else
-            input.size_mb * 5 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes=max(
-                    int((input.size_mb // 400) * attempt),
-                    2)
-            )
-        ),
     benchmark:
         "benchmarks/trim_adapters_SE/{sample}.tsv",
     shell:
@@ -266,20 +241,8 @@ rule trim_adapters_PE:
         fq2 = temp("Results/{sample}.adap_trimmed.R2.PE.fq.gz"),
         html = "Results/FASTQ_reports/{sample}.PE.fastp.html",
         json = "Results/FASTQ_reports/{sample}.PE.fastp.json",
-    threads: 2
     envmodules:
         config["fastp"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            3700 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes=max(
-                    int((input.size_mb // 400) * attempt),
-                    2)
-            )
-        ),
     benchmark:
         "benchmarks/trim_adapters_PE/{sample}.tsv",
     shell:
@@ -299,18 +262,8 @@ rule trim_adaptase:
         "Results/{sample}.adap_trimmed.R{read}.{n_ends}.fq.gz",
     output:
         fq1 = temp("Results/{sample}.adap_trimmed.adaptase_trimmed.R{read}.{n_ends}.fq.gz"),
-    threads: 2
     envmodules:
         config["cutadapt"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            400 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= 15 * attempt,
-            )
-        ),
     benchmark:
         "benchmarks/trim_adaptase/{sample}.{read}.{n_ends}.tsv",
     shell:
@@ -335,21 +288,9 @@ rule align_fastq:
         unpack(smkf.align_fastq_input),
     output:
         bam = temp("Results/{sample}.{genomes_all}.bam"),
-    threads: 2
     envmodules:
         config["bwa"],
         config["samtools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            21000 + (attempt-1) * 10000
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                    max(((input.size_mb - 1900) / 50) * attempt, 150)
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/align_fastq/{sample}.{genomes_all}.tsv",
     shell:
@@ -374,21 +315,9 @@ rule filter_spiked_in_bam_int_genome:
         "Results/{sample}.{fused_genome}.{int_genome}.bam",
     params:
         spike_suffix= lambda w: config['spike_in_suffixes'][w.fused_genome],
-    threads: 2
     envmodules:
         config["samtools"],
         config["sambamba"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            40000 + (attempt-1) * 15000
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   300 * attempt
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/filter_spiked_in_bam_int_genome/{sample}.{fused_genome}.{int_genome}.tsv"
     shell:
@@ -408,21 +337,9 @@ rule filter_spiked_in_bam_spike_in_genome:
         "Results/{sample}.{fused_genome}.{spike_genome}.bam",
     params:
         spike_suffix= lambda w: config['spike_in_suffixes'][w.fused_genome],
-    threads: 2
     envmodules:
         config["sambamba"],
         config["samtools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            40000 + (attempt-1) * 15000
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   300 * attempt
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/filter_spiked_in_bam_spike_in_genome/{sample}.{fused_genome}.{spike_genome}.tsv"
     shell:
@@ -454,20 +371,8 @@ rule dedup_bam:
         bai = temp(
             "Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bai"
             ),
-    threads: 2
     envmodules:
         config["picard"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            5600 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   attempt * input.size_mb / 75
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/dedup_bam/{genomes_not_fused}/{genomes_final}/{sample}.{genomes_final}.tsv"
     shell:
@@ -487,21 +392,9 @@ rule filter_bam:
             "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.bam",
     params:
         smkf.filter_bam_params
-    threads: 2
     envmodules:
         config["samtools"],
         config["sambamba"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            200 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   attempt * 4
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/filter_bam/{genomes_not_fused}/{sample}.{genomes_final}.tsv"
     shell:
@@ -548,21 +441,9 @@ rule get_strand_sep_bams:
             ),
         # Index is needed for next merge_watson_or_crick and is also
         # temp, that is why it is not done by index rule
-    threads: 2
     params: smkf.get_strand_sep_bams_params
     envmodules:
         config["samtools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            150 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   attempt * 7
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/get_strand_sep_bams/{genomes_not_fused}_{read_length}/"
         "{sample}.{genomes_final}.{flag}.tsv"
@@ -594,20 +475,8 @@ rule merge_watson_or_crick:
     wildcard_constraints:
         flag1="(83|99)",
         flag2="(163|147)",
-    threads: 2
     envmodules:
         config["samtools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            150 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   attempt * 20
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/merge_watson_or_crick/{genomes_not_fused}/"
         "{sample}.{genomes_final}.{flag1}-{flag2}.tsv"
@@ -629,20 +498,8 @@ rule create_coverage_bw:
         "{norm}_bs{bin_size}_sm{smooth_size}_ex{extension_size}/"
         "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
         "{ss_condit}{clip_condit}bw",
-    threads: 2
     envmodules:
         config["deeptools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            8000 + (1 - attempt) * 4000
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   attempt * 10
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/create_coverage_bw/{genomes_not_fused}_{strands}_{norm}_bs"
         "{bin_size}_sm{smooth_size}_ex{extension_size}/"
@@ -694,23 +551,11 @@ rule clip_1bp:
             ),
     wildcard_constraints:
         flag16="inc_16|exc_16"
-    threads: 2
     params:
         flag = smkf.clip_1bp_param,
     envmodules:
         config["samtools"],
         config["bamutil"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            1900 + (attempt - 1) * 1000
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   ((input.size_mb / 100) + 2) * attempt
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/clip_1bp/{genomes_not_fused}/"
         "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_PE}{ss_SR}.tsv"
@@ -765,20 +610,8 @@ rule call_peaks_macs2:
         # the dict...
     wildcard_constraints:
         extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?",
-    threads: 2
     envmodules:
         config["macs2"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            7000 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   50 * attempt
-                )
-            )
-        ),
     benchmark:
         "benchmarks/call_peaks_macs2/{genomes_not_fused}_{peak_type}_{peak_params}/"
         "{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak.tsv"
@@ -801,7 +634,6 @@ rule filter_peaks_blk_grey_list:
                   "{genomes_final}{extension}.{peak_type}Peak",
     wildcard_constraints:
         extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?",
-    threads: 1
     envmodules:
         config["bedtools"],
     shell:
@@ -827,20 +659,8 @@ rule annotate_peaks:
                 "{peak_params}/Black-grey_filtered/Genome_ontology/"
                 "{sample}.{genomes_final}{extension}.{peak_type}"
             ),
-    threads: 1
     envmodules:
         config["homer"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            6000 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   attempt * 10
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/annotate_peaks/{genomes_not_fused}_{peak_type}_{peak_params}/"
         "{sample}.{genomes_final}{extension}_peaks.{peak_type}Peak.tsv"
@@ -859,7 +679,6 @@ rule modify_annotated_peaks:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/"
             "Black-grey_filtered/Annotated_peaks/{sample}."
             "{genomes_final}{extension}.{peak_type}Peak.annotated.tsv",
-    threads: 1
     envmodules:
         config["R"],
         config["bioconductor"],
@@ -875,20 +694,8 @@ rule merge_bams:
         smkf.merge_bams_input,
     output:
         temp("Results/{sample}_MERGED.{genomes_all}.bam"),
-    threads: 2
     envmodules:
         config["samtools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            120 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   (input.size_mb / 380 + 10) * attempt
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/merge_bams/{sample}"
         "{sample}.{genomes_all}.tsv"
@@ -906,7 +713,6 @@ rule dros_normalization_report:
     output:
         "Results/d6/Analysis/drosophila_normalization/{dros_eq_group}/"
             "drosophila_equalization_report.tsv",
-    threads: 1
     params:
         samples_table_2 = samples_table_2,
     script:
@@ -920,20 +726,8 @@ rule dros_normalization:
             "drosNormalized_bs{bin_size}_sm{smooth_size}_ex{extension_size}/"
             "{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}."
             "dros_norm.bw",
-    threads: 1
     envmodules:
         config["deeptools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            8000 + (1 - attempt) * 4000
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   attempt * 10
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/dros_normalization/{genomes_not_fused}_{strands}_"
         "{bin_size}_sm{smooth_size}_ex{extension_size}{dros_eq_group}/"
@@ -971,7 +765,6 @@ rule FRIP:
         "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/"
             "MACS2_{peak_type}_{peak_params}_bl-gr_flt/"
             "{sample}.{genomes_final}{extension}.FRIP.txt",
-    threads: 1
     envmodules:
         config["sambamba"],
         config["samtools"],
@@ -1007,24 +800,12 @@ rule crosscorrelation:
         tab = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/"
                 "{sample}.crosscorrelation.spp.out",
         # the suffix ".spp.out" is so that the file is recognized by multiqc
-    threads: 2
     envmodules:
         config["phantompeakqualtools"],
         config["samtools"],
         config["sambamba"],
         config["picard"],
         config["deeptools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            attempt * 7500
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                    attempt * 150
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/crosscorrelation/{genomes_not_fused}/"
         "{sample}.tsv"
@@ -1042,20 +823,8 @@ rule samstats:
     # TODO: check on the following phrase:
     # 'to be able to use the expand in multiqc I should use .tab instead
     # of .txt'
-    threads: 2
     envmodules:
         config["samtools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            110 + (attempt-1) * 50
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                    attempt * input.size_mb / 1000 + 2
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/samstats/{genomes_not_fused}_{bam_type}/"
         "{sample}.tsv"
@@ -1070,20 +839,8 @@ rule samtools_flagstat:
     output:
         "Results/{genomes_not_fused}/Qctrl/{sample}/{bam_type}/"
             "{sample}.flagstat.txt",
-    threads: 2
     envmodules:
         config["samtools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            110 + (attempt-1) * 50
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                    attempt * input.size_mb / 2000 + 1
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/samtools_flagstat/{genomes_not_fused}_{bam_type}/"
         "{sample}.tsv"
@@ -1102,21 +859,9 @@ rule insert_size_picard:
                 "{sample}.insert_size_picard.tab",
         pdf = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/"
                 "{sample}.insert_size_picard.pdf",
-    threads: 2
     envmodules:
         config["picard"],
         config["R"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            300 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   attempt * 4
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/insert_size_picard/{genomes_not_fused}/"
         "{sample}.tsv"
@@ -1134,20 +879,8 @@ rule library_complexity_picard:
     output:
         "Results/{genomes_not_fused}/Qctrl/{sample}/Raw_bam/"
             "{sample}.picard_library_complexity.tab",
-    threads: 2
     envmodules:
         config["picard"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-            input.size_mb * 0.5 + 4100 + (attempt - 1) * 2000
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   (input.size_mb / 15 - 30 + (attempt - 1) * 60) + 5
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/library_complexity_picard/{genomes_not_fused}/"
         "{sample}.tsv"
@@ -1205,20 +938,8 @@ rule multiqc:
             ),
         html = "Results/{genomes_not_fused}/Qctrl/"
                     "multiqc_report_{library}.html",
-    threads: 2
     envmodules:
         config["multiqc"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-           200 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   30 * attempt
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/multiqc/{genomes_not_fused}/"
         "{library}.tsv"
@@ -1247,7 +968,6 @@ rule intersect_peaks_HSs_list:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
             "{peak_params}/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/"
             "{sample}.{genomes_final}{extension}.{peak_type}Peak",
-    threads: 1
     envmodules:
         config["bedtools"],
     shell:
@@ -1275,20 +995,8 @@ rule compute_matrix_outfiles_hs:
                 "{ss_condit}{clip_condit}matrix",
     # log:
     #     ""
-    threads: 1
     envmodules:
         config["deeptools"],
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-             3000 * attempt
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   attempt * 5
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/compute_matrix_outfiles_hs/{genomes_not_fused}_"
         "{hs_region}_{strands}_{cov_params}/"
@@ -1328,23 +1036,11 @@ rule process_aggregate_profiles:
     output:
         "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
             "Hotspots/{library_name}_{hs_region}.{smooth}.RData",
-    threads: 1
     envmodules:
         config["R"],
         config["bioconductor"],
     params:
         genomes = config['genomes'].keys(),
-    resources:
-        mem_mb = lambda wildcards, input, attempt: (
-             input.size_mb + 1000
-        ),
-        runtime = lambda wildcards, input, attempt: (
-            "{minutes}min".format(
-                minutes= int(
-                   attempt * 15
-                ),
-            )
-        ),
     benchmark:
         "benchmarks/process_aggregate_profiles/{genomes_not_fused}/"
         "{library_name}_{hs_region}.{smooth}.tsv"
@@ -1366,7 +1062,6 @@ rule wrangle_X_nonPAR_asymmetric_HS:
     output:
         "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
             "Hotspots/{libary}_aggregate_profiles_data.{smooth}.RData",
-    threads: 1
     envmodules:
         config["R"],
         config["bioconductor"],
@@ -1382,7 +1077,6 @@ rule process_aggregate_profiles_clipped:
     output:
         "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
         "Hotspots/{libary}_{hs_region}_clipped.{smooth}.RData",
-    threads: 1
     envmodules:
         config["R"],
         config["bioconductor"],
@@ -1403,7 +1097,6 @@ rule plot_heatmaps:
             "{sample}.{genomes_final}{extension}{strand}.png",
     wildcard_constraints:
         extension = "(\\.q_filt\\.srt\\.nodup\\.mit_filt)?",
-    threads: 1
     envmodules:
         config["deeptools"],
     benchmark:
@@ -1426,7 +1119,6 @@ rule sumarize_peak_count:
         unpack(smkf.sumarize_peak_count_input),
     output:
         "Results/{genomes_not_fused}/Analysis/Peaks_summary.tsv",
-    threads: 1
     params:
         samples_table_2 = samples_table_2,
     script:
@@ -1440,7 +1132,6 @@ rule markdown_report_aggregate_profiles:
         html_report = "Results/{genomes_not_fused}/Analysis/{lib_name}.{genomes_not_fused}.{smooth}.html",
         xlsx_table = "Results/{genomes_not_fused}/Analysis/"
             "{lib_name}_for_NGS_files.{smooth}.xlsx",
-    threads: 1
     envmodules:
         config["R"],
         config["bioconductor"],

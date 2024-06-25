@@ -15,7 +15,7 @@ import os
 import shutil as shu
 # Set current wd (I cannot get Spyder IDE to set wd as file's path...)
 os.chdir("/Volumes/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow")
-os.chdir("/Volumes/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake")
+# os.chdir("/Volumes/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake")
 import smk_functions as smkf
 import suffixes as sfxs
 
