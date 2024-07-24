@@ -82,6 +82,7 @@ samples_table_2.to_csv("Config/samples_table_processed.csv", index=False)
 #####   Add variables to smkf module   #####
 ############################################
 # (otherwise those variables are not accesible to that module)
+smkf.samples_table_no_merged_samples = samples_table_no_merged_samples
 smkf.samples_table = samples_table
 smkf.config = config
 smkf.samples_table_2 = samples_table_2
@@ -892,63 +893,24 @@ rule library_complexity_picard:
 
 rule multiqc:
     input:
-        expand(
-            "Results/FASTQ_reports/{sample}.{PE}.fastp.json",
-            zip,
-            sample = samples_table_no_merged_samples['sample_name'].tolist(),
-            PE = ["PE" if x else "SE" for x in samples_table_no_merged_samples['PE']],
-            ),
-        expand(
-            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
-                "{sample}.crosscorrelation.spp.out",
-            sample = samples_table['sample_name'].tolist()
-        ),
-        expand(
-            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
-                "{sample}.insert_size_picard.tab",
-            sample = samples_table.loc[
-                samples_table['PE'],
-                'sample_name',
-                ].tolist()
-        ), # insert size only applies for PE samples
-        expand(
-            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Raw_bam/"
-                "{sample}.picard_library_complexity.tab",
-            sample = samples_table_no_merged_samples['sample_name'].to_list(),
-            # Not applying this to merged files since they have already
-            # been dedupped.
-        ),
-        expand(
-            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Processed_bam/"
-                "{sample}.{ext}",
-            sample = samples_table['sample_name'].tolist(),
-            ext = ["samstats.txt", "flagstat.txt"],
-        ),
-        expand(
-            "Results/{{genomes_not_fused}}/Qctrl/{sample}/Raw_bam/"
-                "{sample}.{ext}",
-            sample = samples_table_no_merged_samples['sample_name'].to_list(),
-            ext = ["samstats.txt", "flagstat.txt"]
-            # Not applying this to merged files since they have already
-            # been dedupped.
-        )
+        smkf.multiqc_input
     output:
         directory(
-            "Results/{genomes_not_fused}/Qctrl/multiqc_report_{library}_data"
+            "Results/{genomes_not_fused}/Qctrl/multiqc_report_{library_name}_data"
             ),
         html = "Results/{genomes_not_fused}/Qctrl/"
-                    "multiqc_report_{library}.html",
+                    "multiqc_report_{library_name}.html",
     envmodules:
         config["multiqc"],
     benchmark:
         "benchmarks/multiqc/{genomes_not_fused}/"
-        "{library}.tsv"
+        "{library_name}.tsv"
     shell:
         """
 config_file_path="$(pwd)/Config/multiqc_config.yaml"
 cd Results/{wildcards.genomes_not_fused}/Qctrl && \
 multiqc --dirs --dirs-depth 1 \\
- --filename "multiqc_report_{wildcards.library}.html" \\
+ --filename "multiqc_report_{wildcards.library_name}.html" \\
  --config $config_file_path ./ ../../FASTQ_reports
 # --dirs       : use directory name as part of sample name
 #               (not to overwrite data with same file name)

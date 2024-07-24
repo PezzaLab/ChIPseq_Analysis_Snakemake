@@ -4,8 +4,9 @@ import pandas as pd
 import re
 import sys
 
+
 def check_sample_table_format(samples_table):
-    """Check if samples_table.csv has been properly filled.
+    r"""Check if samples_table.csv has been properly filled.
 
     The following conditions should be met:
         * 'samples_names' do not contain '/', '.', ' ', or finish in '_MERGED'.
@@ -62,38 +63,39 @@ def check_sample_table_format(samples_table):
 
     # %% Samples names check
     # Check names of samples don't contain / or . or finish in "_MERGED"
-    if (samples_table['sample_name'].str.contains(r"\.") |
-            samples_table['sample_name'].str.contains("/") |
-            samples_table['sample_name'].str.contains(" ") |
-            samples_table['sample_name'].str.contains("_MERGED$")).any():
-        exit_message += ("* One or more sample names in samples table contain"
+    sample_names = samples_table['sample_name']
+    offending_names = sample_names[sample_names.str.contains(r'[./ ]')].to_list()
+    offending_names += sample_names[sample_names.str.contains('_MERGED$')].tolist()
+
+    if len(offending_names) > 0:
+        offending_names_str = "\n".join([f"- {s}" for s in offending_names])
+        exit_message += ("\n\n* The following sample names contain"
                          " a dot ('.'), a slash ('/'), a space (' ') or ends"
                          " with the word '_MERGED'. These are not allowed in"
                          " sample names. Modify names and try again\n"
+                         f"{offending_names_str}"
                          )
-        exit_script = True
-    # %% sample_name:genome unique
-    # Check that there is no sample_name:genome combination repeated
-    if samples_table.loc[:, ['sample_name',
-                             'reference_genome'
-                             ]
-                         ].duplicated().any():
-        exit_message += (
-            "* One or more sample names in samples table is repeated.\n"
-            "Choose different names for all your samples.\n"
-        )
+
         exit_script = True
     # %% Merged samples
     if pd.notnull(samples_table['merge_with']).any():
         # Check that "merge_with" reference is not a deduplicated/filtered
         # file for spiked-in samples (it has to be raw bam)
-        if (samples_table['merge_with'].str.contains(".nodup.") &
-                samples_table['dros_spike_in']).any():
+        mask_merge = (samples_table['merge_with'].str.contains(".nodup.") &
+                      samples_table['dros_spike_in'])
+
+        offending_merge_df = samples_table[mask_merge]
+
+        if mask_merge.any():
+            offending_merge = "\n".join(
+                [f"\t- {s}" for s in offending_merge_df["sample_name"]]
+            )
             exit_message += (
-                "* One or more samples' 'merge_with' parameter is a "
-                "deduplicated/filtered bam file AND has drosophila spike in. "
-                "When sample is spiked, the 'merge_with' file has to be the "
+                "\n\n* In the following samples the 'merge_with' parameter is "
+                "a deduplicated/filtered bam file AND has drosophila spike in."
+                " When sample is spiked, the 'merge_with' file has to be the "
                 "raw bam, otherwise you'll loose the drosophila reads.\n"
+                f"{offending_merge}"
             )
             exit_script = True
 
@@ -111,50 +113,66 @@ def check_sample_table_format(samples_table):
                             f"\t{merge_sample}")
                         exit_script = True
         format_samples_not_in_lib = "\n".join(samples_names_not_in_library)
-        exit_message += (
-            "* The following samples are not found at courrent samples table:"
-            f"\n{format_samples_not_in_lib}.\n"
-        ) if len(samples_names_not_in_library) > 0 else ""
+        if len(samples_names_not_in_library) > 0:
+            exit_message += (
+                "\n\n* The following samples are not found at current samples "
+                f"table:\n{format_samples_not_in_lib}.\n"
+                )
 
     # %% # FASTQs and PE
     # Check that there are 2 FASTQs when sample is PE and 1 when is not
-    if (
-        samples_table['PE'] &
-            ((samples_table['fastq1'] == "") |
-             (samples_table['fastq2'] == ""))).any():
+    mask_PE = (samples_table['PE'] & ((samples_table['fastq1'] == "") |
+                                      (samples_table['fastq2'] == ""))
+               )
+
+    offending_PE = samples_table[mask_PE]["sample_name"].tolist()
+    offending_PE_strg = "\n".join([f"\t- {s}" for s in offending_PE])
+    if mask_PE.any():
         exit_message += (
-            "* At least one sample is set as PE but only contains"
-            " one FASTQ path. Interleaved FASTQs are not supported yet.\n")
+            "\n\n* The following samples are set as PE but only contain"
+            " one FASTQ path. Interleaved FASTQs are not supported yet.\n"
+            f"{offending_PE_strg}"
+                        )
         exit_script = True
-        # Above code doesn't work without the extra parentheses on each
-        # condition
-    if (~samples_table['PE'] & ~samples_table['fastq2'].isna()).any():
+
+    mask_SR = ~samples_table['PE'] & ~samples_table['fastq2'].isna()
+    offending_SR = samples_table[mask_SR]["sample_name"].tolist()
+    offending_SR_strg = "\n".join([f"\t- {s}" for s in offending_SR])
+    if mask_SR.any():
         exit_message += (
-            "* At least one sample is set as SR (PE == False) but"
-            " contains a FASTQ path at column 'fastq2'. Please put it at "
-            "column 'fastq1'\n")
+            "\n\n* The following samples are set as SR (PE == False) but"
+            " contain a FASTQ path at column 'fastq2'. Please check and fix\n"
+            f"{offending_SR_strg}")
         exit_script = True
     # %% FASTQ1 != FASTQ2
-    if (samples_table['PE'] &
-            (samples_table['fastq1'] == samples_table['fastq2'])).any():
-        fastq_comp = samples_table['fastq1'] == samples_table['fastq2']
-        bad_samples = samples_table.loc[fastq_comp]['sample_name'].tolist()
+    mask_FQs = (samples_table['PE'] &
+                (samples_table['fastq1'] == samples_table['fastq2'])
+                )
+    offending_FQs = samples_table[mask_FQs]["sample_name"].tolist()
+    offending_FQs_strg = "\n".join([f"\t- {s}" for s in offending_FQs])
+    if mask_FQs.any():
         exit_message += (
-            "* The following samples have identical paths for fastq1 and 2:\n"
+            "\n\n* The following samples have identical paths for "
+            "fastq1 and 2:\n"
+            f"{offending_FQs_strg}"
         )
-        for i in bad_samples:
-            exit_message += "\t" + i + "\n"
         exit_script = True
 
     # %% Dros_eq and dros_spike_in
     # Check that the samples with a "dros_equalization_group" have
-    # "dros_spike_in" == T (I don't do the complementary becuase you might
+    # "dros_spike_in" == T (I don't do the complementary because you might
     # have the sample to equalize on another library)
-    if (~samples_table['dros_equalization_group'].isnull() &
-            ~samples_table['dros_spike_in']).any():
+    mask_dros_eq = (~samples_table['dros_equalization_group'].isnull() &
+                    ~samples_table['dros_spike_in']
+                    )
+    offending_dros_eq = samples_table[mask_dros_eq]["sample_name"].tolist()
+    offending_dros_eq_strg = "\n".join([f"\t- {s}" for s in offending_dros_eq])
+    offending_dros_eq_strg
+    if mask_dros_eq.any():
         exit_message += (
-            "* At least one of your samples has a 'dros_equalization_group' "
-            "assigned to it but has the field 'dros_spike_in' set as False.\n"
+            "\n\n* The following samples have a 'dros_equalization_group' "
+            "assigned to it but the field 'dros_spike_in' set as False.\n"
+            f"{offending_dros_eq_strg}"
         )
         exit_script = True
 
@@ -168,7 +186,7 @@ def check_sample_table_format(samples_table):
     # If necessary, assemble exit message
     if len(bad_samples) > 0:
         exit_message += (
-            "* The following samples have incorrect values on column "
+            "\n\n* The following samples have incorrect values on column "
             "'peak_ctrl_file_alias:'\n"
             )
         for i in bad_samples.index:
@@ -184,7 +202,7 @@ def check_sample_table_format(samples_table):
     ]
     if len(clip_Y_get_ss_N) > 0:
         exit_message += (
-            "* The following samples are set TRUE for "
+            "\n\n* The following samples are set TRUE for "
             "`Clip_reads_to_1bp_on_5_prime` but FALSE for `get_single_strand`"
             "\n"
         )
@@ -192,7 +210,7 @@ def check_sample_table_format(samples_table):
             exit_message += "\t" + i + "\n"
         exit_message += ("Either set `Clip_reads_to_1bp_on_5_prime` to FALSE "
                          "or `get_single_strand` to TRUE"
-        )
+                         )
         exit_script = True
 
     # %% library_technology
@@ -206,10 +224,10 @@ def check_sample_table_format(samples_table):
 
     if not non_matching_rows.empty:
         exit_message += (
-            f"\n* 'library_technology' can only one of: {allowed_values}.\n"
+            f"\n\n* 'library_technology' can only one of: {allowed_values}.\n"
             "The following samples have other values." +
             non_matching_rows.to_string()
-        )
+            )
         exit_script = True
 
     # %% Exit
@@ -221,7 +239,7 @@ def check_sample_table_format(samples_table):
 
 
 def align_fastq_input(w):
-    """Get FASTQ paths for align_fastq rule
+    r"""Get FASTQ paths for align_fastq rule
 
     wildcards
     ----------
@@ -258,7 +276,7 @@ def align_fastq_input(w):
 
 
 def call_peaks_macs2_input(w):
-    """Get input for call_peaks_macs2 rule.
+    r"""Get input for call_peaks_macs2 rule.
 
     Wildcards
     ----------
@@ -290,7 +308,7 @@ def call_peaks_macs2_input(w):
 
 
 def call_peaks_macs2_params(w):
-    """Get parameters for rule call_peaks_macs2.
+    r"""Get parameters for rule call_peaks_macs2.
 
     Wildcards
     ----------
@@ -342,7 +360,7 @@ def call_peaks_macs2_params(w):
 
 
 def clip_1bp_input(w):
-    """Get input for clip_1bp rule
+    r"""Get input for clip_1bp rule
 
     Wildcards
     ----------
@@ -380,7 +398,8 @@ def clip_1bp_param(w):
 
 
 def compute_matrix_outfiles_hs_input(w):
-    """Get input for rule compute_matrix_outfiles_hs.
+    r"""Get input for rule compute_matrix_outfiles_hs.
+
     Rule's output
     -------------
     "Results/{genomes_not_fused}/Analysis/"
@@ -397,7 +416,7 @@ def compute_matrix_outfiles_hs_input(w):
                          )|
                 top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|
                 x_non_par|autosomal_x_non_par_ctrl
-    
+
     genomes_not_fused = mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
     strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)"
     cov_params = "((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+_ex[0-9]+"
@@ -414,12 +433,11 @@ def compute_matrix_outfiles_hs_input(w):
 
     """
     hotspots = config['references']['mm10'][w.hs_region]
-    bigwig =  (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
-               f"{w.cov_params}/{w.sample}.{w.genomes_final}"
-               ".q_filt.srt.nodup.mit_filt."
-               f"{w.ss_condit}{w.clip_condit}bw"
-    )
-           
+    bigwig = (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
+              f"{w.cov_params}/{w.sample}.{w.genomes_final}"
+              ".q_filt.srt.nodup.mit_filt."
+              f"{w.ss_condit}{w.clip_condit}bw"
+              )
 
     return {"region": hotspots,
             "bigwig": bigwig}
@@ -459,7 +477,7 @@ def dros_normalization_input(w):
 
 
 def dros_normalization_report_input(w):
-    """Get input for rule dros_normalization_report.
+    r"""Get input for rule dros_normalization_report.
 
     Wildcards
     ----------
@@ -503,7 +521,7 @@ def filter_bam_params(w):
 
 
 def filter_peaks_blk_grey_list_input(w):
-    """Get input for rule filter_peaks_blk_grey_list
+    r"""Get input for rule filter_peaks_blk_grey_list
 
     Output of rule:
     ----------
@@ -569,7 +587,7 @@ def FRIP_input(w):
 
 
 def get_rv_fw_strand_input(w):
-    """Get input for rule get_rv_fw_strand
+    r"""Get input for rule get_rv_fw_strand
 
     Wildcards
     ----------
@@ -591,7 +609,7 @@ def get_rv_fw_strand_input(w):
 
 
 def get_strand_sep_bams_params(w):
-    """Get parameters for rule get_strand_sep_bams
+    r"""Get parameters for rule get_strand_sep_bams
 
     Wildcads
     ----------
@@ -633,7 +651,7 @@ def intersect_peaks_HSs_list_input(w):
         hotspots = config['references']['mm10']['B6xCAST_pm_2000bp']
     else:
         hotspots = config['references']['mm10']['all_plus_minus_2000']
-        
+
     return {
         "hotspots": hotspots,
         "sample_peaks": (
@@ -645,7 +663,7 @@ def intersect_peaks_HSs_list_input(w):
 
 
 def markdown_report_aggregate_profiles_input(w):
-    """Get input for rule markdown_report_aggregate_profiles.
+    r"""Get input for rule markdown_report_aggregate_profiles.
 
     Wildcards
     ----------
@@ -872,8 +890,71 @@ def merge_bams_input(w):
     return samples
 
 
+def multiqc_input(w):
+    r"""Get inputs for rule multiqc
+
+    Rule output
+    -----------
+    directory(
+            "Results/{genomes_not_fused}/Qctrl/multiqc_report_{library_name}_data"
+            ),
+    html = "Results/{genomes_not_fused}/Qctrl/multiqc_report_{library_name}.html"
+
+    Wildcards used
+    --------------
+    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    library_name = config['library']['name']
+
+    Returns
+    -------
+    List
+        List containing file paths for FASTQ_reports, crosscorrlelation,
+        insert_size_picard, picard_library_complexity, samstats and flagstat
+        output files.
+    """
+    df = samples_table_no_merged_samples.loc[
+        samples_table_no_merged_samples["reference_genome"] == w.genomes_not_fused
+    ]
+
+    PE = ["PE" if x else "SE" for x in df['PE']]
+
+    fastp = [
+        f"Results/FASTQ_reports/{nme}.{pe}.fastp.json"
+        for nme, pe in zip(df.index, PE)
+    ]
+
+    crosscorr = [
+        f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Processed_bam/"
+        f"{nme}.crosscorrelation.spp.out" for nme in df.index
+    ]
+
+    insert_size = [
+        f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Processed_bam/{nme}"
+        ".insert_size_picard.tab" for nme in df.index if df.loc[nme, "PE"]
+    ]  # insert size only applies for PE samples
+
+    library_complexity = [
+        f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Raw_bam/{nme}."
+        "picard_library_complexity.tab" for nme in df.index
+    ]
+
+    samstat = [
+        f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Processed_bam/{nme}"
+        ".samstats.txt" for nme in df.index
+    ]
+
+    flagstat = [
+        f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Processed_bam/{nme}"
+        ".flagstat.txt" for nme in df.index
+    ]
+
+    res = (fastp + crosscorr + insert_size + library_complexity
+           + samstat + flagstat)
+    return res
+
+
 def process_aggregate_profiles_clipped_input(w):
-    """Get inputs for rule process_aggregate_profiles_clipped.
+    r"""Get inputs for rule process_aggregate_profiles_clipped.
     Rule output
     -----------
     "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
@@ -907,26 +988,25 @@ def process_aggregate_profiles_clipped_input(w):
 
     files = list({
       "Results/"
-          + f"{w.genomes_not_fused}"
-          + "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-          + f"{w.hs_region}/Single_strand/1bp_clipped_reads/"
-          + f"{cov_params}/matrixes/{sample}."
-          + f"{genome}.q_filt.srt.nodup.mit_filt."
-          + (f"{s_pe}" if samples_table_2["PE"][sample]
-             else f"{s_se}")
-          + ".clipped_1_bp.matrix"
+      + f"{w.genomes_not_fused}"
+      + "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+      + f"{w.hs_region}/Single_strand/1bp_clipped_reads/"
+      + f"{cov_params}/matrixes/{sample}."
+      + f"{genome}.q_filt.srt.nodup.mit_filt."
+      + (f"{s_pe}" if samples_table_2["PE"][sample] else f"{s_se}")
+      + ".clipped_1_bp.matrix"
       for sample, genome in zip(samples_table_2.index,
                                 samples_table_2['final_genome'])
       if samples_table_2['Clip_reads_to_1bp_on_5_prime'][sample]
       for s_pe in strand_pe
       for s_se in strand_se
-    }) # I do set comprehension because if I do list comprehension
-       # I get items duplicated
+    })  # I do set comprehension because if I do list comprehension
+        # I get items duplicated
     return files
 
 
 def process_aggregate_profiles_inputs(w):
-    """Get inputs for rule process_aggregate_profiles.
+    r"""Get inputs for rule process_aggregate_profiles.
 
     Wildcards
     ----------
@@ -959,7 +1039,7 @@ def process_aggregate_profiles_inputs(w):
 
 
 def sumarize_peak_count_input(w):
-    """Get input for rule sumarize_peak_count.
+    r"""Get input for rule sumarize_peak_count.
 
     Wildcards
     ----------
@@ -1006,7 +1086,7 @@ def sumarize_peak_count_input(w):
 
 
 def samstats_samtools_flagstat_input(w):
-    """Get input for rules samstats and samtools_flagstat.
+    r"""Get input for rules samstats and samtools_flagstat.
 
     Wildcards
     ----------
@@ -1039,7 +1119,7 @@ def samstats_samtools_flagstat_input(w):
 
 
 def trim_adapters_PE_input(w):
-    """Get FASTQ paths for trim_adapters_PE rule
+    r"""Get FASTQ paths for trim_adapters_PE rule
 
     wildcards
     ----------
