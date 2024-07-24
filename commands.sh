@@ -6,6 +6,7 @@
 ################
 
 # 1) load modules
+module purge && ml slurm
 source /hpc-prj/pezza/conda/bin/activate
 conda activate snakemake
 
@@ -24,10 +25,29 @@ snakemake --profile Config/Profiles/slurm_quio --rulegraph | \
 dot -Tsvg > rulegraph.svg
 
 
-# 4) Real run (This will actually create the files3)
+# 4) Real run (This will actually create the files)
 cd /s/pezzar-lab/{library_name} && \
-sbatch --mail-type END,FAIL --job-name snkmk --mem 400 --wrap \
-"snakemake --profile Config/Profiles/slurm_quio --notemp"
+# Generate new terminal session
+tmux new -s {library_name}
+	# If already created one and want to re-join, use following command
+tmux attach -t {library_name}
+	# run command
+cd /s/pezzar-lab/{library_name} && \
+snakemake --profile Config/Profiles/slurm_quio --notemp
+
+# ---------
+# Helpful commands:
+## Check running jobs
+squeue --me -o %i%.60k
+
+## Find log files
+find -regex '.*log'
+
+## See all available tmux sessions
+tmux ls
+
+## Kill a specific tmux session
+tmux kill-session -t <session_name>
 
 # -----------
 # Info on snakemake pipeline used to process this library:
