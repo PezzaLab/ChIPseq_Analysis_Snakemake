@@ -179,7 +179,7 @@ def check_sample_table_format(samples_table):
     # %% peak_ctrl_file_alias
     # Convert peak_ctrl_file_alias series to str (in case it's all NaN values)
     peak_ctrls = samples_table['peak_ctrl_file_alias'].astype(str)
-    # Get list of wrongly filled samples
+    # Get list of wrongly filled samples (contain ' ', '/' or '.')
     bad_samples = samples_table.loc[
         peak_ctrls.str.contains("/|\\.| ", regex=True, na=False)
     ]
@@ -294,16 +294,24 @@ def call_peaks_macs2_input(w):
     bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
     bai = bam + ".bai"
     input_ = {"treat_bam": bam, "treat_bai": bai}
-    # Get ctrl bam and bai
+    # Get ctrl/input bam and bai
     ctrl_alias = w.peak_params.split("__")  # "bco_1_qv_05__alias"
     ctrl_alias = ctrl_alias[1]  # "alias"
     if ctrl_alias != "no_input":
-        ctrl_bam = config['MACS2']['control'][ctrl_alias]
-        ctrl_bai = ctrl_bam + ".bai"
-        input_ |= {
-            "ctrl_bam": ctrl_bam,
-            "ctrl_bai": ctrl_bai
-        }
+        if ctrl_alias not in list(samples_table_2["sample_name"]):
+            ctrl_bam = config['MACS2']['control'][ctrl_alias]
+            ctrl_bai = ctrl_bam + ".bai"
+            input_ |= {
+                "ctrl_bam": ctrl_bam,
+                "ctrl_bai": ctrl_bai
+            }
+        else:
+            ctrl_bam = samples_table_2.loc[ctrl_alias, 'dedup_flt_both_strds_bam']
+            ctrl_bai = ctrl_bam + ".bai"
+            input_ |= {
+                "ctrl_bam": ctrl_bam,
+                "ctrl_bai": ctrl_bai
+            }
     return input_
 
 
@@ -335,11 +343,15 @@ def call_peaks_macs2_params(w):
     parameters = w.peak_params.split("__")
     bco_qv = parameters[0].split("_")
     ctrl_alias = parameters[-1]
-    ctrl_bam = config['MACS2']['control'][ctrl_alias]
     if parameters[-1] == "no_input":
         ctrl = ""
-    else:
+    elif ctrl_alias in config['MACS2']['control'].keys():
+        ctrl_bam = config['MACS2']['control'][ctrl_alias]
         ctrl = f"-c {ctrl_bam}"
+    elif ctrl_alias in samples_table_2.index:
+        ctrl_bam = samples_table_2.loc[ctrl_alias, 'dedup_flt_both_strds_bam']
+        ctrl = f"-c {ctrl_bam}"
+
     if samples_table.loc[w.sample, "PE"]:
         PE = "--format BAMPE"
     else:
@@ -1024,13 +1036,15 @@ def process_aggregate_profiles_inputs(w):
         sample/strand combinations possible for one particular hostpots list
         (top_5000_plus_minus_2000, x_non_par, etc.).
 
-    Matrixes paths are taken from samples_table_2. So, the actual decition of
+    Matrixes paths are taken from samples_table_2. So, the actual decision of
     which sample will have a matrix in which hotspot list and in which strands
     is actually taking place during samples_table_2 generation
-    (suffixes.generate_samples_table_2())
+    (suffixes.generate_samples_table_2()). For now, this process is only
+    available for 'mm10' genome.
     """
-
-    matrixes_df = samples_table_2.filter(
+    mask_mm10 = samples_table_2['reference_genome'] == 'mm10'
+    mm10_df = samples_table_2.loc[mask_mm10]
+    matrixes_df = mm10_df.filter(
         regex=f"^{w.hs_region}.*matrix$"
     )
     matrixes_array = matrixes_df.to_numpy().ravel()
