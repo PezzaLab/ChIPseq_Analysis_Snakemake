@@ -71,13 +71,13 @@ set-resources:
     create_coverage_bw:
       mem_mb: f"{8000 + (1 - attempt) * 4000}"
     crosscorrelation:
-      mem_mb: f"{  attempt * 7500 }"
+      mem_mb: f"{ 7500 * attempt }"
     dedup_bam:
       mem_mb: f"{ 5600 * attempt }"
     dros_normalization:
       mem_mb: f"{ 8000 + (1 - attempt) * 4000 }"
     filter_bam:
-      mem_mb: f"{ 200 * attempt }"
+      mem_mb: f"{ 400 * attempt }"
     filter_spiked_in_bam_int_genome:
       mem_mb: f"{40000 + (attempt-1) * 15000}"
     filter_spiked_in_bam_spike_in_genome:
@@ -87,11 +87,11 @@ set-resources:
     index:
       mem_mb: f"{350 * attempt}"
     insert_size_picard:
-      mem_mb: f"{ 300 * attempt }"
+      mem_mb: f"{ 600 * attempt }"
     library_complexity_picard:
-      mem_mb: f"{ int(input.size_mb * 0.5 + 4100 + (attempt - 1) * 2000) }"
+      mem_mb: f"{ int(input.size_mb * 0.5 + 4500 + (attempt - 1) * 2000) }"
     merge_bams:
-      mem_mb: f"{ 160 * attempt }"
+      mem_mb: f"{ 400 * attempt }"
     merge_watson_or_crick:
       mem_mb: f"{ 350 * attempt }"
     multiqc:
