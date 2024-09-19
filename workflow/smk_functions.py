@@ -102,22 +102,34 @@ def check_sample_table_format(samples_table):
         # Check that to merge samples are either an absolute path or another
         # sample from samples_table
         samples_names_not_in_library = []
+        samples_merging_themselves = []
         for sample in samples_table['sample_name']:
             if not pd.isnull(samples_table.loc[sample, 'merge_with']):
                 merge_samples = samples_table.loc[sample, 'merge_with'].split()
                 for merge_sample in merge_samples:
                     absolute_path = merge_sample[0] == "/"
                     in_library = merge_sample in samples_table['sample_name']
+                    merge_itself = merge_sample == sample
                     if not absolute_path and not in_library:
                         samples_names_not_in_library.append(
                             f"\t{merge_sample}")
                         exit_script = True
+                    if merge_itself:
+                        samples_merging_themselves.append(
+                            f"\t{merge_sample}")
+                        exit_script = True
         format_samples_not_in_lib = "\n".join(samples_names_not_in_library)
+        format_samples_merging_themselves = "\n".join(samples_merging_themselves)
         if len(samples_names_not_in_library) > 0:
             exit_message += (
                 "\n\n* The following samples are not found at current samples "
-                f"table:\n{format_samples_not_in_lib}.\n"
+                f"table:\n{format_samples_not_in_lib}\n"
                 )
+        if len(samples_merging_themselves) > 0:
+            exit_message += (
+                 "\n\n* The following samples are merging with themselves "
+                 f"\n{format_samples_merging_themselves}\n"
+                 )
 
     # %% # FASTQs and PE
     # Check that there are 2 FASTQs when sample is PE and 1 when is not
