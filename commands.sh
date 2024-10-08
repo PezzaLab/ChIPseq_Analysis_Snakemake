@@ -55,3 +55,41 @@ tmux kill-session -t <session_name>
 # {sha}
 # Commit date:
 # {commit_date}
+
+##########################
+### BACKUP IN DROPBOX ####
+##########################
+# Load rclone
+ml rclone
+
+# Check what we are leaving behind:
+rclone copy --dry-run /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name} \
+--min-size 50M 2>&1 | grep -E -v '.*bam|bw|fq\.gz|matrix|fastq\.gz.|\.sra*'
+
+# Do backup
+rclone copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name} \
+--max-size 50M \
+--filter '- .*' \
+--filter '- .*/' \
+--filter '- ~*' \
+--filter '- *fastp.html' \
+--filter '- not_copy*' \
+--filter '- *.bai' \
+--filter '- *.bam' \
+--filter '- *.bw' \
+--filter '- *.filename' \
+--filter '- *.matrix' \
+--filter '- *.fq.gz' \
+--filter '- *.fastq.gz'\
+--filter '- *.sra'\
+--filter '- *.homer_anotated.tsv'\
+--filter '- *.gappedPeak'
+
+# Copy bigwigs
+## Check if it is copying anything other than a .bg
+rclone --dry-run copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name} \
+--include '*.bw' 2>&1 | grep -v '.*\.bw'
+
+## Copy
+rclone copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name} \
+--include '*.bw'
