@@ -79,7 +79,7 @@ references:
     B6xCAST_PRDM9_assymetric_hs_mm10_aligned: "Resources/bed_files/PRDM9_assymetric.autosomal.mm10.dmc1_coords.bed"
     TSS: ""
     blacklist: "Resources/bed_files/mm10.blacklist_merge1000.bed"
-    black_grey: "Resources/bed_files/GREYLIST_PE150_ZYG_sonic_ACELL.bed"
+    black_grey: ""
   #     sonic:
   #       PE_adaptase: ""
   #     MNAse:
