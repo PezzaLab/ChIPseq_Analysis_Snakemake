@@ -80,9 +80,9 @@ rclone copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{l
 --filter '- *.filename' \
 --filter '- *.matrix' \
 --filter '- *.fq.gz' \
---filter '- *.fastq.gz'\
---filter '- *.sra'\
---filter '- *.homer_anotated.tsv'\
+--filter '- *.fastq.gz'\ 
+--filter '- *.sra' \
+--filter '- *.homer_anotated.tsv' \
 --filter '- *.gappedPeak'
 
 # Copy bigwigs
