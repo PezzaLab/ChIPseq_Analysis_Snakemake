@@ -438,21 +438,21 @@ def generate_samples_table_2(samples_table, config):
             if re.search("B6xCAST", hs):
                 b6xcast = samples_table_2["B6xCAST"]
 
-            if re.match("83|99|inc_16|exc_16", strand):
+            if re.search("83|99|inc_16|exc_16", strand):
                 strand_string = "Single_strand/Full_length_reads/"
                 single_strand = samples_table_2["get_single_strand"]
 
-            if re.match("watson|crick|x_non_par", hs):
+            if re.search("watson|crick|x_non_par", hs):
                 single_strand = samples_table_2["get_single_strand"]
                 # Only profiles in which ssDNA is asked for we evaluate the
                 # XnonPAR and watson/crick assymetric hotspots (mm10 samples)
 
-            if re.match("83|99", strand):
+            if re.search("83|99", strand):
                 PE = samples_table_2["PE"]
-            elif re.match("inc_16|exc_16", strand):
+            elif re.search("inc_16|exc_16", strand):
                 PE = ~samples_table_2["PE"]
 
-            if re.match("B6xCAST_PRDM9_assymetric_hs_(invading|receiving)",
+            if re.search("B6xCAST_PRDM9_assymetric_hs_(invading|receiving)",
                         hs):
                 genome = "mm10_x_CAST_EiJ"
                 samples_nodup_filt2 = samples_nodup_filt_b6xcast
