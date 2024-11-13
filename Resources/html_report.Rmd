@@ -500,7 +500,7 @@ Ignore this part, it will soon be removed from the report.
 
 ## Excel file for NGS_files.xlsx
 ```{r}
-excel_col_names <- "experiment_name	protein	species	library	number_broad_peaks	number_narrow_peaks	%_broad_peaks_in_HS_+-_2000bp	%_narrow_peaks_in_HS_+-_2000bp	ra_synchronized	broad_meiotic_stage	specific_meiotic_stage	unique_q_filtered_reads[M]	sequencing_type	sequencing_length	sequencing_equipment	library_prep_method	Storage	Container	Full_path	file_name	narrow_peaks_in_HS_+-_2000bp	broad_peaks_in_HS_+-_2000bp" %>% str_split("\t") %>% unlist
+excel_col_names <- "experiment_name	protein	species	library	number_broad_peaks	number_narrow_peaks	%_broad_peaks_in_HS_+-_2000bp	%_narrow_peaks_in_HS_+-_2000bp	ra_synchronized	broad_meiotic_stage	specific_meiotic_stage	unique_q_filtered_reads[M]	sequencing_type	sequencing_length	sequencing_equipment	library_prep_method		narrow_peaks_in_HS_+-_2000bp	broad_peaks_in_HS_+-_2000bp Observations" %>% str_split("\t") %>% unlist
 ```
 ```{r}
 if (is.null(snakemake@input[["peaks_summary"]])){
@@ -517,20 +517,17 @@ if (is.null(snakemake@input[["peaks_summary"]])){
 
 table2 <- 
   table %>% 
-  mutate(protein = "-",
-         species = "-",
-         library = "-",
-         ra_synchronized = "-",
+  mutate(protein = map(sample, ~str_split_1(., "_") %>% .[5]) %>% unlist(),
+         species = ifelse(snakemake@wildcards$genomes_not_fused == "mm10", "mouse", "human"),
+         library = snakemake@wildcards$lib_name,
+         ra_synchronized = ifelse(grepl("_[0-9]+Di_", sample), "Yes", "No"),
          broad_meiotic_stage = "-",
          specific_meiotic_stage = "-",
-         sequencing_type = "-",
-         sequencing_length = "-",
-         sequencing_equipment = "-",
+         sequencing_type = "PE",
+         sequencing_length = "150",
+         sequencing_equipment = "Novaseq",
          library_prep_method = "-",
-         Storage = "-",
-         Container = "-",
-         Full_path = "-",
-         file_name = "-") %>% 
+         observations = "") %>% 
   rename(any_of(c("experiment_name" = "sample",
          "number_broad_peaks" = "broad_all",
          "number_narrow_peaks" = "narrow_all",
