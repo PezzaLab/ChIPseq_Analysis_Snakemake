@@ -78,7 +78,7 @@ references:
     B6xCAST_PRDM9_assymetric_hs_receiving_strand: "Resources/bed_files/PRDM9_assymetric.autosomal.receiving.dmc1_coords.bed"
     B6xCAST_PRDM9_assymetric_hs_mm10_aligned: "Resources/bed_files/PRDM9_assymetric.autosomal.mm10.dmc1_coords.bed"
     TSS: ""
-    blacklist: "Resources/bed_files/mm10.blacklist_merge1000.bed"
+    blacklist: "Resources/bed_files/mm10-blacklist.v2.bed"
     black_grey: ""
   #     sonic:
   #       PE_adaptase: ""
@@ -89,7 +89,7 @@ references:
       top_5000_plus_minus_2000: ""
       all_plus_minus_2000: ""
     TSS: ""
-    blacklist: "Resources/bed_files/GRCh38_unified_blacklist.bed"
+    blacklist: "Resources/bed_files/hg38-blacklist.v2.bed"
     black_grey: ""
 
 
