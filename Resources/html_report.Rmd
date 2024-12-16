@@ -16,8 +16,9 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = F,
                       warning = F)
 ```
-```{r,include=F, eval=T}
-# save.image("html_report_image.RData")
+```{r,debug_mode, include=F, eval=F}
+save.image("html_report_image.RData")
+knitr::opts_knit$set(root.dir = "../")
 ```
 
 ```{r, libraries, message=F, error=F}
@@ -29,20 +30,7 @@ library(openxlsx) # To write xls files (with format and everything)
 library(readxl) # To read exel files (I think this can also be done with the package above)
 library(ggrastr) 
 ```
-```{r, libraries_not_in_use,include=F, message=F, error=F}
-# library(clipr) # to copy text to the clipboard
-# library(tidygenomics) 
-# library(Hmisc) # to divide the vector in equal parts using cut2()
-# library(biomaRt)# To get gene names out of refseq accessions
-# library(ggrepel) # To put names on plots
-# library(ggfortify) # To plot PCAs with ggplot
-# library(factoextra) # To easily get info from PCA analysis
-# library(ViSEAGO) # To analyze GO terms, although I don't think I am going to use it.
-# library(qpcR) # To bind vectors of different length using qpcR:::cbind.na
-# library(eulerr) # To draw proportional venn diagrams (need to have the numbers though)
-# library(R.utils) # To count number of lines of a file
-# <br/><br/>    ---> That is to insert a break in the page so that the text don't wrap the images when they don't occupy the whole width
-```
+
 # General information  
 `r snakemake@config[['library']][['general_info']]`
 

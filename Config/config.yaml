@@ -1,6 +1,6 @@
 library:
   name: "Test_library"
-  general_info: "Whatever info you want to add about this library"
+  general_info: "" # Whatever info you want to add about this library, will be seen as intro in the html report
 
 # Should quality control analysis be done?
 qctrl: True
