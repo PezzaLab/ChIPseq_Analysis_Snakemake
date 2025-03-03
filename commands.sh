@@ -12,16 +12,16 @@ conda activate snakemake
 
 # 2) OPTIONAL. Dry run summary ("mock" run, no files are created)
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio -np --quiet
+snakemake --profile Config/Profiles/slurm_quio_repeat_10 -np --quiet
 
 # 2.bis) OPTIONAL. Dry run extended version, text printed to the screen
 # is also saved on file 'dry_run.txt'
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio -np | tee dry_run.txt
+snakemake --profile Config/Profiles/slurm_quio_repeat_10 -np | tee dry_run.txt
 
 # 3) OPTIONAL. DAG (A plot to see the dependencies between the rules).
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio --rulegraph | \
+snakemake --profile Config/Profiles/slurm_quio_repeat_10 --rulegraph | \
 dot -Tsvg > rulegraph.svg
 
 
@@ -33,7 +33,7 @@ tmux new -s {library_name}
 tmux attach -t {library_name}
 	# run command
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio --notemp
+snakemake --profile Config/Profiles/slurm_quio_repeat_10 --notemp
 
 # ---------
 # Helpful commands:
