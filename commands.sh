@@ -69,6 +69,7 @@ rclone copy --dry-run /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Li
 # Do backup
 rclone copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name} \
 --max-size 50M \
+--filter '+ .snakemake/slurm_logs/**' \
 --filter '- .*' \
 --filter '- .*/' \
 --filter '- ~*' \
