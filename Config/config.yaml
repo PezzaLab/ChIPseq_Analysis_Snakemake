@@ -12,6 +12,8 @@ genomes:
     mm10CAST_EiJ: "/hpc-prj/pezza/References/Genomes/fusion_drosophila_mm10cast/mm10.CAST_EiJ.fasta"
     mm10_x_CAST_EiJ: "/hpc-prj/pezza/References/Genomes/mm10_CAST_plus_B6/mm10_B6plusCAST.fasta"
     mm10_x_CAST_EiJ_f_d6: "/hpc-prj/pezza/References/Genomes/fusion_drosophila_mm10_CAST_plus_B6/d6_mm10_fusion.B6plusCAST.fasta"
+    mm39: "/archive/cbds/idx/ensembl/Mus_musculus/GRCm39/sequence_only/bwa/0.7.18/genome"
+    gcrm39: "/archive/cbds/idx/ensembl/Mus_musculus/GRCm39/sequence_only/bwa/0.7.18/genome"
     hg38: "/Volumes/shared-refs/gatk_resources/hg38/v0/Homo_sapiens_assembly38.fasta"
     hg38_f_d6: ""
 
