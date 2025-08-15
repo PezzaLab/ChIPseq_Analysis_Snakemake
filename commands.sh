@@ -26,7 +26,7 @@ dot -Tsvg > rulegraph.svg
 
 
 # 4) Real run (This will actually create the files)
-cd /s/pezzar-lab/{library_name} && \
+cd /s/pezzar-lab/{library_name}
 # Generate new terminal session
 tmux new -s {library_name}
 	# If already created one and want to re-join, use following command
