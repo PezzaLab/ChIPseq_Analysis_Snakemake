@@ -1,316 +1,179 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Sep 20 19:59:14 2022
 
-@author: quio
-"""
-# %% Imports
 import os
 import re
-import shutil as shu
-import pandas as pd
+import shutil
 import yaml
-import git  # To get snakepipeline current's commit hash
+import git
+import pandas as pd
 from datetime import datetime
 
-# %% Functions and default values
-
-fastq_base_path = "/archive/pezza/Agustin/"
-results_base_path = "/s/pezzar-lab/"
-pipeline_path = "/hpc-prj/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake"
-
-
-def get_lib_name():
-    library_name = input(
-        "What is the library name?\nKeep in mind that it has to be "
-        "the same name provided to Stuart Glenn\n")
-    return {"library_name": library_name,
-            "archive": fastq_base_path + library_name,
-            "scratch": results_base_path + library_name
-            }
-
-
-def get_seq_mode():
-    answer = input(
-        "Are reads paired (PE) or single (SR)?, "
-        "If different samples have different sequencing pairing of reads"
-        " you can always change this later on the Config/samples_table.csv\n"
-        "choose a number.\n1 = PE\n2 = SR\n"
-    )
-    return answer
-
-
-def get_library_tech():
-    answer = input(
-        "\nWhat technology was used to do the library? "
-        "Choose a number\n1 = Adaptase\n2 = Regular\n")
-    return answer
-
-
-# %% Get user's input
-# %%% Get library name
-while True:
-    library_paths = get_lib_name()
-    if not os.path.exists(library_paths['archive']):
-        print(f"The directory '{library_paths['archive']}' does not exist. "
-              "Please try again")
-        continue
-    elif not os.path.isdir(library_paths['archive']):
-        print(f"The path '{library_paths['archive']}' is not a directory."
-              "Please try again")
-        continue
-    else:
-        break
-
-# %%% Check if library has files and or subfolders
-# Depending on the time the library was uploaded, the fastq files might be
-# right inside the library folder, or they might be inside another folder
-# within the library folder (called as the Illumina run). Some  very few times,
-# there might be 2 sequencing runs within the library folder.
-
-# Get fastqs' filepaths
-directories_count = 0
-files_count = 0
-
-dir_and_files = os.listdir(library_paths['archive'])
-
-# Iterate over the contents of the folder
-print(f"Subcontent of {library_paths['archive']}:")
-
-for entry in dir_and_files:
-    print(entry)
-    full_path = os.path.join(library_paths['archive'], entry)
-    # Check if the entry is a directory
-    if os.path.isdir(full_path):
-        directories_count += 1
-        subfolder = full_path
-    elif os.path.isfile(full_path):
-        files_count += 1
-
-# If more than 1 directory abort
-print("\n")
-if directories_count > 1:
-    print("More than one subdirectory found, aborting...")
-    exit()
-elif (directories_count == 0) & (files_count == 0):
-    print(f"No files or directories found at {library_paths['archive']}")
-    exit()
-elif (directories_count == 1) & (files_count == 0):
-    print(f"Using subfolder {subfolder}\n")
-    fastqs_folder = os.path.join(library_paths['archive'], subfolder)
-elif (directories_count == 0) & (files_count > 0):
-    print(f"Using main folder: {library_paths['archive']}\n")
-    fastqs_folder = library_paths['archive']
-
-# %%% Get library sequencing mode (PE or SR)
-while True:
-    pe_sr = get_seq_mode()
-    if pe_sr not in ["1", "2"]:
-        print("You need to input either '1' or '2', you can do it! ")
-        continue
-    else:
-        break
-
-pe_dic = {"1": True, "2": False}
-
-# %%% Get library technology (regular or adaptase)
-while True:
-    lib_tech = get_library_tech()
-    if lib_tech not in ["1", "2"]:
-        print("You need to input either '1' or '2', you can do it! ")
-        continue
-    else:
-        break
-
-lib_tech_dic = {"1": "adaptase", "2": "regular"}
-
-# %% Create library folder and copy snakemake pipeline
-dest_path = library_paths['scratch']
-
-# Files and dirs not to copy (not copy samples.csv, which might be in
-# destination already):
-not_copy = shu.ignore_patterns(
+# ---------------------- CONFIG ----------------------
+FASTQ_BASE = "/archive/pezza/Agustin/"
+RESULTS_BASE = "/s/pezzar-lab/"
+PIPELINE_SRC = "/hpc-prj/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake"
+IGNORED_FILES = shutil.ignore_patterns(
     '.*', 'tmp*', '_*_', 'Test_and_assembly_of_python_code.py',
     'samples_table_processed.csv', 'Results*', 'logs*', '*dry_run*',
-    'commands*', 'dag*', 'Test_code*', 'test_FASTQs',
-    'rstudio-server*', 'slurm-*', 'benchmarks*', 'samples.csv',
-    'log*', 'renaming_info.tsv'
+    'commands*', 'dag*', 'Test_code*', 'test_FASTQs', 'rstudio-server*',
+    'slurm-*', 'benchmarks*', 'samples.csv', 'log*', 'renaming_info.tsv',
+    'rulegraph.svg', 'Make_samples_table*'
 )
 
-try:
-    shu.copytree(pipeline_path, dest_path, ignore=not_copy)
-except FileExistsError:
-    overwrite = input(
-        f"'{dest_path}' already exists, would you like to overwrite? \n"
-        "1) Yes\n"
-        "2) No\n"
-    )
-    positive = ["1", "y", "Y", "yes", "YES", "Yes"]
-    if overwrite in positive:
-        shu.copytree(
-            pipeline_path, dest_path, dirs_exist_ok=True,
-            ignore=not_copy
-        )
-        # Make backup copy of samples.csv in case there is one already
-        samples_csv = "Config/samples.csv"
-        dest_file = f"{dest_path}/{samples_csv}"
-        source_file = f"{pipeline_path}/{samples_csv}"
-        if not os.path.exists(dest_file):
-            shu.copy(source_file, dest_file)
-            print(f"Copying '{samples_csv}' template")
+# ---------------------- INPUT ----------------------
+def ask_input(prompt: str, valid: list[str] = None) -> str:
+    while True:
+        val = input(prompt).strip()
+        if not valid or val in valid:
+            return val
+        print(f"Invalid input. Please enter one of: {valid}")
+
+def get_library_paths() -> dict:
+    name = input("Library name (as provided to Stuart Glenn): ").strip()
+    return {
+        "name": name,
+        "archive": os.path.join(FASTQ_BASE, name),
+        "scratch": os.path.join(RESULTS_BASE, name),
+    }
+
+def choose_subfolder(base_path: str, dirs: list[str]) -> str:
+    # Pair each directory name with its creation timestamp
+    dir_info = []
+    for d in dirs:
+        dir_path = os.path.join(base_path, d)
+        creation_ts = os.path.getctime(dir_path)
+        dir_info.append((d, creation_ts))
+    
+    # Sort by timestamp descending (newest first)
+    dir_info.sort(key=lambda x: x[1], reverse=True)
+    
+    print("\nMultiple subdirectories found:")
+    for i, (d, ts) in enumerate(dir_info, 1):
+        creation_date = datetime.fromtimestamp(ts).strftime("%Y/%m/%d")
+        print(f"{i}) {d}  (created: {creation_date})")
+    
+    # Map back to sorted order for selection
+    valid_choices = [str(i) for i in range(1, len(dir_info) + 1)]
+    index = int(ask_input("Choose a number: ", valid_choices))
+    return os.path.join(base_path, dir_info[index - 1][0])
+
+# ---------------------- SETUP ----------------------
+def find_fastq_folder(archive: str) -> str:
+    contents = os.listdir(archive)
+    dirs = [d for d in contents if os.path.isdir(os.path.join(archive, d))]
+    files = [f for f in contents if os.path.isfile(os.path.join(archive, f))]
+
+    if not dirs and not files:
+        raise RuntimeError(f"No files or folders found in {archive}")
+    elif len(dirs) == 1:
+        return os.path.join(archive, dirs[0])
+    elif len(dirs) > 1:
+        return choose_subfolder(archive, dirs)
+
+def copy_pipeline(dest: str):
+    if os.path.exists(dest):
+        opt = ask_input(f"{dest} exists. Overwrite? (y/n): ", ["y", "n"])
+        if opt == "n":
+            print("Aborting.")
+            exit(1)
+    shutil.copytree(PIPELINE_SRC, dest, dirs_exist_ok=True, ignore=IGNORED_FILES)
+
+# ---------------------- METADATA ----------------------
+def write_command_script(dest: str, lib_name: str):
+    repo = git.Repo(PIPELINE_SRC)
+    sha = repo.head.object.hexsha
+    date = str(repo.head.object.committed_datetime)
+
+    src_cmd = os.path.join(PIPELINE_SRC, "commands.sh")
+    dst_cmd = os.path.join(dest, f"commands_{lib_name}.sh")
+
+    if os.path.exists(dst_cmd):
+        note = f"\n# Updated on {datetime.now().date()} with commit {sha}\n"
+        with open(dst_cmd, 'a') as f:
+            f.write(note)
     else:
-        print("Quiting now")
-        exit()
-else:
-    print(f"{dest_path} copied")
+        with open(src_cmd) as f:
+            content = f.read().replace('{library_name}', lib_name)
+            content = content.replace('{sha}', sha).replace('{commit_date}', date)
+        with open(dst_cmd, 'w') as f:
+            f.write(content)
 
-# %% Write or update 'commands_X.sh'
+def update_config_yaml(path: str, lib_name: str):
+    with open(path, 'r') as f:
+        config = f.read().replace("Test_library", lib_name)
+    with open(path, 'w') as f:
+        f.write(config)
 
-# Get pipeline-git info
-repo = git.Repo(
-    pipeline_path
-)
-sha = repo.head.object.hexsha
-mod_time = str(repo.head.object.committed_datetime)
+# ---------------------- SAMPLES TABLE ----------------------
+def guess_sample_names(fq1_paths: list[str]) -> list[str]:
+    return [
+        re.sub("_S[0-9]+_R[0-9]_[0-9]+\.fastq\.gz", '', os.path.basename(f))
+        for f in fq1_paths
+    ]
 
-# If commands_X file already there just update with new pipeline-git info,
-commands_source_path = f"{pipeline_path}/commands.sh"
-commands_destination_path = (
-    f"{library_paths['scratch']}/"
-    f'commands_{library_paths["library_name"]}.sh'
-)
-if os.path.exists(commands_destination_path):
-    # Get the current date
-    current_date = datetime.now()
-    # Format the date as "yyyy-mm-dd"
-    formatted_date = current_date.strftime("%Y-%m-%d")
+def build_sample_table(fastqs: list[str], paired: bool, tech: str, config_path: str) -> pd.DataFrame:
+    fastq1 = fastqs[::2] if paired else fastqs
+    fastq2 = fastqs[1::2] if paired else ['-'] * len(fastq1)
+    names = guess_sample_names(fastq1)
 
-    text_append = (f"\n# On {formatted_date}, all pipeline was updated with "
-                   f"commit hash:\n# {sha}\n")
-    with open(commands_destination_path, 'a') as file:
-        file.write(text_append)
-else:
-    # Read in the file
-    with open(commands_source_path, 'r') as file:
-        commands = file.read()
-    # Replace the target strings
-    commands = commands.replace('{library_name}',
-                                library_paths["library_name"])
-    commands = commands.replace('{sha}', sha)
-    commands = commands.replace('{commit_date}', mod_time)
-    # Write the file out again
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+    ctrl_keys = list(config['MACS2']['control'].keys())
+    ctrl_alias = " or ".join(ctrl_keys)
 
-    with open(commands_destination_path, 'w') as file:
-        file.write(commands)
+    table = pd.DataFrame({
+        "sample_name": names,
+        "fastq1": fastq1,
+        "fastq2": fastq2,
+        "PE": paired,
+        "library_technology": tech,
+        "reference_genome": "mm10",
+        "peak_ctrl_file_alias": ctrl_alias,
+        "dros_spike_in": ["True" if re.search("_dros|CyR", n) else "False" for n in names],
+        "get_single_strand": "True",
+        "Clip_reads_to_1bp_on_5_prime": "False",
+        "top5000_HS_heatmap": "True",
+        "Size_DNA_top_5000_HS": "False",
+        "merge_with": "-",
+        "dros_equalization_group": "-",
+        "B6xCAST": ["True" if re.search("_B6XCAST_", n, re.IGNORECASE) else "False" for n in names],
+    })
+    return table
 
-# %% Modify config file
-config_path = f"{library_paths['scratch']}/Config/config.yaml"
-with open(config_path, 'r') as file:
-    config = file.read()
-# Replace the target string
-config = config.replace('Test_library', library_paths["library_name"])
-# Write the file out again
-with open(config_path, 'w') as file:
-    file.write(config)
-# %% Do samples_table
-
-fastqs_temp = os.listdir(fastqs_folder)
-fastqs_temp2 = [x for x in fastqs_temp if re.search(r".*\.fastq\.gz$", x)]
-fastqs = sorted(fastqs_temp2, key=str.lower)
-fastqs = [fastqs_folder + "/" +
-          file for file in fastqs]
-
-# Define values of table
-if pe_dic[pe_sr]:
-    fastq1_paths = fastqs[0::2]
-    fastq2_paths = fastqs[1::2]
-else:
-    fastq1_paths = fastqs[0:]
-    fastq2_paths = "-"
-
-exp_names = []
-for a in fastq1_paths:
-    b = os.path.basename(a).strip("\n")
-    exp_names += [re.sub("_S[0-9]+_R[0-9]_[0-9]+.fastq.gz", '', b)]
-
-dros = ["True" if re.search("_dros|CyR", i) else "False" for i in exp_names]
-B6xCAST = ["True" if re.search("_B6XCAST_", i, flags=re.IGNORECASE)
-           else "False" for i in exp_names]
-
-# Read config file
-with open(config_path, 'r') as stream:
-    try:
-        config = yaml.safe_load(stream)
-    except yaml.YAMLError as exc:
-        print(exc)
-    finally:
-        stream.close()
-
-# Get peak control options from config file
-peak_ctrl_file_alias = list(config['MACS2']['control'].keys())
-peak_ctrl_file_aliases = " or ".join(peak_ctrl_file_alias)
-
-# Assemble dataframe
-sample_table = pd.DataFrame(
-    {"sample_name": exp_names,
-     "fastq1": fastq1_paths,
-     "fastq2": fastq2_paths,
-     "PE": pe_dic[pe_sr],
-     "library_technology": lib_tech_dic[lib_tech],
-     "reference_genome": "mm10",
-     "peak_ctrl_file_alias": peak_ctrl_file_aliases,
-     "dros_spike_in": dros,
-     "get_single_strand": "True",
-     "Clip_reads_to_1bp_on_5_prime": "False",
-     "top5000_HS_heatmap": "True",
-     "Size_DNA_top_5000_HS": "False",
-     "merge_with": "-",
-     "dros_equalization_group": "-",
-     "B6xCAST": B6xCAST,
-     })
-
-# Save table
-try:
-    sample_table.to_csv(f"{library_paths['scratch']}/Config/samples.csv",
-                        index=False,
-                        na_rep="-",
-                        mode="x"  # Do not overwrite
-                        )
-except FileExistsError:
-    overwrite = input(
-        "'samples.csv' already exists, would you like to overwrite? \n"
-        "1) Yes\n"
-        "2) No\n"
-    )
-    positive = ["1", "y", "Y", "yes", "YES", "Yes"]
-    if overwrite in positive:
-        sample_table.to_csv(f"{library_paths['scratch']}/Config/samples.csv",
-                            index=False,
-                            na_rep="-",
-                            mode="w"  # Overwrites file
-                            )
-        print("samples.csv copied")
+def save_sample_table(df: pd.DataFrame, path: str):
+    if os.path.exists(path):
+        opt = ask_input("samples.csv exists. Overwrite? (y/n) \n"
+                        "If so, will create "
+                        "backup of existing samples.csv : ", ["y", "n"])
+        if opt == "y":
+            shutil.copy(path, path.replace(".csv", "_backup.csv"))
+            df.to_csv(path, index=False, na_rep="-")
     else:
-        print("Keeping original samples.csv file")
-else:
-    print("samples.csv copied")
+        df.to_csv(path, index=False, na_rep="-")
 
+# ---------------------- MAIN ----------------------
+def main():
+    paths = get_library_paths()
+    if not os.path.isdir(paths['archive']):
+        raise RuntimeError(f"Invalid archive path: {paths['archive']}")
 
-# %% Final message
-print(
-    "\n\n"
-    "Done! The snakemake pipeline has been copied at the following path: "
-    f"{library_paths['scratch']}\n"
-    "Please review the following pipeline files within the 'Config' folder:\n"
-    "1) samples_table.csv.\n"
-    "2) config.yaml\n"
-    "3) Profiles/slurm_quio/config.yaml\n\n"
-    "For more information on how to fill the files please visit "
-    "https://github.com/PezzaLab/ChIPseq_Analysis_Snakemake\n\n"
-    "Thanks and have a nice day!...biaatch!"
-)
+    fastq_dir = find_fastq_folder(paths['archive'])
+    fastq_files = sorted([
+        os.path.join(fastq_dir, f) for f in os.listdir(fastq_dir)
+        if re.search(r"R[12]_\d+\.fastq\.gz$", f)
+    ])
 
+    pe = ask_input("1 = PE\n2 = SR\nPaired-end?: ", ["1", "2"]) == "1"
+    tech = {"1": "adaptase", "2": "regular"}[ask_input("1 = Adaptase\n2 = Regular\nLibrary tech?: ", ["1", "2"])]
 
-# Run this script:
-# ml slurm python/3.10.2 pandas/1.4.2 && python /hpc-prj/pezza//Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow/Scripts/Make_samples_table_lab_library.py
+    copy_pipeline(paths['scratch'])
+    update_config_yaml(os.path.join(paths['scratch'], "Config", "config.yaml"), paths['name'])
+    write_command_script(paths['scratch'], paths['name'])
+
+    df = build_sample_table(fastq_files, pe, tech, os.path.join(paths['scratch'], "Config", "config.yaml"))
+    save_sample_table(df, os.path.join(paths['scratch'], "Config", "samples.csv"))
+
+    print(f"\nSetup complete at {paths['scratch']}\nReview Config/samples.csv and Config/config.yaml")
+
+if __name__ == "__main__":
+    main()
