@@ -69,6 +69,8 @@ def find_fastq_folder(archive: str) -> str:
         return os.path.join(archive, dirs[0])
     elif len(dirs) > 1:
         return choose_subfolder(archive, dirs)
+    else:
+        return archive
 
 def copy_pipeline(dest: str):
     if os.path.exists(dest):
