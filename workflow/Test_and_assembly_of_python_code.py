@@ -14,7 +14,7 @@ import yaml
 import os
 import shutil as shu
 # Set current wd (I cannot get Spyder IDE to set wd as file's path...)
-os.chdir("/Volumes/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow")
+os.chdir("/Volumes/hpc-prj/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow")
 # os.chdir("/Volumes/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake")
 import smk_functions as smkf
 import suffixes as sfxs
@@ -91,18 +91,35 @@ class Wildcard():
         self
 w = Wildcard()
 # Set wilcard attributes
-w.sample = "f"
+w.sample = ""
 w.hs_region = ""
-w.genomes_not_fused = "mm10"
+w.genomes_not_fused = ""
 w.genomes_final = ""
 w.extension = ".q_filt.srt.nodup.mit_filt"
 w.peak_type = ""
 w.peak_params = ""
 w.smooth = "smoothed"
-w.hs_region = "B6xCAST_efojf"
+w.library_name=""
 # Filter columns by regex
-samples_table_2.filter(regex=".*")
+samples_table_2.filter(regex=".*.*")
 
 #%% Do tests
 
-    
+# samples_table_2.to_csv("../Config/samples_table_processed.csv", index=False)
+#filtered = samples_table_2.filter(regex=".*B6xCAST.*matrix")
+
+smkf.process_aggregate_profiles_inputs(w)
+smkf.markdown_report_aggregate_profiles_input(w)
+
+#%% Export dataframes to be explored in excel
+import os
+import pandas as pd
+import __main__
+
+outdir = os.path.expanduser("~/Downloads")
+
+for name, obj in list(vars(__main__).items()):
+    if isinstance(obj, pd.DataFrame) and not name.startswith("_"):
+        outpath = os.path.join(outdir, f"{name}.tsv")
+        obj.to_csv(outpath, sep="\t", index=False)
+        print(f"Saved {name} -> {outpath}")
