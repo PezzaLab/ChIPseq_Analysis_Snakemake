@@ -147,13 +147,13 @@ wildcard_constraints:
     extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?",
     extension_size = "[0-9]+",
     flag = "(83|163|99|147|inc_16|exc_16)",
-    fused_genome="(mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6)",
-    genomes_not_fused="mm10|d6|hg19|hg38|mm10_x_CAST_EiJ",
+    fused_genome="(mm10_f_d6|mm39_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|mm39_x_CAST_EiJ)",
+    genomes_not_fused="mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ",
     genomes_final=(
-        r"(?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+"
+        r"(?<=\.)(?P<interest_genome>mm10|mm39|hg19|hg38|mm10_x_CAST_EiJ|mm39_x_CAST_EiJ)+"
         r"(_f_d6\.((?P=interest_genome)|d6))?(?=\.)"),
     genomes_all=(
-        "mm10|d6|hg19|hg38|mm10_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|"
+        "mm10|mm39|d6|hg19|hg38|mm10_f_d6|mm39_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|"
         "mm10_x_CAST_EiJ"),
     hs_region = (
         "B6xCAST_(top_5000_pm_2000bp|"
@@ -162,7 +162,7 @@ wildcard_constraints:
                              "mm10_aligned))|"
         "top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|x_non_par|"
         "autosomal_x_non_par_ctrl"),
-    int_genome = "mm10|hg19|hg38|mm10_x_CAST_EiJ",
+    int_genome = "mm10|mm39|hg19|hg38|mm10_x_CAST_EiJ",
     library_name = config['library']['name'],
     norm = "[^_/.]+",
     n_ends = "(SE|PE)",
@@ -388,6 +388,7 @@ rule filter_bam:
         bam = "Results/{genomes_not_fused}/{sample}.{genomes_final}.nodup.bam",
         bai = "Results/{genomes_not_fused}/{sample}.{genomes_final}."
                     "nodup.bam.bai",
+        chromosomes = "Resources/bed_files/{genomes_not_fused}/{genomes_not_fused}_chromosomes.txt"
     output:
          "Results/{genomes_not_fused}/Bams/Both_strands/"
             "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.bam",
@@ -399,18 +400,16 @@ rule filter_bam:
     benchmark:
         "benchmarks/filter_bam/{genomes_not_fused}/{sample}.{genomes_final}.tsv"
     shell:
-        """
-        # Filter out mitochondrial reads
-        chromsomes=$(samtools idxstats {input.bam} | cut -f 1 \\
-        | grep -v MT | grep -v chrM | grep -v \\* | paste  -sd ' ')
-
-        samtools view \\
-          -q {config[min_mapping_qual]} \\
-          -b \\
-          -@ $SLURM_CPUS_ON_NODE \\
-          {params} \\
-          -o {output} \\
-          {input.bam} $chromsomes
+        r"""
+        # Filter out mitochondrial and unplaced/unlocalized scafolds
+        samtools view \
+          -q {config[min_mapping_qual]} \
+          -b \
+          -@ ${{SLURM_CPUS_ON_NODE:-{threads}}} \
+          {params} \
+          -o {output} \
+          {input.bam} \
+          $(cat {input.chromosomes})
 
         # Flags
             # 3852 = read or mate unmapped, not primary alignement, read fails

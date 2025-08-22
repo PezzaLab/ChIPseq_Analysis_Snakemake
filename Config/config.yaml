@@ -20,7 +20,7 @@ genomes:
 # suffix added to spike-in chromosome-names
 spike_in_suffixes:
   mm10_f_d6: "_d"
-  mm10_f_d6: "_d"
+  mm39_f_d6: "_d"
   GRCh38_f_d6: "_d"
   hg38_f_d6: "_d"
   mm10_x_CAST_EiJ_f_d6: "_d"
@@ -77,8 +77,6 @@ references:
     autosomal_x_non_par_ctrl: "Resources/bed_files/mm10/SPO11_autosomal-MATCHED-TO-X_non_PAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
     B6xCAST_top_5000_pm_2000bp: "Resources/bed_files/mm10/B6xCAST_CASTxB6_common_HSs_top_5000_plus_minus_2000_bp.bed"
     B6xCAST_pm_2000bp: "Resources/bed_files/mm10/B6xCAST_CASTxB6_common_HSs_plus_minus_2000_bp.bed"
-    B6xCAST_PRDM9_assymetric_hs_invading_strand: "Resources/bed_files/mm10/PRDM9_assymetric.autosomal.invading.dmc1_coords.bed"
-    B6xCAST_PRDM9_assymetric_hs_receiving_strand: "Resources/bed_files/mm10/PRDM9_assymetric.autosomal.receiving.dmc1_coords.bed"
     B6xCAST_PRDM9_assymetric_hs_mm10_aligned: "Resources/bed_files/mm10/PRDM9_assymetric.autosomal.mm10.dmc1_coords.bed"
     TSS: ""
     blacklist: "Resources/bed_files/mm10/mm10-blacklist.v2.bed"
@@ -87,6 +85,9 @@ references:
   #       PE_adaptase: ""
   #     MNAse:
   #       PE_adaptase: ""
+  mm10_x_CAST_EiJ:
+    B6xCAST_PRDM9_assymetric_hs_invading_strand: "Resources/bed_files/mm10_x_CAST_EiJ/PRDM9_assymetric.autosomal.invading.dmc1_coords.bed"
+    B6xCAST_PRDM9_assymetric_hs_receiving_strand: "Resources/bed_files/mm10_x_CAST_EiJ/PRDM9_assymetric.autosomal.receiving.dmc1_coords.bed"
   mm39:
     top_5000_plus_minus_2000: "Resources/bed_files/mm39/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_TOP_5000_center_plus_minus_2000.bed"
     all_plus_minus_2000: "Resources/bed_files/mm39/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_center_plus_inus_2000.bed"

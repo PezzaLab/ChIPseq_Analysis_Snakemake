@@ -4,6 +4,10 @@ import pandas as pd
 import re
 import sys
 
+samples_table = None
+samples_table_2 = None
+config = None
+samples_table_no_merged_samples = None
 
 def check_sample_table_format(samples_table):
     r"""Check if samples_table.csv has been properly filled.
@@ -332,7 +336,7 @@ def call_peaks_macs2_params(w):
 
     Wildcards
     ----------
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
         Genomes not fused to spike-in genome
     peak_params : (bco_[0-9]+_)?qv_[0-9]+__[^/]*
         The first part (before the double underscore (__) of the wildcard are
@@ -441,7 +445,7 @@ def compute_matrix_outfiles_hs_input(w):
                 top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|
                 x_non_par|autosomal_x_non_par_ctrl
 
-    genomes_not_fused = mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused = mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)"
     cov_params = "((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+_ex[0-9]+"
     sample = [^./ ]+
@@ -456,7 +460,7 @@ def compute_matrix_outfiles_hs_input(w):
         'bigwig', path to bigwig file
 
     """
-    hotspots = config['references']['mm10'][w.hs_region]
+    hotspots = config['references'][w.genomes_not_fused][w.hs_region]
     bigwig = (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
               f"{w.cov_params}/{w.sample}.{w.genomes_final}"
               ".q_filt.srt.nodup.mit_filt."
@@ -584,7 +588,7 @@ def FRIP_input(w):
     Wildcards
     ----------
     sample : [^./ ]+
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     genomes_final : (?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+
                         (_f_d6\.((?P=interest_genome)|d6))?(?=\.)"
     extension : (\.q_filt\.srt\.nodup\.mit_filt)?
@@ -657,7 +661,7 @@ def intersect_peaks_HSs_list_input(w):
     Parameters
     ----------
     sample : [^./ ]+
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     peak_type: narrow|broad
     peak_params: (bco_[0-9]+_)?qv_[0-9]+__[^/]*
     genomes_final : (
@@ -672,9 +676,9 @@ def intersect_peaks_HSs_list_input(w):
         'sample_peaks', path to peaks bed file
     """
     if (samples_table.loc[w.sample, "B6xCAST"]):
-        hotspots = config['references']['mm10']['B6xCAST_pm_2000bp']
+        hotspots = config['references'][w.genomes_not_fused]['B6xCAST_pm_2000bp']
     else:
-        hotspots = config['references']['mm10']['all_plus_minus_2000']
+        hotspots = config['references'][w.genomes_not_fused]['all_plus_minus_2000']
 
     return {
         "hotspots": hotspots,
@@ -691,7 +695,7 @@ def markdown_report_aggregate_profiles_input(w):
 
     Wildcards
     ----------
-    genomes_not_fused = "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ"
+    genomes_not_fused = "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ|mm39"
     smooth = "(smoothed|not_smoothed)+"
 
 
@@ -712,9 +716,9 @@ def markdown_report_aggregate_profiles_input(w):
             reference genome as the markdown report).
             These files will be used in the report to get the number of reads
             of the sample in the filtered bam file.
-        'mm10_top5000_asmtric_auto_XnonPAR_ag_profs'|'mm10_top_5000_ag_profs':
-            string. Only for mm10. Path to '.RData' object containing the
-            aggregate profiles in either "mm10 top 5000 hotspots", or in those
+        'mm_top5000_asmtric_auto_XnonPAR_ag_profs'|'mm_top_5000_ag_profs':
+            string. Only for mm10 or mm39. Path to '.RData' object containing the
+            aggregate profiles in either "mm{XX} top 5000 hotspots", or in those
             same hotspots plus XnonPAR, autosomal and assymetric (left vs
             right of DSB) hotspots. When all hotsopots lists are asked for
             (later case), the rule that provides the R object is the
@@ -790,37 +794,39 @@ def markdown_report_aggregate_profiles_input(w):
     samples_fastp = {"fastp": samples_fastp_pe + samples_fastp_se}
 
     # Get processed aggregate profiles
-    mm10_agg_profiles = {}
+    mm_agg_profiles = {}
     B6xCAST_agg_profiles = {}
     B6xCAST_agg_profiles_clipped = {}
     top_5000_plus_minus_2000_clipped = {}
-    if (samples_table['top5000_HS_heatmap'] &
-        samples_table['get_single_strand'] &
-            ~samples_table['B6xCAST']).any():
-        # 'Lib_name_aggregate_profiles_data.RData' is the result of processing
-        # all top5000, asymmetrix and XnonPAR data (output of
-        # 'wrangle_X_nonPAR_asymmetric_HS' rule).
-        mm10_agg_profiles = {
-            "mm10_top5000_asmtric_auto_XnonPAR_ag_profs": (
+    
+    # Subset samples_table first
+# Subset samples_table first
+    st = samples_table[samples_table['reference_genome'] == w.genomes_not_fused]
+    
+    if (st['top5000_HS_heatmap'] &
+        st['get_single_strand'] &
+        ~st['B6xCAST']).any():
+        mm_agg_profiles = {
+            "mm_top5000_asmtric_auto_XnonPAR_ag_profs": (
                 f"Results/{w.genomes_not_fused}/Analysis/"
                 "Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_aggregate_profiles_data."
                 f"{w.smooth}.RData"
             )
         }
-    elif ((samples_table['top5000_HS_heatmap'] &
-           ~samples_table['B6xCAST']).any()):
-        mm10_agg_profiles = {
-            "mm10_top_5000_ag_profs": (
+    
+    elif (st['top5000_HS_heatmap'] & ~st['B6xCAST']).any():
+        mm_agg_profiles = {
+            "mm_top_5000_ag_profs": (
                 f"Results/{w.genomes_not_fused}/Analysis"
                 "/Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_top_5000_plus_minus_2000."
                 f"{w.smooth}.RData"
             )
         }
-
-    if ((samples_table['top5000_HS_heatmap'] &
-         samples_table['B6xCAST']).any()):
+    
+    if w.genomes_not_fused == "mm10" and (
+       (st['top5000_HS_heatmap'] & st['B6xCAST']).any()):
         B6xCAST_agg_profiles = {
             "B6xCAST_top_5000_pm_2000bp": (
                 f"Results/{w.genomes_not_fused}/Analysis"
@@ -840,18 +846,18 @@ def markdown_report_aggregate_profiles_input(w):
                 f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_"
                 f"receiving_strand.{w.smooth}.RData"
             ),
-            "B6xCAST_PRDM9_assymetric_hs_mm10_aligned": (
-                "Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/"
+            f"B6xCAST_PRDM9_assymetric_hs_{w.genomes_not_fused}_aligned": (
+                f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
                 f"Hotspots/{config['library']['name']}_"
-                "B6xCAST_PRDM9_assymetric_hs_mm10_aligned."
+                f"B6xCAST_PRDM9_assymetric_hs_{w.genomes_not_fused}_aligned."
                 f"{w.smooth}.RData"),
         }
-
+    
     # Clipped profiles
-    if ((samples_table['top5000_HS_heatmap']
-         & samples_table['B6xCAST']
-         & samples_table['get_single_strand']
-         & samples_table['Clip_reads_to_1bp_on_5_prime']).any()):
+    if ((st['top5000_HS_heatmap']
+         & st['B6xCAST']
+         & st['get_single_strand']
+         & st['Clip_reads_to_1bp_on_5_prime']).any()):
         B6xCAST_agg_profiles_clipped = {
             "B6xCAST_top_5000_pm_2000bp_clipped": (
                 f"Results/{w.genomes_not_fused}/Analysis"
@@ -860,10 +866,11 @@ def markdown_report_aggregate_profiles_input(w):
                 "_B6xCAST_top_5000_pm_2000bp_clipped."
                 f"{w.smooth}.RData"
             )}
-    if ((samples_table['top5000_HS_heatmap'] 
-         & ~samples_table['B6xCAST']
-         & samples_table['get_single_strand']
-         & samples_table['Clip_reads_to_1bp_on_5_prime']).any()):
+    
+    if ((st['top5000_HS_heatmap'] 
+         & ~st['B6xCAST']
+         & st['get_single_strand']
+         & st['Clip_reads_to_1bp_on_5_prime']).any()):
         top_5000_plus_minus_2000_clipped = {
             "top_5000_plus_minus_2000_clipped": (
                 f"Results/{w.genomes_not_fused}/Analysis"
@@ -873,12 +880,15 @@ def markdown_report_aggregate_profiles_input(w):
                 f"{w.smooth}.RData"
             )}
 
+
+
     # Return
-    if w.genomes_not_fused == "mm10":
+    if (w.genomes_not_fused == "mm10") | (w.genomes_not_fused == "mm39"):
         return (peaks_summary | bamfiles_reads | samples_fastp |
-                mm10_agg_profiles | B6xCAST_agg_profiles |
+                mm_agg_profiles | B6xCAST_agg_profiles |
                 B6xCAST_agg_profiles_clipped |
                 top_5000_plus_minus_2000_clipped)
+
     else:
         return peaks_summary | bamfiles_reads | samples_fastp
 
@@ -926,7 +936,7 @@ def multiqc_input(w):
 
     Wildcards used
     --------------
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     library_name = config['library']['name']
 
     Returns
@@ -986,7 +996,7 @@ def process_aggregate_profiles_clipped_input(w):
 
     Wildcards used
     --------------
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     hs_region : B6xCAST_(top_5000_pm_1000bp|
                          PRDM9_assymetric_hs_((invading|receiving)_strand|
                                               mm10_aligned))|
@@ -1034,7 +1044,7 @@ def process_aggregate_profiles_inputs(w):
 
     Wildcards
     ----------
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     hs_region : B6xCAST_(top_5000_pm_1000bp|
                          PRDM9_assymetric_hs_((invading|receiving)_strand|
                                               mm10_aligned))|
@@ -1054,10 +1064,12 @@ def process_aggregate_profiles_inputs(w):
     (suffixes.generate_samples_table_2()). For now, this process is only
     available for 'mm10' genome.
     """
-    mask_mm10 = samples_table_2['reference_genome'] == 'mm10'
-    mm10_df = samples_table_2.loc[mask_mm10]
-    matrixes_df = mm10_df.filter(
-        regex=f"^{w.hs_region}.*matrix$"
+    w.genomes_not_fused = "mm10" if w.genomes_not_fused == "mm10_x_CAST_EiJ" else w.genomes_not_fused
+    mask_genome = samples_table_2['reference_genome'] == f"{w.genomes_not_fused}"
+    df = samples_table_2.loc[mask_genome]
+    hs_modified = re.sub(r"mm\d+(?=_aligned)", "mm", w.hs_region)
+    matrixes_df = df.filter(
+        regex=f"^{hs_modified}.*matrix$"
     )
     matrixes_array = matrixes_df.to_numpy().ravel()
     matrixes_list = matrixes_array[~pd.isnull(matrixes_array)].tolist()
@@ -1117,7 +1129,7 @@ def samstats_samtools_flagstat_input(w):
     Wildcards
     ----------
     sample : [^./ ]+
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     bam_type : Raw_bam|Processed_bam
 
     Returns
