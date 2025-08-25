@@ -3,6 +3,7 @@
 import pandas as pd
 import re
 import sys
+import os
 
 samples_table = None
 samples_table_2 = None
@@ -266,9 +267,48 @@ def align_fastq_input(w):
     Returns
     -------
     input_: dictionary
-        Fastq/s path/s, taken from samples_table.csv
+        fq1: string with fastq 1 path, taken from samples_table.csv
+        fq2: string with fastq 2 path (if SE empty list), taken from samples_table.csv
     """
-    input_ = {"genome_path": config['genomes'][w.genomes_all]}
+    # Get reference genome
+    genomes_dir = config['genomes'][w.genomes_all]
+    
+    try:
+        all_files = os.listdir(genomes_dir)
+    except FileNotFoundError:
+        sys.exit(f"Directory not found: {genomes_dir}")
+
+    required_exts = {"sa", "pac", "bwt", "ann", "amb"}
+    pattern = re.compile(r"^(?P<base>.+)\.(?P<ext>sa|pac|bwt|ann|amb)$")
+
+    matched = []
+    bases = []
+    exts_found = set()
+
+    for f in all_files:
+        m = pattern.match(f)
+        if m:
+            matched.append(os.path.join(genomes_dir, f))
+            bases.append(m.group("base"))
+            exts_found.add(m.group("ext"))
+
+    missing = required_exts - exts_found
+    if missing:
+        sys.exit(f"Missing BWA index files with extensions: {', '.join(missing)} in {genomes_dir}")
+
+    if not matched:
+        sys.exit(f"No BWA index files (.sa, .pac, .bwt, .ann, .amb) found in {genomes_dir}")
+
+    # sanity check: all bases must be identical
+    unique_bases = set(bases)
+    if len(unique_bases) > 1:
+        sys.exit(f"Multiple reference bases found: {unique_bases}")
+
+    input_ = {
+        "reference_genome_indexed_files": matched
+    }
+
+    # Get fastq files
     seq_tech = ""
 
     if (samples_table.loc[w.sample, "library_technology"] == "adaptase"):
