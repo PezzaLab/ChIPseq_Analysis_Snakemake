@@ -7,7 +7,7 @@ Makes table with information related to number of peaks for all samples
 
 Wildcards
 ---------
-genomes_not_fused: "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ"
+genomes_not_fused: "mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ"
 
 Output
 -------
