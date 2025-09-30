@@ -48,7 +48,7 @@ b6_profile <- !is.null(snakemake@input$mm_top5000_asmtric_auto_XnonPAR_ag_profs)
 # Load B6
 if (!is.null(snakemake@input$mm_top5000_asmtric_auto_XnonPAR_ag_profs)) {
   load(snakemake@input[["mm_top5000_asmtric_auto_XnonPAR_ag_profs"]])
-} else if (!is.null(snakemake@input$mm10_top_5000_ag_profs) ) {
+} else if (!is.null(snakemake@input$mm_top_5000_ag_profs) ) {
   load(snakemake@input$mm_top_5000_ag_profs)
   # Change name of object to match the name of same object when 'agg_profiles' is loaded
   aggregate_profiles <- list()
