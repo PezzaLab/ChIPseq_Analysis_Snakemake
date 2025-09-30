@@ -594,7 +594,7 @@ def filter_peaks_blk_grey_list_input(w):
     Output of rule:
     ----------
     ("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
-         "{peak_params}/Black-grey_filtered/{sample}."
+         "{peak_params}/black_list/{sample}."
          "{genomes_final}{extension}.{peak_type}Peak"
     )
 
@@ -606,20 +606,17 @@ def filter_peaks_blk_grey_list_input(w):
     -------
     dict:
         "peaks": list with paths of all peaks from that reference genome
-        "blck_gry_lst": path of black-greylist bed file if available, if not
-            path of black-list
+        "black_list": path of path of black-list bed file
 
     """
     peaks = (f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type}/"
              f"{w.peak_params}/{w.sample}.{w.genomes_final}{w.extension}_"
              f"peaks.{w.peak_type}Peak")
 
-    blck_gry_lst = config['references'][w.genomes_not_fused]['black_grey']
-    if (config['references'][w.genomes_not_fused]['black_grey'] == ""):
-        blck_gry_lst = config['references'][w.genomes_not_fused]['blacklist']
+    black_list = config['references'][w.genomes_not_fused]['blacklist']
 
     return {"peaks": peaks,
-            "blck_gry_lst": blck_gry_lst}
+            "black_list": black_list}
 
 
 def FRIP_input(w):
@@ -647,7 +644,7 @@ def FRIP_input(w):
            f"{w.sample}.{w.genomes_final}{w.extension}.bam")
 
     return {"peak": (f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type}"
-                     f"/{w.peak_params}/Black-grey_filtered/{w.sample}."
+                     f"/{w.peak_params}/blacklist_filtered/{w.sample}."
                      f"{w.genomes_final}{w.extension}.{w.peak_type}Peak"),
             "bam": bam,
             "bai": bam + ".bai"
@@ -724,7 +721,7 @@ def intersect_peaks_HSs_list_input(w):
         "hotspots": hotspots,
         "sample_peaks": (
             f"Results/{w.genomes_not_fused}/Peaks/MACS2/"
-            f"{w.peak_type}/{w.peak_params}/Black-grey_filtered/"
+            f"{w.peak_type}/{w.peak_params}/blacklist_filtered/"
             f"{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"
         )
     }
@@ -1126,11 +1123,11 @@ def sumarize_peak_count_input(w):
     Returns
     -------
     peaks : dictionary
-        'narrow_all': contains paths for all bed files with black/grey-list-
+        'narrow_all': contains paths for all bed files with blacklist-
                     filtered narrow peaks (for that particular reference
                     genome),
         'broad_all': same but broad peaks,
-        'narrow_hs': bed files with black/grey-list-filtered peaks intersected
+        'narrow_hs': bed files with blacklist-filtered peaks intersected
                     with hs list (this files only exist for mm10),
         'broad_hs': same as above but broad peaks
     """

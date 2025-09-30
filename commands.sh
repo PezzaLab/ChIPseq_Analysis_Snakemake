@@ -84,7 +84,9 @@ rclone copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{l
 --filter '- *.fastq.gz' \
 --filter '- *.sra' \
 --filter '- *.homer_anotated.tsv' \
---filter '- *.gappedPeak'
+--filter '- *.gappedPeak' \
+--filter '+ **blacklist**' \
+--filter '- Peaks/**'
 
 # Copy bigwigs
 ## Check if it is copying anything other than a .bg

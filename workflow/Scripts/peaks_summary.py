@@ -39,8 +39,8 @@ for peak_type in peak_types:
             number_peaks = len(fp.readlines())
         peak_count.loc[file_name, peak_type] = number_peaks
 
-# Calculate % of peaks in HSs (only for mm10)
-if (snakemake.wildcards['genomes_not_fused'] == "mm10"):
+# Calculate % of peaks in HSs (only for mouse)
+if snakemake.wildcards['genomes_not_fused'] in ("mm10", "mm39"):
     peak_count["% nrw peaks at HS"] = np.where(
         peak_count['narrow_all'] > 0,
         100 * peak_count['narrow_hs'] / peak_count['narrow_all'], 0)

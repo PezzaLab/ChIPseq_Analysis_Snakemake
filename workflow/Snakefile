@@ -149,9 +149,10 @@ wildcard_constraints:
     flag = "(83|163|99|147|inc_16|exc_16)",
     fused_genome="(mm10_f_d6|mm39_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|mm39_x_CAST_EiJ)",
     genomes_not_fused="mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ",
-    genomes_final=(
-        r"(?<=\.)(?P<interest_genome>mm10|mm39|hg19|hg38|mm10_x_CAST_EiJ|mm39_x_CAST_EiJ)+"
-        r"(_f_d6\.((?P=interest_genome)|d6))?(?=\.)"),
+    genomes_final = (
+        r"(?P<interest_genome>mm10|mm39|hg19|hg38|mm10_x_CAST_EiJ|mm39_x_CAST_EiJ)"
+        r"(_f_d6\.(?:(?P=interest_genome)|d6))?"
+    ),
     genomes_all=(
         "mm10|mm39|d6|hg19|hg38|mm10_f_d6|mm39_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|"
         "mm10_x_CAST_EiJ"),
@@ -407,6 +408,7 @@ rule filter_bam:
     shell:
         r"""
         # Filter out mitochondrial and unplaced/unlocalized scafolds
+        # Keep only unique properly mapped reads  (see flags)
         samtools view \
           -q {config[min_mapping_qual]} \
           -b \
@@ -634,8 +636,11 @@ rule filter_peaks_blk_grey_list:
     input:
         unpack(smkf.filter_peaks_blk_grey_list_input),
     output:
-        final = "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
-                  "{peak_params}/Black-grey_filtered/{sample}."
+        blacklist_filtered = "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
+                  "{peak_params}/blacklist_filtered/{sample}."
+                  "{genomes_final}{extension}.{peak_type}Peak",
+        blacklist_overlap = "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
+                  "{peak_params}/blacklist_overlap/{sample}."
                   "{genomes_final}{extension}.{peak_type}Peak",
     wildcard_constraints:
         extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?",
@@ -643,25 +648,29 @@ rule filter_peaks_blk_grey_list:
         config["bedtools"],
     shell:
         """
-        bedtools intersect -wa -v -a {input.peaks} -b {input.blck_gry_lst} | \\
+        bedtools intersect -v -a {input.peaks} -b {input.black_list} | \\
         awk 'BEGIN {{ OFS = "\\t"}} {{print $0, ($1 ":" $2 "-" $3)}}' - > \\
-        {output.final}
+        {output.blacklist_filtered}
+
+        bedtools intersect -wa -u -a {input.peaks} -b {input.black_list} | \\
+        awk 'BEGIN {{ OFS = "\\t"}} {{print $0, ($1 ":" $2 "-" $3)}}' - > \\
+        {output.blacklist_overlap}
         """
 
 rule annotate_peaks:
     input:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/"
-            "Black-grey_filtered/{sample}.{genomes_final}{extension}."
+            "blacklist_filtered/{sample}.{genomes_final}{extension}."
             "{peak_type}Peak",
     output:
         anno_peaks = temp(
             "Results/{genomes_not_fused}/Peaks/MACS2/"
-                "{peak_type}/{peak_params}/Black-grey_filtered/{sample}."
+                "{peak_type}/{peak_params}/blacklist_filtered/{sample}."
                 "{genomes_final}{extension}.{peak_type}Peak.homer_anotated.tsv"
             ),
         genome_ontology = directory(
             "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
-                "{peak_params}/Black-grey_filtered/Genome_ontology/"
+                "{peak_params}/blacklist_filtered/Genome_ontology/"
                 "{sample}.{genomes_final}{extension}.{peak_type}"
             ),
     envmodules:
@@ -678,11 +687,11 @@ rule annotate_peaks:
 rule modify_annotated_peaks:
     input:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/"
-            "Black-grey_filtered/{sample}.{genomes_final}{extension}."
+            "blacklist_filtered/{sample}.{genomes_final}{extension}."
             "{peak_type}Peak.homer_anotated.tsv",
     output:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/{peak_params}/"
-            "Black-grey_filtered/Annotated_peaks/{sample}."
+            "blacklist_filtered/Annotated_peaks/{sample}."
             "{genomes_final}{extension}.{peak_type}Peak.annotated.tsv",
     envmodules:
         config["R"],
@@ -768,7 +777,7 @@ rule FRIP:
         unpack(smkf.FRIP_input),
     output:
         "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/FRIP/"
-            "MACS2_{peak_type}_{peak_params}_bl-gr_flt/"
+            "MACS2_{peak_type}_{peak_params}_bl_flt/"
             "{sample}.{genomes_final}{extension}.FRIP.txt",
     envmodules:
         config["sambamba"],
@@ -932,7 +941,7 @@ rule intersect_peaks_HSs_list:
         unpack(smkf.intersect_peaks_HSs_list_input)
     output:
         "Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
-            "{peak_params}/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/"
+            "{peak_params}/blacklist_filtered/Intersect_HSs_plus_minus_2000_bp/"
             "{sample}.{genomes_final}{extension}.{peak_type}Peak",
     envmodules:
         config["bedtools"],

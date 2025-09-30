@@ -137,13 +137,13 @@ def generate_samples_table_2(samples_table, config):
                 + samples_table_2['peak_ctrl_file_alias']
                 )
 
-            # Black/grey filtered peak path
+            # Blacklist filtered peak path
             samples_table_2[f'{peak_type}_peak_bl_gr_flt'] = np.where(
                 has_ctrl,
                 "Results/" + samples_table_2['reference_genome']
                 + f"/Peaks/MACS2/{peak_type}/"
                 + peak_params_pt
-                + "/Black-grey_filtered/"
+                + "/blacklist_filtered/"
                 + samples_nodup_filt
                 + f".{peak_type}Peak",
                 np.nan
@@ -155,7 +155,7 @@ def generate_samples_table_2(samples_table, config):
                 "Results/" + samples_table_2['reference_genome']
                 + f"/Peaks/MACS2/{peak_type}/"
                 + peak_params_pt
-                + "/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/"
+                + "/blacklist_filtered/Intersect_HSs_plus_minus_2000_bp/"
                 + samples_nodup_filt
                 + f".{peak_type}Peak",
                 np.nan
@@ -180,7 +180,7 @@ def generate_samples_table_2(samples_table, config):
                 "Results/" + samples_table_2['reference_genome']
                 + f"/Peaks/MACS2/{peak_type}/"
                 + peak_params_pt
-                + "/Black-grey_filtered/Annotated_peaks/"
+                + "/blacklist_filtered/Annotated_peaks/"
                 + samples_nodup_filt
                 + f".{peak_type}Peak.annotated.tsv",
                 np.nan

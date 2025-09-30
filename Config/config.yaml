@@ -80,7 +80,6 @@ references:
     B6xCAST_PRDM9_assymetric_hs_mm10_aligned: "Resources/bed_files/mm10/PRDM9_assymetric.autosomal.mm10.dmc1_coords.bed"
     TSS: ""
     blacklist: "Resources/bed_files/mm10/mm10-blacklist.v2.bed"
-    black_grey: ""
   #     sonic:
   #       PE_adaptase: ""
   #     MNAse:
@@ -105,11 +104,9 @@ references:
     B6xCAST_PRDM9_assymetric_hs_mm10_aligned: "Resources/bed_files/mm39/PRDM9_assymetric.autosomal.mm10.dmc1_coords.bed"
     TSS: ""
     blacklist: "Resources/bed_files/mm39/mm39.excluderanges.bed"
-    black_grey: ""
   hg38:
     TSS: ""
     blacklist: "Resources/bed_files/hg38/hg38-blacklist.v2.bed"
-    black_grey: ""
 
 
 heatmaps:
