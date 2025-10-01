@@ -17,8 +17,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = F)
 ```
 ```{r,debug_mode, include=F, eval=T}
-save.image("html_report_image.RData")
-#knitr::opts_knit$set(root.dir = "../")
+# save.image(paste("html_report_image", snakemake@wildcards$genomes_not_fused, "RData", sep = "."))
 ```
 
 ```{r, libraries, message=F, error=F}
@@ -213,7 +212,11 @@ names(prots) <- prots # So that name of each protein is printed (in the next loo
 
 lapply(prots,
   function(i) {
-    strands_n <- aggregate_profiles$top_5000_plus_minus_2000$Strand %>% unique %>% length
+    strands_n <- 
+      aggregate_profiles$top_5000_plus_minus_2000 %>% 
+      filter(Protein == i) %>% 
+      pull(Strand) %>% unique %>% length
+      aggregate_profiles$top_5000_plus_minus_2000$Strand %>% unique %>% length
     a <- ggplot(data = filter(aggregate_profiles$top_5000_plus_minus_2000 ,
                         Protein == i,
                         Strand == "Both_strands")) +
