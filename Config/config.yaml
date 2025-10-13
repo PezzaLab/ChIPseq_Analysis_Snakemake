@@ -59,6 +59,10 @@ MACS2:
     chip_mm10_sonic_testes_adaptase_7dpp: "/hpc-prj/pezza/References/Mice/Inputs/Bam/2022_1_24_input_7dpp_sonic_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
     cyr_mm10_testes_adaptase_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/3_22_22_RaG_IgG_R4_MERGED.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
     chip_mm10_B6xCAST_sonic_testes_adaptase_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/09_06_2023_ChIPseq_B6xCAST_input_B6xCAST_Wt_dros_8Di_whole_tt_douncer.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
+    cyr_mm39_testes_adaptase_1: /hpc-prj/pezza/References/Mice/Inputs/Bam/3_22_22_RaG_IgG_R4_MERGED.mm39_f_d6.mm39.q_filt.srt.nodup.mit_filt.bam
+    chip_mm39_sonic_testes_adaptase_2: /hpc-prj/pezza/References/Mice/Inputs/Bam/6-28-22_Input_8_Di_L_zyg_wtestes.mm39.q_filt.srt.nodup.mit_filt.bam
+    chip_mm39_MNAse_testes_adaptase_7dpp: /hpc-prj/pezza/References/Mice/Inputs/Bam/2022_1_28_input_7dpp_MNAse_MERGED.mm39.q_filt.srt.nodup.mit_filt.bam
+    chip_mm39_sonic_testes_adaptase_7dpp: 2022_1_24_input_7dpp_sonic_MERGED.mm39.q_filt.srt.nodup.mit_filt.bam
 
   # Single read arguments
   extension: "300"
