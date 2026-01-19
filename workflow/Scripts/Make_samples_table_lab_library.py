@@ -137,7 +137,6 @@ def build_sample_table(fastqs: list[str], paired: bool, tech: str, config_path: 
         "top5000_HS_heatmap": "True",
         "Size_DNA_top_5000_HS": "False",
         "merge_with": "-",
-        "dros_equalization_group": "-",
         "B6xCAST": ["True" if re.search("_B6XCAST_", n, re.IGNORECASE) else "False" for n in names],
     })
     return table

@@ -243,13 +243,12 @@ def generate_samples_table_2(samples_table, config):
 
     # %%% Drosophila normalized bigwigs
     samples_table_2['dros_normalized_both_strands_coverage_bw'] = np.where(
-        ~samples_table["dros_equalization_group"].isnull(),
+        samples_table["dros_spike_in"],
         "Results/"
             + samples_table['reference_genome']
             + "/Bigwigs/Coverage/Both_strands/"
             + dros_norm_cov_config_params_string
-            + samples_table['dros_equalization_group']
-            + "/"
+            + "drosophila_100K_reads/"
             + samples_nodup_filt
             + ".dros_norm.bw",
         np.NaN)

@@ -93,7 +93,7 @@ w = Wildcard()
 # Set wilcard attributes
 w.sample = ""
 w.hs_region = ""
-w.genomes_not_fused = ""
+w.genomes_not_fused = "mm39"
 w.genomes_final = ""
 w.extension = ".q_filt.srt.nodup.mit_filt"
 w.peak_type = ""
@@ -103,13 +103,20 @@ w.library_name=""
 # Filter columns by regex
 samples_table_2.filter(regex=".*.*")
 
+#%% Create snakemake object
+from types import SimpleNamespace
+snakemake = SimpleNamespace()
+
+snakemake = SimpleNamespace()
+snakemake.params = {'samples_table_2': samples_table_2}
+snakemake.wildcards = {'genomes_not_fused': 'w.genomes_not_fused'}
+snakemake.input = 
 #%% Do tests
 
 # samples_table_2.to_csv("../Config/samples_table_processed.csv", index=False)
 #filtered = samples_table_2.filter(regex=".*B6xCAST.*matrix")
+smkf.sumarize_peak_count_input(w)
 
-smkf.process_aggregate_profiles_inputs(w)
-smkf.markdown_report_aggregate_profiles_input(w)
 
 #%% Export dataframes to be explored in excel
 import os

@@ -175,24 +175,6 @@ def check_sample_table_format(samples_table):
         )
         exit_script = True
 
-    # %% Dros_eq and dros_spike_in
-    # Check that the samples with a "dros_equalization_group" have
-    # "dros_spike_in" == T (I don't do the complementary because you might
-    # have the sample to equalize on another library)
-    mask_dros_eq = (~samples_table['dros_equalization_group'].isnull() &
-                    ~samples_table['dros_spike_in']
-                    )
-    offending_dros_eq = samples_table[mask_dros_eq]["sample_name"].tolist()
-    offending_dros_eq_strg = "\n".join([f"\t- {s}" for s in offending_dros_eq])
-    offending_dros_eq_strg
-    if mask_dros_eq.any():
-        exit_message += (
-            "\n\n* The following samples have a 'dros_equalization_group' "
-            "assigned to it but the field 'dros_spike_in' set as False.\n"
-            f"{offending_dros_eq_strg}"
-        )
-        exit_script = True
-
     # %% peak_ctrl_file_alias
     # Convert peak_ctrl_file_alias series to str (in case it's all NaN values)
     peak_ctrls = samples_table['peak_ctrl_file_alias'].astype(str)
@@ -549,19 +531,17 @@ def dros_normalization_report_input(w):
 
     Wildcards
     ----------
-    dros_eq_group : [^./ ]+
+    No wildcards in this rule
 
     Returns
     -------
     List
-        Paths to outputs of samtools_flagstat of samples to be normalized on a
-            given 'dros_equalization_group'.
+        Paths to outputs of samtools_flagstat of samples to be normalized using
+        drosophila'.
     """
-    df = samples_table_2.loc[
-        samples_table_2['dros_equalization_group'].str.match(
-            w.dros_eq_group, na=False
-        ), :]
-    return df['processed_flagstat_dros'].tolist()
+    return samples_table_2.loc[
+    samples_table_2["dros_spike_in"], "processed_flagstat_dros"
+    ].tolist()
 
 
 def filter_bam_params(w):
