@@ -85,6 +85,7 @@ rclone copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{l
 --filter '- *.sra' \
 --filter '- *.homer_anotated.tsv' \
 --filter '- *.gappedPeak' \
+--filter '- Intersect_HSs_plus_minus_2000_bp/' \
 --filter '+ **blacklist**' \
 --filter '- Peaks/**'
 

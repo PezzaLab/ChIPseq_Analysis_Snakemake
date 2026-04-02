@@ -94,10 +94,6 @@ heatmaps = samples_table_2.filter(regex="^heatmap.*").values.flatten().tolist()
 heatmaps = [x for x in heatmaps if x==x]
 # 'nan == nan' is false, therefore doing x==x will filter out nan values
 
-annotated_peaks = samples_table_2.filter(
-    regex=".*(narrow|broad)Peak.*annotated$").values.flatten().tolist()
-annotated_peaks = [x for x in annotated_peaks if x==x]
-
 # Qctrl
 multiqc = []
 if config['qctrl']:
@@ -129,12 +125,7 @@ rule all:
             else "not_smoothed"),
         ),
         heatmaps,
-        annotated_peaks,
         coverage_bigwigs
-
-        # IDR Analysis
-            # Same as merged files analysis since most of the times both files
-            # do not belong to the same library
 
 wildcard_constraints:
     bam_type = "Raw_bam|Processed_bam",

@@ -174,18 +174,6 @@ def generate_samples_table_2(samples_table, config):
                 np.nan
             )
 
-            # Annotated peaks
-            samples_table_2[f'{peak_type}Peak_blk_gr_flt_annotated'] = np.where(
-                has_ctrl,
-                "Results/" + samples_table_2['reference_genome']
-                + f"/Peaks/MACS2/{peak_type}/"
-                + peak_params_pt
-                + "/blacklist_filtered/Annotated_peaks/"
-                + samples_nodup_filt
-                + f".{peak_type}Peak.annotated.tsv",
-                np.nan
-            )
-
 
     # %%% samtools flagstat
     samples_table_2['raw_flagstat'] = (

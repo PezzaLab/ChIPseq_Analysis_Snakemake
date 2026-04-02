@@ -974,11 +974,6 @@ def multiqc_input(w):
         for nme, pe in zip(df.index, PE)
     ]
 
-    crosscorr = [
-        f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Processed_bam/"
-        f"{nme}.crosscorrelation.spp.out" for nme in df.index
-    ]
-
     insert_size = [
         f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Processed_bam/{nme}"
         ".insert_size_picard.tab" for nme in df.index if df.loc[nme, "PE"]
@@ -999,8 +994,7 @@ def multiqc_input(w):
         ".flagstat.txt" for nme in df.index
     ]
 
-    res = (fastp + crosscorr + insert_size + library_complexity
-           + samstat + flagstat)
+    res = (fastp + insert_size + library_complexity + samstat + flagstat)
     return res
 
 
