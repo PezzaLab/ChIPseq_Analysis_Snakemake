@@ -31,7 +31,7 @@ rule index:
     input:
         "{sample}.bam",
     output:
-        "{sample,.+}.bam.bai",
+        "{sample,Results/.+}.bam.bai",
     log:
         "logs/index/{sample}.log",
     threads: 2
