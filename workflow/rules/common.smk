@@ -82,8 +82,8 @@ if config['qctrl']:
 
 # Basic unstranded BigWig coverage files (Both strands CPM + Drosophila normalized)
 basic_coverage_bigwigs = [
-    a for a in samples_table_2.filter(regex = ".*both_strands_coverage_bw$").values.flatten().tolist()
-    if a == a
+    a for a in samples_table_2.filter(regex = r"(?i).*both_strands_coverage_bw$").values.flatten().tolist()
+    if pd.notna(a)
 ]
 
 # Single strand BigWig coverage files (Watson, Crick, clipped, etc.)
@@ -95,11 +95,17 @@ single_strand_coverage_bigwigs = [
 # All coverage BigWigs combined
 all_coverage_bigwigs = basic_coverage_bigwigs + single_strand_coverage_bigwigs
 
-# Basic blacklist-filtered peaks (narrow and broad)
+# FRIP score files (calculated on broad peaks for samples with controls)
+broad_frip_scores = [
+    f for f in samples_table_2['broad_blk_gr_flt_FRIP'].values.tolist()
+    if pd.notna(f)
+]
+
+# Basic blacklist-filtered peaks (narrow and broad) + broad FRIP scores
 basic_peaks = [
     p for p in samples_table_2.filter(regex = r"^(narrow|broad)_peak_bl_gr_flt$").values.flatten().tolist()
     if pd.notna(p)
-]
+] + broad_frip_scores
 
 # Peak count summary files for genomes that have peak controls
 peaks_summary_files = [

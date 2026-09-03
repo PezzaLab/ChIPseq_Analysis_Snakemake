@@ -7,6 +7,9 @@ rule trim_adapters_SE:
         fq1 = temp("Results/{sample}.adap_trimmed.R1.SE.fq.gz"),
         html = "Results/FASTQ_reports/{sample}.SE.fastp.html",
         json = "Results/FASTQ_reports/{sample}.SE.fastp.json",
+    log:
+        "logs/trim_adapters_SE/{sample}.log",
+    threads: 6
     envmodules:
         config["fastp"],
     benchmark:
@@ -14,17 +17,12 @@ rule trim_adapters_SE:
     shell:
         """
         fastp \\
-          --thread $SLURM_CPUS_ON_NODE \\
+          --thread {threads} \\
           -i {input} \\
           --html {output.html} \\
           --json {output.json} \\
           -o {output.fq1} \\
-
-          # For SE data, the adapters are evaluated by analyzing the
-          # tails of first ~1M reads. FASTP has a built-in list of the
-          # most common adapters used. If adapters are 'weird', you can
-          # specify them using --adapter_sequence option. For this the
-          # snakemake rule should be changed.
+          > {log} 2>&1
         """
 
 rule trim_adapters_PE:
@@ -35,6 +33,9 @@ rule trim_adapters_PE:
         fq2 = temp("Results/{sample}.adap_trimmed.R2.PE.fq.gz"),
         html = "Results/FASTQ_reports/{sample}.PE.fastp.html",
         json = "Results/FASTQ_reports/{sample}.PE.fastp.json",
+    log:
+        "logs/trim_adapters_PE/{sample}.log",
+    threads: 6
     envmodules:
         config["fastp"],
     benchmark:
@@ -42,13 +43,14 @@ rule trim_adapters_PE:
     shell:
         """
         fastp \\
-          --thread $SLURM_CPUS_ON_NODE \\
+          --thread {threads} \\
           -i {input.fastq1} \\
           -I {input.fastq2} \\
           --html {output.html} \\
           --json {output.json} \\
           -o {output.fq1} \\
-          -O {output.fq2}
+          -O {output.fq2} \\
+          > {log} 2>&1
         """
 
 rule trim_adaptase:
@@ -56,6 +58,9 @@ rule trim_adaptase:
         "Results/{sample}.adap_trimmed.R{read}.{n_ends}.fq.gz",
     output:
         fq1 = temp("Results/{sample}.adap_trimmed.adaptase_trimmed.R{read}.{n_ends}.fq.gz"),
+    log:
+        "logs/trim_adaptase/{sample}.{read}.{n_ends}.log",
+    threads: 4
     envmodules:
         config["cutadapt"],
     benchmark:
@@ -63,13 +68,9 @@ rule trim_adaptase:
     shell:
         """
         cutadapt \\
-          --cores 0 \\
-          -u 10  \\
+          --cores {threads} \\
+          -u 10 \\
           -o {output} \\
-          {input}
-
-        # -u : remove bases from the beginning or end of each read. If
-        #      the given length is positive, the bases are removed from
-        #      the beginning of each read.
-        # --cores: Use 0 to auto-detect the number of available cores
+          {input} \\
+          > {log} 2>&1
         """

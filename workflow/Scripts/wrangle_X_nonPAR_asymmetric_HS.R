@@ -11,7 +11,7 @@ file_names <-
   unlist %>% 
   basename %>% 
   str_remove(".RData") %>% 
-  str_remove(paste0(snakemake@wildcards$libary, "_"))
+  str_remove(paste0(snakemake@wildcards$library_name, "_"))
 
 results <- list()
 

@@ -4,15 +4,21 @@ rule create_coverage_bw:
     input:
         bam="Results/{genomes_not_fused}/Bams/{strands}/"
             "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
-                "{ss_condit}{clip_condit}bam",
+            "{ss_condit}{clip_condit}bam",
         bai="Results/{genomes_not_fused}/Bams/{strands}/"
             "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
-                "{ss_condit}{clip_condit}bam.bai",
+            "{ss_condit}{clip_condit}bam.bai",
     output:
         "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/"
         "{norm}_bs{bin_size}_sm{smooth_size}_ex{extension_size}/"
         "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
         "{ss_condit}{clip_condit}bw",
+    log:
+        "logs/create_coverage_bw/{genomes_not_fused}_{strands}_{norm}_bs{bin_size}_sm{smooth_size}_ex{extension_size}/"
+        "{sample}.{genomes_final}.{ss_condit}{clip_condit}.log",
+    threads: 12
+    params:
+        default_norm = config['coverage']['normalization'],
     envmodules:
         config["deeptools"],
     benchmark:
@@ -26,10 +32,10 @@ rule create_coverage_bw:
         # been clipped or not. If clipped, then cov smooth and bin == 1
         # and no read extension is done, otherwise use config file parameters
 
-        if [ -z "{wildcards.clip_condit}" ]
+        (if [ -z "{wildcards.clip_condit}" ]
         then
             echo "Doing smooth and bin according to config file (not clipped profile)"
-            bamCoverage --numberOfProcessors max -b {input.bam} \\
+            bamCoverage --numberOfProcessors {threads} -b {input.bam} \\
              -bs {wildcards.bin_size} \\
              --smoothLength {wildcards.smooth_size} \\
              --extendReads {wildcards.extension_size} \\
@@ -38,12 +44,12 @@ rule create_coverage_bw:
         else
             echo "Doing smooth 1 and bin 1 (clipped profile)"
             bamCoverage \\
-             --numberOfProcessors max \\
+             --numberOfProcessors {threads} \\
              -b {input.bam} -bs 1 \\
              --smoothLength 1 \\
-             --normalizeUsing {config[coverage][normalization]} \\
+             --normalizeUsing {params.default_norm} \\
              -o {output}
-        fi
+        fi) > {log} 2>&1
         """
 
 rule dros_normalization_report:
@@ -52,6 +58,9 @@ rule dros_normalization_report:
     output:
         "Results/d6/Analysis/drosophila_normalization/drosophila_100K_reads/"
         "drosophila_equalization_report.tsv",
+    log:
+        "logs/dros_normalization_report/drosophila_equalization_report.log",
+    threads: 1
     params:
         samples_table_2 = samples_table_2,
     script:
@@ -65,6 +74,10 @@ rule dros_normalization:
         "drosNormalized_bs{bin_size}_sm{smooth_size}_ex{extension_size}/"
         "drosophila_100K_reads/{sample}.{genomes_final}{extension}{strand}."
         "dros_norm.bw",
+    log:
+        "logs/dros_normalization/{genomes_not_fused}_{strands}_{bin_size}_sm{smooth_size}_ex{extension_size}/"
+        "{sample}.{genomes_final}{extension}{strand}.log",
+    threads: 12
     envmodules:
         config["deeptools"],
     benchmark:
@@ -73,7 +86,7 @@ rule dros_normalization:
         "{sample}.{genomes_final}{extension}{strand}.tsv",
     shell:
         """
-        scaleFactor=$(awk 'BEGIN {{FS="\\t"}} $1 == "{wildcards.sample}" \\
+        (scaleFactor=$(awk 'BEGIN {{FS="\\t"}} $1 == "{wildcards.sample}" \\
          {{print $4}}' {input.report})
 
         if [ -z "${{scaleFactor}}" ]; then
@@ -85,10 +98,10 @@ rule dros_normalization:
         echo -e "scaleFactor = $scaleFactor \\n"
         echo "Sample will be scaled down with a scale factor of $scaleFactor"
 
-        bamCoverage --numberOfProcessors max -b {input.bam} \\
+        bamCoverage --numberOfProcessors {threads} -b {input.bam} \\
          -bs {wildcards.bin_size} \\
          --smoothLength {wildcards.smooth_size} \\
          --extendReads {wildcards.extension_size} \\
          -o {output} \\
-         --scaleFactor $scaleFactor
+         --scaleFactor $scaleFactor) > {log} 2>&1
         """

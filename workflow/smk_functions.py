@@ -1085,8 +1085,8 @@ def process_aggregate_profiles_inputs(w):
     return matrixes_list
 
 
-def sumarize_peak_count_input(w):
-    r"""Get input for rule sumarize_peak_count.
+def summarize_peak_count_input(w):
+    r"""Get input for rule summarize_peak_count.
 
     Wildcards
     ----------
@@ -1128,6 +1128,10 @@ def sumarize_peak_count_input(w):
             ].values.tolist()
 
     return peaks
+
+
+# Backwards compatibility alias
+sumarize_peak_count_input = summarize_peak_count_input
 
 
 def samstats_samtools_flagstat_input(w):

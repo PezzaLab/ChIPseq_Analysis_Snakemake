@@ -26,7 +26,7 @@ trap cleanup EXIT
 # ------------------------------------------------------------------------------
 echo ""
 echo "--- [TEST 1] Baseline Configuration Verification ---"
-${SNAKEMAKE} --profile Config/Profiles/slurm_quio_repeat_10 -np > /tmp/test1_dryrun.txt 2>&1
+${SNAKEMAKE} --profile Config/Profiles/slurm_quio_repeat_10 -np full > /tmp/test1_dryrun.txt 2>&1
 
 check_test1() {
     local pass=true
@@ -74,7 +74,7 @@ sed -i 's/bin_size: "4"/bin_size: "10"/' Config/config.yaml
 sed -i 's/smooth: "1"/smooth: "3"/' Config/config.yaml
 sed -i 's/extend_reads: "250"/extend_reads: "180"/' Config/config.yaml
 
-${SNAKEMAKE} --profile Config/Profiles/slurm_quio_repeat_10 -np > /tmp/test2_dryrun.txt 2>&1
+${SNAKEMAKE} --profile Config/Profiles/slurm_quio_repeat_10 -np full > /tmp/test2_dryrun.txt 2>&1
 
 check_test2() {
     local pass=true
@@ -122,7 +122,7 @@ echo "--- [TEST 3] Mutating MACS2 Peak Calling Cutoffs ---"
 sed -i 's/qvalue: "0.05"/qvalue: "0.01"/' Config/config.yaml
 sed -i 's/broad_cutoff: "0.1"/broad_cutoff: "0.05"/' Config/config.yaml
 
-${SNAKEMAKE} --profile Config/Profiles/slurm_quio_repeat_10 -np > /tmp/test3_dryrun.txt 2>&1
+${SNAKEMAKE} --profile Config/Profiles/slurm_quio_repeat_10 -np full > /tmp/test3_dryrun.txt 2>&1
 
 check_test3() {
     local pass=true
@@ -157,7 +157,7 @@ echo "--- [TEST 4] Mutating Library Technology (regular -> adaptase) ---"
 # Replace library_technology for Bloom_10_PE_no_dros from regular to adaptase
 sed -i 's/Bloom_10_PE_no_dros,Resources\/test_FASTQs\/Bloom_10_HS_peaks_R1.no_dros.R1.fastq.gz,Resources\/test_FASTQs\/Bloom_10_HS_peaks_R1.no_dros.R2.fastq.gz,True,regular,/Bloom_10_PE_no_dros,Resources\/test_FASTQs\/Bloom_10_HS_peaks_R1.no_dros.R1.fastq.gz,Resources\/test_FASTQs\/Bloom_10_HS_peaks_R1.no_dros.R2.fastq.gz,True,adaptase,/' Config/samples.csv
 
-${SNAKEMAKE} --profile Config/Profiles/slurm_quio_repeat_10 -np > /tmp/test4_dryrun.txt 2>&1
+${SNAKEMAKE} --profile Config/Profiles/slurm_quio_repeat_10 -np full > /tmp/test4_dryrun.txt 2>&1
 
 check_test4() {
     local pass=true
@@ -188,7 +188,7 @@ check_test4
 # ------------------------------------------------------------------------------
 echo ""
 echo "--- [TEST 5] Drosophila Spike-in Common Scale Verification ---"
-${SNAKEMAKE} --profile Config/Profiles/slurm_quio_repeat_10 -np > /tmp/test5_dryrun.txt 2>&1
+${SNAKEMAKE} --profile Config/Profiles/slurm_quio_repeat_10 -np full > /tmp/test5_dryrun.txt 2>&1
 
 check_test5() {
     local pass=true

@@ -15,8 +15,12 @@ rule get_strand_sep_bams:
             "{read_length}/{sample}.{genomes_final}."
             "q_filt.srt.nodup.mit_filt.{flag}.bam.bai"
         ),
+    log:
+        "logs/get_strand_sep_bams/{genomes_not_fused}_{read_length}/"
+        "{sample}.{genomes_final}.{flag}.log",
+    threads: 2
     params:
-        smkf.get_strand_sep_bams_params
+        smkf.get_strand_sep_bams_params,
     envmodules:
         config["samtools"],
     benchmark:
@@ -24,8 +28,8 @@ rule get_strand_sep_bams:
         "{sample}.{genomes_final}.{flag}.tsv",
     shell:
         """
-        samtools view -b {params} {input.bam} > {output.bam}
-        samtools index {output.bam}
+        (samtools view -@ {threads} -b {params} {input.bam} > {output.bam}
+        samtools index -@ {threads} {output.bam}) > {log} 2>&1
         """
 
 rule merge_watson_or_crick:
@@ -46,6 +50,10 @@ rule merge_watson_or_crick:
         "Results/{genomes_not_fused}/Bams/Single_strand/Full_length_reads/"
         "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
         "{flag1}-{flag2}.bam",
+    log:
+        "logs/merge_watson_or_crick/{genomes_not_fused}/"
+        "{sample}.{genomes_final}.{flag1}-{flag2}.log",
+    threads: 2
     wildcard_constraints:
         flag1="(83|99)",
         flag2="(163|147)",
@@ -56,7 +64,7 @@ rule merge_watson_or_crick:
         "{sample}.{genomes_final}.{flag1}-{flag2}.tsv",
     shell:
         """
-        samtools merge {output} {input.bam_1} {input.bam_2}
+        samtools merge -@ {threads} {output} {input.bam_1} {input.bam_2} > {log} 2>&1
         """
 
 rule clip_1bp:
@@ -73,6 +81,10 @@ rule clip_1bp:
                 "temp_clip_1bp"
             )
         ),
+    log:
+        "logs/clip_1bp/{genomes_not_fused}/"
+        "{sample}.{genomes_final}.{ss_PE}{ss_SR}.log",
+    threads: 2
     wildcard_constraints:
         flag16="inc_16|exc_16",
     params:
@@ -85,7 +97,7 @@ rule clip_1bp:
         "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt.{ss_PE}{ss_SR}.tsv",
     shell:
         """
-        set -x
+        (set -x
         temp_dir="{output.tmp_dir}"
 
         mkdir -p $temp_dir
@@ -96,9 +108,9 @@ rule clip_1bp:
         # Clip reads
         samtools view {input} -{params.flag} 16 | \\
         awk -v dir="${{temp_dir}}" '{{read_length=length($10)}} \\
-          {{print $0 >> dir "/" read_length ".sam" }} '
+          {{outfile=sprintf("%s/%s.sam", dir, read_length); print $0 >> outfile}}'
 
-        sam_files=$(find ./${{temp_dir}} -regextype awk -iregex ".*sam$")
+        sam_files=$(find ./${{temp_dir}} -name "*.sam")
 
         for sam in ${{sam_files}}; do
           read_length=$(basename $sam .sam)
@@ -106,13 +118,13 @@ rule clip_1bp:
           echo -e "clippping reads of readlength = $read_length \\n"
           cat ${{temp_dir}}/header $sam |
           bam trimBam - - -R $clip_length --clip | \
-          samtools sort -n -o - - | \
+          samtools sort -@ {threads} -n -o - - | \
           samtools fixmate - - | \
-          samtools sort - -o ${{temp_dir}}/${{read_length}}_clipped_temp.bam
+          samtools sort -@ {threads} - -o ${{temp_dir}}/${{read_length}}_clipped_temp.bam
         done
 
         # Merge them
-        bam_files=$(find ./${{temp_dir}} -regextype awk -iregex ".*bam$" -type f \\
+        bam_files=$(find ./${{temp_dir}} -name "*_clipped_temp.bam" -type f \\
             | tr "\\n" " ")
-        samtools merge -o {output.bam} $bam_files
+        samtools merge -@ {threads} -o {output.bam} $bam_files) > {log} 2>&1
         """
