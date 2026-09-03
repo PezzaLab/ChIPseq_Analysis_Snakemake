@@ -1,4 +1,10 @@
+# Standalone entrypoint for Basic ChIP-seq / CUT&RUN Analysis
+# Self-contained for publication or standard ChIP-seq analyses without meiotic specialization
+
 configfile: "Config/config.yaml"
+
+# Set basic mode
+config["mode"] = "basic"
 
 # Common setup, metadata, and wildcard constraints
 include: "rules/common.smk"
@@ -11,29 +17,16 @@ include: "rules/qc.smk"
 include: "rules/coverage.smk"
 include: "rules/peaks.smk"
 
-# Advanced / meiotic processing rules
-include: "rules/single_strand.smk"
-include: "rules/hotspots_profiles.smk"
-
-ruleorder: get_strand_sep_bams > dedup_bam > index
+ruleorder: dedup_bam > index
 ruleorder: merge_bams > align_fastq
 
 #####################################################
-#####                TARGET RULES               #####
+#####                TARGET RULE                #####
 #####################################################
 
-# 1. Basic analysis: trimming, alignment, dedup, filtering, unstranded BigWigs, MACS2 peaks, QC
 rule basic:
     input:
         multiqc,
         basic_coverage_bigwigs,
         basic_peaks,
         peaks_summary_files
-
-# 2. Full analysis: basic analysis + strand-separated BigWigs, hotspot matrices, heatmaps, HTML report
-rule full:
-    input:
-        rules.basic.input,
-        single_strand_coverage_bigwigs,
-        heatmaps,
-        html_reports

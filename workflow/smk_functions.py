@@ -9,6 +9,7 @@ samples_table = None
 samples_table_2 = None
 config = None
 samples_table_no_merged_samples = None
+include_hotspots = True
 
 def check_sample_table_format(samples_table):
     r"""Check if samples_table.csv has been properly filled.
@@ -1112,22 +1113,20 @@ def sumarize_peak_count_input(w):
         selection_criteria_all = (
             genome_filtered[f'{peak_type}_peak_bl_gr_flt'].notnull()
         )
-        selection_criteria_hs = (
-            genome_filtered[f'{peak_type}_peak_bl_gr_flt_hs_int'].notnull()
-        )
+        peaks[f"{peak_type}_all"] = genome_filtered.loc[
+            selection_criteria_all,
+            f'{peak_type}_peak_bl_gr_flt'
+        ].values.tolist()
 
-        peaks |= {
-            f"{peak_type}_all": genome_filtered.loc[
-                selection_criteria_all,
-                f'{peak_type}_peak_bl_gr_flt'
-                ].values.tolist(),
-            f"{peak_type}_hs": genome_filtered.loc[
+        if include_hotspots and f'{peak_type}_peak_bl_gr_flt_hs_int' in genome_filtered:
+            selection_criteria_hs = (
+                genome_filtered[f'{peak_type}_peak_bl_gr_flt_hs_int'].notnull()
+            )
+            peaks[f"{peak_type}_hs"] = genome_filtered.loc[
                 selection_criteria_hs,
                 f'{peak_type}_peak_bl_gr_flt_hs_int'
-                ].values.tolist(),
-        }
-    if not (len(peaks['narrow_all']) > 1):
-        exit
+            ].values.tolist()
+
     return peaks
 
 

@@ -26,4 +26,5 @@ log*
 !log.xlsx
 Config/renaming_info.tsv
 Config/samples.orig*
-
+current_env_info/
+target_env_info/
