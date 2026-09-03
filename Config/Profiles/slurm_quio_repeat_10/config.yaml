@@ -3,9 +3,9 @@ executor: slurm
 default-resources:
   slurm_account: "pezzar-lab"
   slurm_partition: "serial"
-  slurm_extra: "f'--mail-type FAIL'"
+  slurm_extra: "'--mail-type=FAIL'"
   runtime: "10h"
-  mem_mb: "2000"
+  mem_mb: 2000
 use-envmodules: "True"
 restart-times: "9"
 max-jobs-per-second: "20"
@@ -88,7 +88,7 @@ set-resources:
     insert_size_picard:
       mem_mb: 1200
     library_complexity_picard:
-      mem_mb: f"{ int(input.size_mb * 0.5 + 6500) }"
+      mem_mb: "int(input.size_mb * 0.5 + 6500)"
     merge_bams:
       mem_mb: 800
     merge_watson_or_crick:
@@ -96,7 +96,7 @@ set-resources:
     multiqc:
       mem_mb: 800
     process_aggregate_profiles:
-      mem_mb: f"{ int(input.size_mb + 2000) }"
+      mem_mb: "int(input.size_mb + 2000)"
     samstats:
       mem_mb: 310
     samtools_flagstat:

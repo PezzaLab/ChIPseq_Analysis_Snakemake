@@ -25,8 +25,6 @@ def check_sample_table_format(samples_table):
             samples_table, or an absolute path.
         * There must be 2 FASTQs when sample is PE and 1 when it is not.
         * FASTQ1 != FASTQ2
-        * If 'dros_equalization_group' is not empty, then
-            'dros_spike_in' == True
         * Booleans columns should have boolean values only
         * 'peak_ctrl_file_alias' should not contain '/', '.' or ' '
 
@@ -500,7 +498,6 @@ def dros_normalization_input(w):
     ----------
     strand : (\.(83-163|99-147|inc_16|exc_16))?
     sample : [^./ ]+
-    dros_eq_group : [^./ ]+
 
     Returns
     -------
@@ -520,7 +517,7 @@ def dros_normalization_input(w):
     bai = bam + ".bai"
     return {
         "report": ("Results/d6/Analysis/drosophila_normalization/"
-                   f"{w.dros_eq_group}/drosophila_equalization_report.tsv"),
+                   "drosophila_100K_reads/drosophila_equalization_report.tsv"),
         "bam": bam,
         "bai": bai
     }

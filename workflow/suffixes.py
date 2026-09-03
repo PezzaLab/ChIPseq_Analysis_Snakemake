@@ -104,7 +104,7 @@ def generate_samples_table_2(samples_table, config):
                      + ".d6"
                      + nodup_filt
                      + ".bam",
-                 np.NaN)
+                 np.nan)
     )
 
     # Both strands bam
@@ -201,7 +201,7 @@ def generate_samples_table_2(samples_table, config):
         + "/Processed_bam/"
         + samples_table_2['sample_name']
         + ".flagstat.txt",
-        np.NaN
+        np.nan
     )
 
     # %%% Hotspot heatmaps (only for top 5000 hs, both strands)
@@ -214,7 +214,7 @@ def generate_samples_table_2(samples_table, config):
         + "Heatmaps/"
         + samples_nodup_filt
         + ".png",
-        np.NaN
+        np.nan
     )
     samples_table_2['heatmap_B6xCAST_top_5000_hs'] = np.where(
         samples_table_2["top5000_HS_heatmap"] & samples_table_2["B6xCAST"],
@@ -226,7 +226,7 @@ def generate_samples_table_2(samples_table, config):
             + "Heatmaps/"
             + samples_nodup_filt
             + ".png",
-        np.NaN
+        np.nan
     )
 
     # %%% Drosophila normalized bigwigs
@@ -239,7 +239,7 @@ def generate_samples_table_2(samples_table, config):
             + "drosophila_100K_reads/"
             + samples_nodup_filt
             + ".dros_norm.bw",
-        np.NaN)
+        np.nan)
 
     # %%% Coverage BIGWIG files
     # These are all the potential coverage files:
@@ -247,7 +247,7 @@ def generate_samples_table_2(samples_table, config):
         # Results/{genome}/Bigwigs/Coverage/
             # Both_strands/
                 # {cov_params}/{snwe}.bw
-                # {dros_cov_params}/{dros_eq_group}/{snwe}.bw
+                # {dros_cov_params}/drosophila_100K_reads/{snwe}.bw
             # Single_strand/
                 # Full_length_reads/
                     # {dros_cov_params}/{snwe}.
@@ -308,7 +308,7 @@ def generate_samples_table_2(samples_table, config):
                 + samples_nodup_filt
                 + strand2
                 + ".bw",
-            np.NaN)
+            np.nan)
 
         # Generate column name and content for non-clipped B6xCAST
         samples_table_2[f"B6xCAST_{strand}_coverage_bw"] = np.where(
@@ -321,7 +321,7 @@ def generate_samples_table_2(samples_table, config):
                 + samples_nodup_filt_b6xcast
                 + strand2
                 + ".bw",
-            np.NaN)
+            np.nan)
 
         # Generate column name and content for clipped profiles
         ## non-B6xCAST
@@ -339,7 +339,7 @@ def generate_samples_table_2(samples_table, config):
                             +"."
                             + strand3
                             + ".clipped_1_bp.bw",
-                        np.NaN
+                        np.nan
                     )
                 )
         elif re.match("(inc|exc)_16", strand):
@@ -355,7 +355,7 @@ def generate_samples_table_2(samples_table, config):
                         + samples_nodup_filt
                         + strand2
                         + ".clipped_1_bp.bw",
-                    np.NaN
+                    np.nan
                 )
             )
 
@@ -379,7 +379,7 @@ def generate_samples_table_2(samples_table, config):
                             +"."
                             + strand3
                             + ".clipped_1_bp.bw",
-                        np.NaN
+                        np.nan
                     )
                 )
         elif re.match("(inc|exc)_16", strand):
@@ -394,7 +394,7 @@ def generate_samples_table_2(samples_table, config):
                         + samples_nodup_filt
                         + strand2
                         + ".clipped_1_bp.bw",
-                    np.NaN
+                    np.nan
                 )
             )
 
@@ -476,7 +476,7 @@ def generate_samples_table_2(samples_table, config):
                 + samples_nodup_filt2
                 + strand2
                 + ".matrix",
-                np.NaN
+                np.nan
             )
 
             

@@ -109,7 +109,7 @@ def update_config_yaml(path: str, lib_name: str):
 # ---------------------- SAMPLES TABLE ----------------------
 def guess_sample_names(fq1_paths: list[str]) -> list[str]:
     return [
-        re.sub("_S[0-9]+_R[0-9]_[0-9]+\.fastq\.gz", '', os.path.basename(f))
+        re.sub(r"_S[0-9]+_R[0-9]_[0-9]+\.fastq\.gz", '', os.path.basename(f))
         for f in fq1_paths
     ]
 

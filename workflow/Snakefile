@@ -14,8 +14,7 @@ samples_table_no_merged_samples = pd.read_csv(
     "Config/samples.csv",
     true_values = ["True", "TRUE", "T"],
     false_values = ["False", "FALSE", "F"],
-    na_values= {"dros_equalization_group":"-",
-                "merge_with":"-",
+    na_values= {"merge_with":"-",
                 "fastq2":"-",
                 "peak_ctrl_file_alias":"-",
                 },
@@ -134,15 +133,14 @@ wildcard_constraints:
     clip_condit = r"(((inc|exc)_16\.)?clipped_1_bp\.)?",
     clip_strand = r"((inc_|exc)_16\.)?",
     cov_params ="((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+_ex[0-9]+",
-    dros_eq_group="[^./ ]+",
     extension = r"(\.q_filt\.srt\.nodup\.mit_filt)?",
     extension_size = "[0-9]+",
     flag = "(83|163|99|147|inc_16|exc_16)",
     fused_genome="(mm10_f_d6|mm39_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|mm39_x_CAST_EiJ)",
     genomes_not_fused="mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ",
     genomes_final = (
-        r"(?P<interest_genome>mm10|mm39|hg19|hg38|mm10_x_CAST_EiJ|mm39_x_CAST_EiJ)"
-        r"(_f_d6\.(?:(?P=interest_genome)|d6))?"
+        r"((mm10|mm39|hg19|hg38|mm10_x_CAST_EiJ|mm39_x_CAST_EiJ)"
+        r"(_f_d6\.(mm10|mm39|hg19|hg38|mm10_x_CAST_EiJ|mm39_x_CAST_EiJ|d6))?)"
     ),
     genomes_all=(
         "mm10|mm39|d6|hg19|hg38|mm10_f_d6|mm39_f_d6|hg19_f_d6|hg38_f_d6|mm10_x_CAST_EiJ_f_d6|"
@@ -716,7 +714,7 @@ rule dros_normalization_report:
     input:
         smkf.dros_normalization_report_input,
     output:
-        "Results/d6/Analysis/drosophila_normalization/{dros_eq_group}/"
+        "Results/d6/Analysis/drosophila_normalization/drosophila_100K_reads/"
             "drosophila_equalization_report.tsv",
     params:
         samples_table_2 = samples_table_2,
@@ -729,13 +727,13 @@ rule dros_normalization:
     output:
         "Results/{genomes_not_fused}/Bigwigs/Coverage/{strands}/"
             "drosNormalized_bs{bin_size}_sm{smooth_size}_ex{extension_size}/"
-            "{dros_eq_group}/{sample}.{genomes_final}{extension}{strand}."
+            "drosophila_100K_reads/{sample}.{genomes_final}{extension}{strand}."
             "dros_norm.bw",
     envmodules:
         config["deeptools"],
     benchmark:
         "benchmarks/dros_normalization/{genomes_not_fused}_{strands}_"
-        "{bin_size}_sm{smooth_size}_ex{extension_size}{dros_eq_group}/"
+        "{bin_size}_sm{smooth_size}_ex{extension_size}/"
         "{sample}.{genomes_final}{extension}{strand}.tsv"
     shell:
         """

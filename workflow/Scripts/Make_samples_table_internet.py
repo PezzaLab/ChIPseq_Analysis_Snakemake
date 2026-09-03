@@ -213,7 +213,6 @@ sample_table = pd.DataFrame(
      "top5000_HS_heatmap": "True",
      "Size_DNA_top_5000_HS": "False",
      "merge_with": "-",
-     "dros_equalization_group": "-",
      "B6xCAST": B6xCAST,
      })
 
