@@ -1,27 +1,42 @@
-################
-# Note:
-# To do each step copy all the lines (together) from that step
-# (up to the next step and paste them on the command line. Steps 2 to 4
-#  (included) are optional, 1 and 4 are mandatory.
-################
+################################################################################
+# ChIP-seq / CUT&RUN Snakemake Pipeline Execution Commands
+#
+# HOW TO RUN:
+# To do each step, copy all lines (together) from that step (up to the next step)
+# and paste them into the command line.
+# Steps 2 to 3 (included) are optional; steps 1 and 4 are mandatory.
+#
+# PIPELINE EXECUTION MODES:
+# The pipeline supports two target execution modes:
+#
+# 1) 'basic' mode: Standard ChIP-seq / CUT&RUN Analysis
+#    - Scope: delivers qctrl files, peaks and bigwigs (regular, doublestranded bigwigs).
+#    - To run: Replace target 'full' with 'basic' in the commands below
+#      (e.g., snakemake ... basic).
+#
+# 2) 'full' mode: Complete / Meiotic Hotspot & Single-Strand Analysis (Default)
+#    - Scope: Everything in 'basic' mode PLUS hotspot analysis, single strand bigwigs, hotspot aggregate profiles and heatmaps and a couple more things.
+#    - To run: Keep target 'full' in the commands below (e.g., snakemake ... full).
+################################################################################
 
-# 1) load modules
-module purge && ml slurm
-source /hpc-prj/pezza/conda/bin/activate
-conda activate snakemake
+# 1) Load modules
+module purge && ml slurm python/3.14.7
 
 # 2) OPTIONAL. Dry run summary ("mock" run, no files are created)
+# Note: target is 'full' by default; replace with 'basic' for basic analysis mode.
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio_repeat_10 -np --quiet
+snakemake --profile Config/Profiles/slurm_quio_repeat_10 -np --quiet full
 
 # 2.bis) OPTIONAL. Dry run extended version, text printed to the screen
 # is also saved on file 'dry_run.txt'
+# Note: target is 'full' by default; replace with 'basic' for basic analysis mode.
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio_repeat_10 -np | tee dry_run.txt
+snakemake --profile Config/Profiles/slurm_quio_repeat_10 -np full | tee dry_run.txt
 
 # 3) OPTIONAL. DAG (A plot to see the dependencies between the rules).
+# Note: target is 'full' by default; replace with 'basic' for basic analysis mode.
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio_repeat_10 --rulegraph | \
+snakemake --profile Config/Profiles/slurm_quio_repeat_10 --rulegraph full | \
 dot -Tsvg > rulegraph.svg
 
 
@@ -29,11 +44,11 @@ dot -Tsvg > rulegraph.svg
 cd /s/pezzar-lab/{library_name}
 # Generate new terminal session
 tmux new -s {library_name}
-	# If already created one and want to re-join, use following command
-tmux attach -t {library_name}
-	# run command
+	# If you already created the session and want to re-join, use:
+	# tmux attach -t {library_name}
+	# Run command inside tmux (replace 'full' with 'basic' for basic analysis mode):
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio_repeat_10 --notemp
+snakemake --profile Config/Profiles/slurm_quio_repeat_10 --notemp full
 
 # ---------
 # Helpful commands:
@@ -90,7 +105,7 @@ rclone copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{l
 --filter '- Peaks/**'
 
 # Copy bigwigs
-## Check if it is copying anything other than a .bg
+## Check if it is copying anything other than a .bw
 rclone --dry-run copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name} \
 --include '*.bw' 2>&1 | grep -v '.*\.bw'
 
