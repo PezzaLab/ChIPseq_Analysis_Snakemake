@@ -15,6 +15,9 @@ include: "rules/peaks.smk"
 include: "rules/single_strand.smk"
 include: "rules/hotspots_profiles.smk"
 
+# Checksums / backup manifest rule
+include: "rules/checksums.smk"
+
 ruleorder: get_strand_sep_bams > dedup_bam > index
 ruleorder: merge_bams > align_fastq
 
@@ -22,18 +25,21 @@ ruleorder: merge_bams > align_fastq
 #####                TARGET RULES               #####
 #####################################################
 
-# 1. Basic analysis: trimming, alignment, dedup, filtering, unstranded BigWigs, MACS2 peaks, QC
+# 1. Basic analysis: trimming, alignment, dedup, filtering, unstranded BigWigs, MACS2 peaks, QC, checksums
 rule basic:
     input:
         multiqc,
         basic_coverage_bigwigs,
         basic_peaks,
-        peaks_summary_files
+        peaks_summary_files,
+        "Results/checksums.tsv",
 
-# 2. Full analysis: basic analysis + strand-separated BigWigs, hotspot matrices, heatmaps, HTML report
+# 2. Full analysis: basic analysis + strand-separated BigWigs, hotspot matrices, heatmaps, HTML report, checksums
 rule full:
     input:
         rules.basic.input,
         single_strand_coverage_bigwigs,
         heatmaps,
-        html_reports
+        html_reports,
+        "Results/checksums.tsv",
+

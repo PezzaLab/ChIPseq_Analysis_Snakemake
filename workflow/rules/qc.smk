@@ -40,7 +40,7 @@ rule samtools_flagstat:
 
 rule insert_size_picard:
     input:
-        lambda w: samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam'],
+        lambda w: smkf.get_processed_bam(w.sample, w.genomes_not_fused),
     output:
         tab = "Results/{genomes_not_fused}/Qctrl/{sample}/Processed_bam/"
               "{sample}.insert_size_picard.tab",
@@ -64,7 +64,7 @@ rule insert_size_picard:
 
 rule library_complexity_picard:
     input:
-        lambda w: samples_table_2.loc[w.sample, 'raw_bam'],
+        lambda w: smkf.get_raw_bam(w.sample, w.genomes_not_fused),
     output:
         "Results/{genomes_not_fused}/Qctrl/{sample}/Raw_bam/"
         "{sample}.picard_library_complexity.tab",

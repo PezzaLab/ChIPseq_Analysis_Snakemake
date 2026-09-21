@@ -2,7 +2,7 @@
 
 rule trim_adapters_SE:
     input:
-        lambda w: samples_table.loc[w.sample, "fastq1"],
+        lambda w: smkf.get_sample_fastq1(w.sample),
     output:
         fq1 = temp("Results/{sample}.adap_trimmed.R1.SE.fq.gz"),
         html = "Results/FASTQ_reports/{sample}.SE.fastp.html",

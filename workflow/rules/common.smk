@@ -9,17 +9,22 @@ import suffixes as sfxs
 #########################################
 ## Load sample table and check format ###
 #########################################
-samples_table_no_merged_samples = pd.read_csv(
-    "Config/samples.csv",
-    true_values = ["True", "TRUE", "T"],
-    false_values = ["False", "FALSE", "F"],
-    na_values= {"merge_with":"-",
-                "fastq2":"-",
-                "peak_ctrl_file_alias":"-",
-                },
+samples_table_raw = pd.read_csv(
+    config.get("samples", "Config/samples.csv"),
     comment='#',
-).set_index("sample_name", drop=False)
+    dtype=str,
+    na_values={
+        "merge_with": "-",
+        "fastq2": "-",
+        "peak_ctrl_file_alias": "-",
+    },
+    keep_default_na=True
+)
+samples_table_raw.columns = samples_table_raw.columns.str.strip()
 
+samples_table_no_merged_samples = smkf.expand_sample_table(samples_table_raw)
+
+smkf.config = config
 smkf.check_sample_table_format(samples_table_no_merged_samples)
 
 # Pre formed strings
@@ -39,12 +44,18 @@ dros_norm_cov_config_params_string=(
 ############################################################
 new_rows = samples_table_no_merged_samples.loc[
     pd.notna(samples_table_no_merged_samples['merge_with'])
-]
-new_rows_names = new_rows['sample_name'] + "_MERGED"
-new_rows = new_rows.assign(sample_name = new_rows_names)
-new_rows = new_rows.assign(merge_with = np.nan)
-new_rows.set_index('sample_name', drop=False, inplace=True, verify_integrity=True)
-samples_table = pd.concat([samples_table_no_merged_samples, new_rows], verify_integrity=True)
+].copy()
+
+if len(new_rows) > 0:
+    new_rows_names = new_rows['sample_name'] + "_MERGED"
+    new_rows['sample_name'] = new_rows_names
+    new_rows['merge_with'] = np.nan
+    new_rows_index = new_rows['sample_name'] + "." + new_rows['reference_genome']
+    new_rows.index = new_rows_index
+    new_rows['sample_entry_id'] = new_rows_index
+    samples_table = pd.concat([samples_table_no_merged_samples, new_rows], verify_integrity=True)
+else:
+    samples_table = samples_table_no_merged_samples.copy()
 
 ####################################################
 ##### Add samples names with suffixes to table #####
@@ -99,7 +110,7 @@ all_coverage_bigwigs = basic_coverage_bigwigs + single_strand_coverage_bigwigs
 broad_frip_scores = [
     f for f in samples_table_2['broad_blk_gr_flt_FRIP'].values.tolist()
     if pd.notna(f)
-]
+] if 'broad_blk_gr_flt_FRIP' in samples_table_2 else []
 
 # Basic blacklist-filtered peaks (narrow and broad) + broad FRIP scores
 basic_peaks = [
@@ -111,7 +122,10 @@ basic_peaks = [
 peaks_summary_files = [
     f"Results/{genome}/Analysis/Peaks_summary.tsv"
     for genome in samples_table["reference_genome"].unique()
-    if pd.notna(samples_table.loc[samples_table["reference_genome"] == genome, 'peak_ctrl_file_alias']).any()
+    if (
+        pd.notna(samples_table.loc[samples_table["reference_genome"] == genome, 'peak_ctrl_file_alias']) &
+        (samples_table.loc[samples_table["reference_genome"] == genome, 'peak_ctrl_file_alias'] != "-")
+    ).any()
 ]
 
 # Advanced targets

@@ -56,9 +56,9 @@ def generate_samples_table_2(samples_table, config):
     samples_table_2['final_genome'] = final_genomes
 
     final_genomes_b6xcast = []
-    for i in samples_table_2.index:
-        ref = samples_table_2.loc[i, "reference_genome"]  # get genome for that row
-        if samples_table_2.loc[i, "dros_spike_in"]:
+    for row in samples_table_2.itertuples():
+        ref = row.reference_genome
+        if row.dros_spike_in:
             final_genomes_b6xcast.append(
                 f"{ref}_x_CAST_EiJ_f_d6.{ref}_x_CAST_EiJ"
             )
@@ -118,12 +118,19 @@ def generate_samples_table_2(samples_table, config):
     )
 
     # %%% Peak files
-    if pd.notna(samples_table_2['peak_ctrl_file_alias']).any():
-        peak_types = ["narrow", "broad"]
+    peak_types = ["narrow", "broad"]
+    for peak_type in peak_types:
+        samples_table_2[f'{peak_type}_peak_bl_gr_flt'] = np.nan
+        samples_table_2[f'{peak_type}_peak_bl_gr_flt_hs_int'] = np.nan
+        samples_table_2[f'{peak_type}_blk_gr_flt_FRIP'] = np.nan
+
+    has_ctrl = (
+        samples_table_2['peak_ctrl_file_alias'].notna() &
+        (samples_table_2['peak_ctrl_file_alias'] != "-")
+    )
+    if has_ctrl.any():
         qv  = config['MACS2']['qvalue'].split(".")[1]
         bco = config['MACS2']['broad_cutoff'].split(".")[1]
-
-        has_ctrl = samples_table_2['peak_ctrl_file_alias'] != "-"
         is_hs_genome = samples_table_2['reference_genome'].isin(["mm10", "mm39"])
 
         for peak_type in peak_types:

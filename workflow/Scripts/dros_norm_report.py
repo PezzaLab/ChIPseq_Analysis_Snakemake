@@ -23,7 +23,7 @@ for file in snakemake.input:
             # get number of primary reads
             if re.search("primary$", line): 
                 number_reads += [int(re.search("^[0-9]+", line).group(0))]
-    sample_name += [samples_table_2.loc[samples_table_2['processed_flagstat_dros'] == file].index[0]]
+    sample_name += [samples_table_2.loc[samples_table_2['processed_flagstat_dros'] == file, 'sample_name'].iloc[0]]
 
 df=pd.DataFrame(
     {"sample_name" : sample_name,

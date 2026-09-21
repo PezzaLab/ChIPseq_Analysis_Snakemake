@@ -32,6 +32,7 @@ set-threads:
   - filter_spiked_in_bam_spike_in_genome=8
   - filter_bam=8
   - FRIP=2
+  - generate_checksums=2
   - get_strand_sep_bams=2
   - index=2
   - insert_size_picard=2
@@ -76,6 +77,9 @@ set-resources:
       mem_mb: "40000 + (attempt-1) * 15000"
     FRIP:
       mem_mb: "1000 * attempt"
+    generate_checksums:
+      mem_mb: "2000 * attempt"
+      runtime: "60"
     get_strand_sep_bams:
       mem_mb: "500 * attempt"
     index:

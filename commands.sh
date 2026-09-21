@@ -74,6 +74,14 @@ tmux kill-session -t <session_name>
 ##########################
 ### BACKUP IN DROPBOX ####
 ##########################
+# Note: 'Results/checksums.tsv' is automatically generated at the end of the Snakemake
+# pipeline run (cataloging MD5 checksums, sizes, and timestamps for all deliverables
+# under Results/ exported below). It will be backed up automatically with the first command.
+# To regenerate on demand:
+#   bash workflow/Scripts/generate_rclone_checksums.sh .
+# or:
+#   snakemake --profile Config/Profiles/slurm_quio_repeat_10 checksums
+
 # Load rclone
 ml rclone
 

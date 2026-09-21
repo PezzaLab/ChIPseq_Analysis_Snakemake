@@ -16,6 +16,7 @@ include: "rules/filtering.smk"
 include: "rules/qc.smk"
 include: "rules/coverage.smk"
 include: "rules/peaks.smk"
+include: "rules/checksums.smk"
 
 ruleorder: dedup_bam > index
 ruleorder: merge_bams > align_fastq
@@ -29,4 +30,6 @@ rule basic:
         multiqc,
         basic_coverage_bigwigs,
         basic_peaks,
-        peaks_summary_files
+        peaks_summary_files,
+        "Results/checksums.tsv",
+
