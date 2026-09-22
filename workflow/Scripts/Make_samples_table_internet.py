@@ -103,9 +103,11 @@ dest_path = library_paths['scratch']
 not_copy = shu.ignore_patterns(
     '.*', 'tmp*', '_*_', 'Test_and_assembly_of_python_code.py',
     'samples_table_processed.csv', 'Results*', 'logs*', '*dry_run*',
-    'commands*', 'dag*', 'Test_code*', 'test_FASTQs',
-    'rstudio-server*', 'slurm-*', 'benchmarks*', 'samples.csv',
-    'log*', 'renaming_info.tsv'
+    '*Dry_run*', 'commands*', 'dag*', 'Test_code*', 'test_FASTQs*',
+    'rstudio-server*', 'slurm-*', 'benchmarks*', 'samples.csv', 'log*',
+    'renaming_info.tsv', 'rulegraph.svg', 'Make_samples_table*',
+    'setup_vm*', 'papers*', '*env_info*', '__pycache__', '*.pyc',
+    '*.Rhistory', '*.RData', 'standalone_*'
 )
 
 shu.copytree(
