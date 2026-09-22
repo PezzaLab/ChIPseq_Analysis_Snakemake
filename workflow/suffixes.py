@@ -56,13 +56,16 @@ def generate_samples_table_2(samples_table, config):
     samples_table_2['final_genome'] = final_genomes
 
     final_genomes_b6xcast = []
-    for i in samples_table_2.index:
-        if samples_table_2.loc[i, "dros_spike_in"]:
+    for row in samples_table_2.itertuples():
+        ref = row.reference_genome
+        if row.dros_spike_in:
             final_genomes_b6xcast.append(
-                "mm10_x_CAST_EiJ_f_d6.mm10_x_CAST_EiJ")
+                f"{ref}_x_CAST_EiJ_f_d6.{ref}_x_CAST_EiJ"
+            )
         else:
-            final_genomes_b6xcast.append("mm10_x_CAST_EiJ")
-    samples_table_2['final_genome_b6xcast'] = final_genomes_b6xcast
+            final_genomes_b6xcast.append(f"{ref}_x_CAST_EiJ")
+    
+    samples_table_2["final_genome_b6xcast"] = final_genomes_b6xcast
 
     samples_nodup_filt = (
         samples_table_2['sample_name'] + "." + final_genomes + nodup_filt
@@ -75,11 +78,12 @@ def generate_samples_table_2(samples_table, config):
             + nodup_filt
     )
 
-    cov_params = (f"{config['coverage']['normalization']}_"
-                  f"bs{config['coverage']['bin_size']}_"
-                  f"sm{config['coverage']['smooth']}_"
-                  f"ex{config['coverage']['extend_reads']}"
-                  "/"
+    cov_params = (
+        f"{config['coverage']['normalization']}_"
+        f"bs{config['coverage']['bin_size']}_"
+        f"sm{config['coverage']['smooth']}_"
+        f"ex{config['coverage']['extend_reads']}"
+        "/"
     )
 
     dros_norm_cov_config_params_string = (
@@ -100,7 +104,7 @@ def generate_samples_table_2(samples_table, config):
                      + ".d6"
                      + nodup_filt
                      + ".bam",
-                 np.NaN)
+                 np.nan)
     )
 
     # Both strands bam
@@ -114,69 +118,69 @@ def generate_samples_table_2(samples_table, config):
     )
 
     # %%% Peak files
-    if pd.notna(samples_table['peak_ctrl_file_alias']).any():
-        peak_types = ["narrow", "broad"]
-        peak_params = (
-            "qv_" + config['MACS2']['qvalue'].split(".")[1] +
-            "__" + samples_table_2['peak_ctrl_file_alias']
-        )
+    peak_types = ["narrow", "broad"]
+    for peak_type in peak_types:
+        samples_table_2[f'{peak_type}_peak_bl_gr_flt'] = np.nan
+        samples_table_2[f'{peak_type}_peak_bl_gr_flt_hs_int'] = np.nan
+        samples_table_2[f'{peak_type}_blk_gr_flt_FRIP'] = np.nan
+
+    has_ctrl = (
+        samples_table_2['peak_ctrl_file_alias'].notna() &
+        (samples_table_2['peak_ctrl_file_alias'] != "-")
+    )
+    if has_ctrl.any():
+        qv  = config['MACS2']['qvalue'].split(".")[1]
+        bco = config['MACS2']['broad_cutoff'].split(".")[1]
+        is_hs_genome = samples_table_2['reference_genome'].isin(["mm10", "mm39"])
 
         for peak_type in peak_types:
-            # Modify default values accordingly
-            if peak_type == "broad":
-                peak_params = (
-                    "bco_" + config['MACS2']['broad_cutoff'].split(".")[1]
-                    + "_qv_" + config['MACS2']['qvalue'].split(".")[1] + "__"
-                    + samples_table_2['peak_ctrl_file_alias']
+            # per-type peak_params
+            if peak_type == "narrow":
+                peak_params_pt = ("qv_" + qv + "__" 
+                + samples_table_2['peak_ctrl_file_alias']
+                )
+            else:  # broad
+                peak_params_pt = ("bco_" + bco + "_qv_" + qv + "__" 
+                + samples_table_2['peak_ctrl_file_alias']
                 )
 
-            # Generate column name and content
+            # Blacklist filtered peak path
             samples_table_2[f'{peak_type}_peak_bl_gr_flt'] = np.where(
-                samples_table['peak_ctrl_file_alias'] != "-",
-                "Results/"
-                    + samples_table_2['reference_genome']
-                    + f"/Peaks/MACS2/{peak_type}/"
-                    + peak_params
-                    + "/Black-grey_filtered/"
-                    + samples_nodup_filt
-                    + f".{peak_type}Peak",
-                np.NaN
-            )
-            samples_table_2[f'{peak_type}_peak_bl_gr_flt_hs_int'] = np.where(
-                (samples_table_2["reference_genome"] == "mm10") &
-                    (samples_table['peak_ctrl_file_alias'] != "-"),
+                has_ctrl,
                 "Results/" + samples_table_2['reference_genome']
-                    + f"/Peaks/MACS2/{peak_type}/" + peak_params
-                    + "/Black-grey_filtered/Intersect_HSs_plus_minus_2000_bp/"
-                    + samples_nodup_filt + f".{peak_type}Peak",
-                np.NaN
+                + f"/Peaks/MACS2/{peak_type}/"
+                + peak_params_pt
+                + "/blacklist_filtered/"
+                + samples_nodup_filt
+                + f".{peak_type}Peak",
+                np.nan
+            )
+
+            # HS intersect path (now for mm10 OR mm39)
+            samples_table_2[f'{peak_type}_peak_bl_gr_flt_hs_int'] = np.where(
+                has_ctrl & is_hs_genome,
+                "Results/" + samples_table_2['reference_genome']
+                + f"/Peaks/MACS2/{peak_type}/"
+                + peak_params_pt
+                + "/blacklist_filtered/Intersect_HSs_plus_minus_2000_bp/"
+                + samples_nodup_filt
+                + f".{peak_type}Peak",
+                np.nan
             )
 
             # FRIP
             samples_table_2[f'{peak_type}_blk_gr_flt_FRIP'] = np.where(
-                samples_table['peak_ctrl_file_alias'] != "-",
+                has_ctrl,
                 "Results/" + samples_table_2['reference_genome']
-                    + "/Qctrl/" + samples_table_2['sample_name']
-                    + f"/Processed_bam/FRIP/MACS2_{peak_type}_"
-                    + peak_params
-                    + "_bl-gr_flt/"
-                    + samples_nodup_filt
-                    + ".FRIP.txt",
-                np.NaN
+                + "/Qctrl/" + samples_table_2['sample_name']
+                + f"/Processed_bam/FRIP/MACS2_{peak_type}_"
+                + peak_params_pt
+                + "_bl-gr_flt/"
+                + samples_nodup_filt
+                + ".FRIP.txt",
+                np.nan
             )
 
-            # Annotated peaks
-            samples_table_2[
-                f'{peak_type}Peak_blk_gr_flt_annotated'
-            ] = np.where(
-                    samples_table['peak_ctrl_file_alias'] != "-",
-                    "Results/" + samples_table_2['reference_genome']
-                        + f"/Peaks/MACS2/{peak_type}/"
-                        + peak_params
-                        + "/Black-grey_filtered/Annotated_peaks/"
-                        + samples_nodup_filt
-                        + f".{peak_type}Peak.annotated.tsv",
-                    np.NaN)
 
     # %%% samtools flagstat
     samples_table_2['raw_flagstat'] = (
@@ -204,7 +208,7 @@ def generate_samples_table_2(samples_table, config):
         + "/Processed_bam/"
         + samples_table_2['sample_name']
         + ".flagstat.txt",
-        np.NaN
+        np.nan
     )
 
     # %%% Hotspot heatmaps (only for top 5000 hs, both strands)
@@ -217,33 +221,32 @@ def generate_samples_table_2(samples_table, config):
         + "Heatmaps/"
         + samples_nodup_filt
         + ".png",
-        np.NaN
+        np.nan
     )
     samples_table_2['heatmap_B6xCAST_top_5000_hs'] = np.where(
         samples_table_2["top5000_HS_heatmap"] & samples_table_2["B6xCAST"],
         "Results/"
             + samples_table_2['reference_genome']
             + "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-            + "B6xCAST_top_5000_pm_1000bp/Both_strands/"
+            + "B6xCAST_top_5000_pm_2000bp/Both_strands/"
             + cov_params
             + "Heatmaps/"
             + samples_nodup_filt
             + ".png",
-        np.NaN
+        np.nan
     )
 
     # %%% Drosophila normalized bigwigs
     samples_table_2['dros_normalized_both_strands_coverage_bw'] = np.where(
-        ~samples_table["dros_equalization_group"].isnull(),
+        samples_table["dros_spike_in"],
         "Results/"
             + samples_table['reference_genome']
             + "/Bigwigs/Coverage/Both_strands/"
             + dros_norm_cov_config_params_string
-            + samples_table['dros_equalization_group']
-            + "/"
+            + "drosophila_100K_reads/"
             + samples_nodup_filt
             + ".dros_norm.bw",
-        np.NaN)
+        np.nan)
 
     # %%% Coverage BIGWIG files
     # These are all the potential coverage files:
@@ -251,7 +254,7 @@ def generate_samples_table_2(samples_table, config):
         # Results/{genome}/Bigwigs/Coverage/
             # Both_strands/
                 # {cov_params}/{snwe}.bw
-                # {dros_cov_params}/{dros_eq_group}/{snwe}.bw
+                # {dros_cov_params}/drosophila_100K_reads/{snwe}.bw
             # Single_strand/
                 # Full_length_reads/
                     # {dros_cov_params}/{snwe}.
@@ -312,17 +315,20 @@ def generate_samples_table_2(samples_table, config):
                 + samples_nodup_filt
                 + strand2
                 + ".bw",
-            np.NaN)
+            np.nan)
 
         # Generate column name and content for non-clipped B6xCAST
         samples_table_2[f"B6xCAST_{strand}_coverage_bw"] = np.where(
-            PE & single_strand & samples_table['B6xCAST'],
-            "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/"
+            PE 
+                & single_strand 
+                & samples_table['B6xCAST'] 
+                & (samples_table['reference_genome'] == "mm10"),
+            "Results/""mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/"
                 + f"{strand_string}{cov_params}"
                 + samples_nodup_filt_b6xcast
                 + strand2
                 + ".bw",
-            np.NaN)
+            np.nan)
 
         # Generate column name and content for clipped profiles
         ## non-B6xCAST
@@ -340,7 +346,7 @@ def generate_samples_table_2(samples_table, config):
                             +"."
                             + strand3
                             + ".clipped_1_bp.bw",
-                        np.NaN
+                        np.nan
                     )
                 )
         elif re.match("(inc|exc)_16", strand):
@@ -356,7 +362,7 @@ def generate_samples_table_2(samples_table, config):
                         + samples_nodup_filt
                         + strand2
                         + ".clipped_1_bp.bw",
-                    np.NaN
+                    np.nan
                 )
             )
 
@@ -371,7 +377,8 @@ def generate_samples_table_2(samples_table, config):
                         PE
                             & single_strand
                             & clipped
-                            & samples_table['B6xCAST'],
+                            & samples_table['B6xCAST']
+                            & (samples_table['reference_genome'] == "mm10"),
                         "Results/mm10_x_CAST_EiJ" + "/Bigwigs/Coverage/"
                             + f"Single_strand/1bp_clipped_reads/{cov_params}"
                             + samples_nodup_filt
@@ -379,7 +386,7 @@ def generate_samples_table_2(samples_table, config):
                             +"."
                             + strand3
                             + ".clipped_1_bp.bw",
-                        np.NaN
+                        np.nan
                     )
                 )
         elif re.match("(inc|exc)_16", strand):
@@ -394,81 +401,92 @@ def generate_samples_table_2(samples_table, config):
                         + samples_nodup_filt
                         + strand2
                         + ".clipped_1_bp.bw",
-                    np.NaN
+                    np.nan
                 )
             )
 
-    # %%% Coverage MATRIX files
-    # This files are generated by deeptools using a bw and a bed file
-    hotspots = ["top_5000_plus_minus_2000",
-                "x_non_par",
-                "autosomal_x_non_par_ctrl",
-                "asymetric_watson_strong",
-                "asymetric_crick_strong",
-                "B6xCAST_top_5000_pm_1000bp",
-                "B6xCAST_PRDM9_assymetric_hs_invading_strand",
-                "B6xCAST_PRDM9_assymetric_hs_receiving_strand",
-                "B6xCAST_PRDM9_assymetric_hs_mm10_aligned"
-                ]
-
-    strands = ["83-163",
-               "99-147",
-               "inc_16",
-               "exc_16",
-               "Both_strands"]
-
+   # %%% Coverage MATRIX files
+    # Matrix files are generated by deeptools using a bw and a bed file
+    hotspots = [
+        "top_5000_plus_minus_2000",
+        "x_non_par",
+        "autosomal_x_non_par_ctrl",
+        "asymetric_watson_strong",
+        "asymetric_crick_strong",
+        "B6xCAST_top_5000_pm_2000bp",
+        "B6xCAST_PRDM9_assymetric_hs_invading_strand",   # only mm10
+        "B6xCAST_PRDM9_assymetric_hs_receiving_strand",  # only mm10
+        "B6xCAST_PRDM9_assymetric_hs_mm_aligned"         # aligned to either mm10 or mm39
+    ]
+    
+    strands = ["83-163", "99-147", "inc_16", "exc_16", "Both_strands"]
+    
     for hs in hotspots:
         for strand in strands:
             # Strings
             strand_string = "Both_strands/"
-            genome = samples_table["reference_genome"]
             strand2 = "." + strand
             samples_nodup_filt2 = samples_nodup_filt
             if strand == "Both_strands":
-                strand2 = ""  # "Both_strands" is not included in the name of
-                # the file
-
+                strand2 = ""  # "Both_strands" is not included in the file name
+    
             # Booleans
             PE = True
             single_strand = True
             b6xcast = ~samples_table_2["B6xCAST"]
-            # Modify default values accordingly
+    
+            # Modify defaults
             if re.search("B6xCAST", hs):
                 b6xcast = samples_table_2["B6xCAST"]
-
-            if re.match("83|99|inc_16|exc_16", strand):
+    
+            if re.search("83|99|inc_16|exc_16", strand):
                 strand_string = "Single_strand/Full_length_reads/"
                 single_strand = samples_table_2["get_single_strand"]
-
-            if re.match("watson|crick|x_non_par|", hs):
+    
+            if re.search("watson|crick|x_non_par", hs):
+                # only evaluate these when ssDNA is requested
                 single_strand = samples_table_2["get_single_strand"]
-                # Only profiles in which ssDNA is asked for we evaluate the
-                # XnonPAR and watson/crick assymetric hotspots (mm10 samples)
-
-            if re.match("83|99", strand):
+    
+            if re.search("83|99", strand):
                 PE = samples_table_2["PE"]
-            elif re.match("inc_16|exc_16", strand):
+            elif re.search("inc_16|exc_16", strand):
                 PE = ~samples_table_2["PE"]
-
-            if re.match("B6xCAST_PRDM9_assymetric_hs_(invading|receiving)",
-                        hs):
-                genome = "mm10_x_CAST_EiJ"
+    
+            # Default base directory for Results (row-wise genome)
+            results_root = samples_table_2["reference_genome"]
+    
+            # Special case: PRDM9 asymmetric (invading/receiving) → use fused genome paths + b6xcast files
+            if re.search(r"B6xCAST_PRDM9_assymetric_hs_(invading|receiving)", hs):
+                b6xcast = (
+                    (samples_table_2["reference_genome"] == "mm10")
+                    & (samples_table_2["B6xCAST"])
+                )
+                results_root = "mm10_x_CAST_EiJ"
                 samples_nodup_filt2 = samples_nodup_filt_b6xcast
-
+    
+            # Adjust hs only for path building (mm_aligned → mm10_aligned or mm39_aligned)
+            if hs == "B6xCAST_PRDM9_assymetric_hs_mm_aligned":
+                hs_path = "B6xCAST_PRDM9_assymetric_hs_" + samples_table_2["reference_genome"] + "_aligned"
+            else:
+                hs_path = hs
+    
             # Generate column name and content
             samples_table_2[f"{hs}_{strand}_matrix"] = np.where(
-                samples_table_2["top5000_HS_heatmap"]
-                    & b6xcast
-                    & PE
-                    & single_strand,
+                samples_table_2["top5000_HS_heatmap"] & b6xcast & PE & single_strand,
                 "Results/"
-                    + genome
-                    + "/Analysis/"
-                    + "Heatmaps_and_aggregate_profiles/Hotspots/"
-                    + hs
-                    + "/"
-                    + f"{strand_string}{cov_params}matrixes/"
-                    + samples_nodup_filt2 + strand2 + ".matrix",
-                np.NaN)
+                + results_root
+                + "/Analysis/"
+                + "Heatmaps_and_aggregate_profiles/Hotspots/"
+                + hs_path
+                + "/"
+                + f"{strand_string}{cov_params}matrixes/"
+                + samples_nodup_filt2
+                + strand2
+                + ".matrix",
+                np.nan
+            )
+
+            
+
     # %% Return
     return samples_table_2

@@ -16,8 +16,8 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = F,
                       warning = F)
 ```
-```{r,include=F, eval=T}
-# save.image("html_report_image.RData")
+```{r,debug_mode, include=F, eval=T}
+# save.image(paste("html_report_image", snakemake@wildcards$genomes_not_fused, "RData", sep = "."))
 ```
 
 ```{r, libraries, message=F, error=F}
@@ -29,20 +29,7 @@ library(openxlsx) # To write xls files (with format and everything)
 library(readxl) # To read exel files (I think this can also be done with the package above)
 library(ggrastr) 
 ```
-```{r, libraries_not_in_use,include=F, message=F, error=F}
-# library(clipr) # to copy text to the clipboard
-# library(tidygenomics) 
-# library(Hmisc) # to divide the vector in equal parts using cut2()
-# library(biomaRt)# To get gene names out of refseq accessions
-# library(ggrepel) # To put names on plots
-# library(ggfortify) # To plot PCAs with ggplot
-# library(factoextra) # To easily get info from PCA analysis
-# library(ViSEAGO) # To analyze GO terms, although I don't think I am going to use it.
-# library(qpcR) # To bind vectors of different length using qpcR:::cbind.na
-# library(eulerr) # To draw proportional venn diagrams (need to have the numbers though)
-# library(R.utils) # To count number of lines of a file
-# <br/><br/>    ---> That is to insert a break in the page so that the text don't wrap the images when they don't occupy the whole width
-```
+
 # General information  
 `r snakemake@config[['library']][['general_info']]`
 
@@ -51,17 +38,17 @@ library(ggrastr)
 ## Aggregate profiles   
 ```{r, load_agg_profs}
 # for debugging
-  # setwd("..")
+   #setwd("..")
 
 # Set paramter
-b6_profile <- !is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs) |
-                  !is.null(snakemake@input$mm10_top_5000_ag_profs)
+b6_profile <- !is.null(snakemake@input$mm_top5000_asmtric_auto_XnonPAR_ag_profs) |
+                  !is.null(snakemake@input$mm_top_5000_ag_profs)
 
 # Load B6
-if (!is.null(snakemake@input$mm10_top5000_asmtric_auto_XnonPAR_ag_profs)) {
-  load(snakemake@input[["mm10_top5000_asmtric_auto_XnonPAR_ag_profs"]])
-} else if (!is.null(snakemake@input$mm10_top_5000_ag_profs) ) {
-  load(snakemake@input$mm10_top_5000_ag_profs)
+if (!is.null(snakemake@input$mm_top5000_asmtric_auto_XnonPAR_ag_profs)) {
+  load(snakemake@input[["mm_top5000_asmtric_auto_XnonPAR_ag_profs"]])
+} else if (!is.null(snakemake@input$mm_top_5000_ag_profs) ) {
+  load(snakemake@input$mm_top_5000_ag_profs)
   # Change name of object to match the name of same object when 'agg_profiles' is loaded
   aggregate_profiles <- list()
   aggregate_profiles[["top_5000_plus_minus_2000"]] <- 
@@ -74,9 +61,9 @@ if(!is.null(snakemake@input$top_5000_plus_minus_2000_clipped)) {
     final_table }
 
 # Load B6xCAST
-if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
-  load(snakemake@input$B6xCAST_top_5000_pm_1000bp)
-  B6xCAST_top_5000_pm_1000bp <- final_table
+if (!is.null(snakemake@input$B6xCAST_top_5000_pm_2000bp)) {
+  load(snakemake@input$B6xCAST_top_5000_pm_2000bp)
+  B6xCAST_top_5000_pm_2000bp <- final_table
   
   load(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)
   B6xCAST_PRDM9_assymetric_hs_invading_strand <- final_table
@@ -98,10 +85,7 @@ if (!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
 }
 
 # Load B6xCAST clipped profiles 
-if(!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)) {
-  load(snakemake@input$B6xCAST_top_5000_pm_1000bp)
-  aggregate_profiles[["B6xCAST_top_5000_pm_1000bp_clipped"]] <- 
-    final_table}
+# TODO
 ```
 
 ## Peaks  
@@ -228,7 +212,11 @@ names(prots) <- prots # So that name of each protein is printed (in the next loo
 
 lapply(prots,
   function(i) {
-    strands_n <- aggregate_profiles$top_5000_plus_minus_2000$Strand %>% unique %>% length
+    strands_n <- 
+      aggregate_profiles$top_5000_plus_minus_2000 %>% 
+      filter(Protein == i) %>% 
+      pull(Strand) %>% unique %>% length
+      aggregate_profiles$top_5000_plus_minus_2000$Strand %>% unique %>% length
     a <- ggplot(data = filter(aggregate_profiles$top_5000_plus_minus_2000 ,
                         Protein == i,
                         Strand == "Both_strands")) +
@@ -374,27 +362,28 @@ lapply(ss_prots,
 ```
 
 ### B6xCAST hotspots  
+**These results are only available for mm10**.  
 
 #### Top 5000 hotspots  
 Hotspot list was taken from DMC1 ChIP-seq done with kinetic enrichement by [Smagulova *et al*](http://genesdev.cshlp.org/content/30/3/266) on B6xCAST mix.  
-```{r, include=is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)}
+```{r, include=is.null(snakemake@input$B6xCAST_top_5000_pm_2000bp)}
 "No B6xCAST experiments were done on this library"
 ```
-```{r, eval=!is.null(snakemake@input$B6xCAST_top_5000_pm_1000bp)}
-prots <- levels(B6xCAST_top_5000_pm_1000bp$Protein)
+```{r, eval=!is.null(snakemake@input$B6xCAST_top_5000_pm_2000bp)}
+prots <- levels(B6xCAST_top_5000_pm_2000bp$Protein)
 names(prots) <- prots
 
 lapply(prots,
   function(i) {
-    strands_n <- B6xCAST_top_5000_pm_1000bp$Strand %>% nlevels
-    a <- ggplot(data = filter(B6xCAST_top_5000_pm_1000bp ,
+    strands_n <- B6xCAST_top_5000_pm_2000bp$Strand %>% nlevels
+    a <- ggplot(data = filter(B6xCAST_top_5000_pm_2000bp ,
                         Protein == i,
                         Strand == "Both_strands")) +
     geom_line(mapping = aes(x = Coordinates,
                             y = Mean_Max_Normalized_Coverage)) +
       theme(legend.position="top")
    if (strands_n > 1){
-     b <- ggplot(data = filter(B6xCAST_top_5000_pm_1000bp,
+     b <- ggplot(data = filter(B6xCAST_top_5000_pm_2000bp,
                         Protein == i,
                         Strand != "Both_strands")) +
     geom_line(mapping = aes(x = Coordinates,
@@ -458,7 +447,7 @@ map(prots,
 Here are the aggregate profiles for both strands of DNA (watson or crick) on either 'invading' or 'receiving' DNA (B6 or CAST depending on the hostpot).  
 ```{r, include=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand), eval=!is.null(snakemake@input$B6xCAST_PRDM9_assymetric_hs_invading_strand)}
 
-prots <- levels(B6xCAST_top_5000_pm_1000bp$Protein)
+prots <- levels(B6xCAST_top_5000_pm_2000bp$Protein)
 names(prots) <- prots
 
 map(prots,
@@ -500,7 +489,7 @@ Ignore this part, it will soon be removed from the report.
 
 ## Excel file for NGS_files.xlsx
 ```{r}
-excel_col_names <- "experiment_name	protein	species	library	number_broad_peaks	number_narrow_peaks	%_broad_peaks_in_HS_+-_2000bp	%_narrow_peaks_in_HS_+-_2000bp	ra_synchronized	broad_meiotic_stage	specific_meiotic_stage	unique_q_filtered_reads[M]	sequencing_type	sequencing_length	sequencing_equipment	library_prep_method	Storage	Container	Full_path	file_name	narrow_peaks_in_HS_+-_2000bp	broad_peaks_in_HS_+-_2000bp" %>% str_split("\t") %>% unlist
+excel_col_names <- "experiment_name	protein	species	library	number_broad_peaks	number_narrow_peaks	%_broad_peaks_in_HS_+-_2000bp	%_narrow_peaks_in_HS_+-_2000bp	ra_synchronized	broad_meiotic_stage	specific_meiotic_stage	unique_q_filtered_reads[M]	sequencing_type	sequencing_length	sequencing_equipment	library_prep_method		narrow_peaks_in_HS_+-_2000bp	broad_peaks_in_HS_+-_2000bp Observations" %>% str_split("\t") %>% unlist
 ```
 ```{r}
 if (is.null(snakemake@input[["peaks_summary"]])){
@@ -517,20 +506,17 @@ if (is.null(snakemake@input[["peaks_summary"]])){
 
 table2 <- 
   table %>% 
-  mutate(protein = "-",
-         species = "-",
-         library = "-",
-         ra_synchronized = "-",
+  mutate(protein = map(sample, ~str_split_1(., "_") %>% .[5]) %>% unlist(),
+         species = ifelse(snakemake@wildcards$genomes_not_fused == "mm10", "mouse", "human"),
+         library = snakemake@wildcards$lib_name,
+         ra_synchronized = ifelse(grepl("_[0-9]+Di_", sample), "Yes", "No"),
          broad_meiotic_stage = "-",
          specific_meiotic_stage = "-",
-         sequencing_type = "-",
-         sequencing_length = "-",
-         sequencing_equipment = "-",
+         sequencing_type = "PE",
+         sequencing_length = "150",
+         sequencing_equipment = "Novaseq",
          library_prep_method = "-",
-         Storage = "-",
-         Container = "-",
-         Full_path = "-",
-         file_name = "-") %>% 
+         observations = "") %>% 
   rename(any_of(c("experiment_name" = "sample",
          "number_broad_peaks" = "broad_all",
          "number_narrow_peaks" = "narrow_all",

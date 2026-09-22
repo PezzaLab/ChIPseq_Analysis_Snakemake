@@ -12,38 +12,53 @@ import numpy as np
 import re
 import yaml
 import os
+import shutil as shu
 # Set current wd (I cannot get Spyder IDE to set wd as file's path...)
-os.chdir("/Volumes/Pezza/hpc-nobackup/Agustin/test_folder/"
-         "ChIPseq_Analysis_Snakemake/workflow")
+os.chdir("/Volumes/hpc-prj/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow")
+# os.chdir("/Volumes/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake")
 import smk_functions as smkf
 import suffixes as sfxs
 
 # Read sample table
-samples_table = pd.read_csv("../Config/samples.csv",
+samples_table_no_merged_samples = pd.read_csv("../Config/samples.csv",
                             true_values=["True", "TRUE", "T"],
                             false_values=["False", "FALSE", "F"],
                             comment='#',
-                            na_values={"dros_equalization_group": "-",
-                                       "merge_with": "-",
+                            na_values={"merge_with": "-",
                                        "peak_ctrl_file_alias": "-",
                                        "fastq2": "-"}).set_index("sample_name",
                                                                  drop=False)
 
+
 # Add merged samples to samples_table
-for sample in samples_table['sample_name']:
-    if pd.notnull(samples_table.loc[sample, 'merge_with']):
-        new_row = samples_table.loc[sample,]
-        new_row['sample_name'] = f"{new_row['sample_name']}_MERGED"
-        new_row['merge_with'] = "-"
-        new_row['fastq1'] = np.nan
-        new_row['fastq2'] = np.nan
-        samples_table = pd.concat(
-            [samples_table, new_row.to_frame().T], axis=0, join='outer')
-        # to concatenate a df with a series, I need to convert series to df, and to get
-        # the columns right I need to transpose the tabel  (.T). the axis=0 and join='outer'
-        # are not really necessary because those are the default values for concat.
-        # I put them just as a remininder and for learning purpos
-        samples_table = samples_table.set_index("sample_name", drop=False)
+new_rows = samples_table_no_merged_samples.loc[
+    pd.notna(samples_table_no_merged_samples['merge_with'])
+]
+# Generate the new names
+new_rows_names = new_rows['sample_name'] + "_MERGED"
+# Replace name with new name
+new_rows= new_rows.assign(sample_name = new_rows_names)
+# Replace `merge_with` field with '-'
+new_rows= new_rows.assign(merge_with = np.nan)
+# new_rows= new_rows.assign(fastq1 = np.nan)
+# new_rows= new_rows.assign(fastq2 = np.nan)
+# Re-index using new names
+new_rows.set_index('sample_name', drop=False, inplace=True,
+                    verify_integrity=True)
+# Add new rows to samples table
+samples_table = pd.concat([samples_table_no_merged_samples, new_rows],
+                          verify_integrity=True)
+
+####################################################
+##### Add samples names with suffixes to table #####
+####################################################
+# All potentially generated files with their proper extensions will be
+# added to  a dataframe called "samples_table_2".
+# Files will be called upon using the samples_table_2 dataframe, which
+# will be exported as an csv table on "Config/samples_table_processed.csv"
+
+# Save table for debugging and exploring file names and paths
+# samples_table_2.to_csv("Config/samples_table_processed.csv", index=False)
 
 # Read config file
 with open("../Config/config.yaml", 'r') as stream:
@@ -77,66 +92,40 @@ w = Wildcard()
 # Set wilcard attributes
 w.sample = ""
 w.hs_region = ""
-w.genomes_not_fused = "mm10"
+w.genomes_not_fused = "mm39"
 w.genomes_final = ""
 w.extension = ".q_filt.srt.nodup.mit_filt"
 w.peak_type = ""
 w.peak_params = ""
 w.smooth = "smoothed"
-w.hs_region = "B6xCAST_efojf"
+w.library_name=""
 # Filter columns by regex
-samples_table_2.filter(regex = ".*")
+samples_table_2.filter(regex=".*.*")
+
+#%% Create snakemake object
+from types import SimpleNamespace
+snakemake = SimpleNamespace()
+
+snakemake = SimpleNamespace()
+snakemake.params = {'samples_table_2': samples_table_2}
+snakemake.wildcards = {'genomes_not_fused': 'w.genomes_not_fused'}
+snakemake.input = 
 #%% Do tests
-# Get input for process_aggregate_profiles_clipped_input:
-# all matrix files to be processed, which there is one per each bw file
-# Type of cov files to eventually deal with:
-    # NAME.mm10.q_filt.srt.nodup.mit_filt.83-163.inc_16.clipped_1_bp.bw
-    # NAME.mm10.q_filt.srt.nodup.mit_filt.99-147.exc_16.clipped_1_bp.bw
-    # NAME.mm10.q_filt.srt.nodup.mit_filt.exc_16.clipped_1_bp.bw
-    # NAME.mm10.q_filt.srt.nodup.mit_filt.inc_16.clipped_1_bp.bw
-# Available wildcards in their context
-Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
-    "Hotspots/{libary}_{hs_region}_clipped.{smooth}.RData"
-# Target path
-"Results/{genomes_not_fused}/Analysis/"
-            "Heatmaps_and_aggregate_profiles/Hotspots/{hs_region}/{strands}/"
-                "{cov_params}/matrixes/"
-                "{sample}.{genomes_final}.q_filt.srt.nodup.mit_filt."
-                "{ss_condit}{clip_condit}matrix"
 
-strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)"
-clip_condit = r"(((inc|exc)_16\.)?clipped_1_bp\.)?"
+# samples_table_2.to_csv("../Config/samples_table_processed.csv", index=False)
+#filtered = samples_table_2.filter(regex=".*B6xCAST.*matrix")
+smkf.sumarize_peak_count_input(w)
 
-# Function
-cov_params = (f"{config['coverage']['normalization']}_"
-              f"bs{config['coverage']['bin_size']}_"
-              f"sm{config['coverage']['smooth']}_"
-              f"ex{config['coverage']['extend_reads']}")
 
-strand_se = ["inc_16", "exc_16"]
+#%% Export dataframes to be explored in excel
+import os
+import pandas as pd
+import __main__
 
-strand_pe = [ a + "." + b
-             for a in ["83-163", "99-147"]
-             for b in strand_se
-             ]
-                
-list({
-  "Results/"
-      + f"{w.genomes_not_fused}"
-      + "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-      + f"{w.hs_region}/Single_strand/1bp_clipped_reads/"
-      + f"{cov_params}/matrixes/{sample}."
-      + f"{genome}.q_filt.srt.nodup.mit_filt."  
-      + (f"{s_pe}" if samples_table_2["PE"][sample]
-         else f"{s_se}")
-      + ".matrix" 
-      for sample, genome in zip(samples_table_2.index, 
-                                samples_table_2['final_genome'])
-      if samples_table_2['Clip_reads_to_1bp_on_5_prime'][sample]
-      for s_pe in strand_pe
-      for s_se in strand_se
-})
+outdir = os.path.expanduser("~/Downloads")
 
-def a():
-    return ["a", "b"]
-a()
+for name, obj in list(vars(__main__).items()):
+    if isinstance(obj, pd.DataFrame) and not name.startswith("_"):
+        outpath = os.path.join(outdir, f"{name}.tsv")
+        obj.to_csv(outpath, sep="\t", index=False)
+        print(f"Saved {name} -> {outpath}")

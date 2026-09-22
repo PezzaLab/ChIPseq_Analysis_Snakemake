@@ -7,7 +7,7 @@ Makes table with information related to number of peaks for all samples
 
 Wildcards
 ---------
-genomes_not_fused: "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ"
+genomes_not_fused: "mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ"
 
 Output
 -------
@@ -22,25 +22,25 @@ samples_table_2 = snakemake.params['samples_table_2']
 selection_criteria = (
     samples_table_2['reference_genome']
     == snakemake.wildcards['genomes_not_fused']
-    )
-peak_count = samples_table_2.loc[selection_criteria, ['sample_name']]
-# Note: to select the column "sample_name" a list is used because if you
-# just put "sample_name" (without the []), loc will return a series instead
-# of a df.
+)
+peak_count = samples_table_2.loc[selection_criteria, ['sample_name']].copy()
+peak_count.set_index('sample_name', drop=False, inplace=True)
 
 # Count peaks and add to df
 peak_types = ["narrow_all", "broad_all", "narrow_hs", "broad_hs"]
 for peak_type in peak_types:
-    for file in snakemake.input[peak_type]:
-        # Get file name
-        file_name = file.split("/")[-1].split(".")[0]
-        # Get number of peaks
-        with open(file, 'r') as fp:
-            number_peaks = len(fp.readlines())
-        peak_count.loc[file_name, peak_type] = number_peaks
+    if peak_type in snakemake.input.keys():
+        for file in snakemake.input[peak_type]:
+            # Get file name
+            file_name = file.split("/")[-1].split(".")[0]
+            # Get number of peaks
+            with open(file, 'r') as fp:
+                number_peaks = len(fp.readlines())
+            peak_count.loc[file_name, peak_type] = number_peaks
 
-# Calculate % of peaks in HSs (only for mm10)
-if (snakemake.wildcards['genomes_not_fused'] == "mm10"):
+# Calculate % of peaks in HSs (only for mouse if HS peaks were provided)
+if (snakemake.wildcards['genomes_not_fused'] in ("mm10", "mm39") and
+        "narrow_hs" in peak_count.columns and "broad_hs" in peak_count.columns):
     peak_count["% nrw peaks at HS"] = np.where(
         peak_count['narrow_all'] > 0,
         100 * peak_count['narrow_hs'] / peak_count['narrow_all'], 0)

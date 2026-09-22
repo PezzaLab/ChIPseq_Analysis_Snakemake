@@ -23,16 +23,14 @@ for file in snakemake.input:
             # get number of primary reads
             if re.search("primary$", line): 
                 number_reads += [int(re.search("^[0-9]+", line).group(0))]
-    sample_name += [samples_table_2.loc[samples_table_2['processed_flagstat_dros'] == file].index[0]]
+    sample_name += [samples_table_2.loc[samples_table_2['processed_flagstat_dros'] == file, 'sample_name'].iloc[0]]
 
 df=pd.DataFrame(
     {"sample_name" : sample_name,
      "flagstat_file" : snakemake.input,
      "number_dros_reads" : number_reads})
 
-min_reads = min(df['number_dros_reads'])
-
-df["scaleFactor"]=min_reads/df['number_dros_reads']
+# Scale counts so that it has 100 K drosophila reads
+df["scaleFactor"]=100000/df['number_dros_reads']
 
 df.to_csv(snakemake.output[0], sep='\t', index=False)
-

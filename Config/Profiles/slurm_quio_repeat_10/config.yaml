@@ -7,7 +7,7 @@ default-resources:
   runtime: "10h"
   mem_mb: 2000
 use-envmodules: "True"
-restart-times: "1"
+restart-times: "9"
 max-jobs-per-second: "20"
 max-status-checks-per-second: "10"
 local-cores: 1
@@ -55,54 +55,54 @@ set-threads:
 
 set-resources:
     align_fastq:
-      mem_mb: 31000
+      mem_mb: "21000 + (attempt-1) * 10000"
       runtime: "max(int(((input.size_mb - 1900) / 50) * attempt), 150)"
     call_peaks_macs2:
-      mem_mb: 9000
+      mem_mb: "7000 * attempt"
     clip_1bp:
-      mem_mb: 2900
+      mem_mb: "1900 + (attempt - 1) * 1000"
     compute_matrix_outfiles_hs:
-      mem_mb: 4000
+      mem_mb: "3000 * attempt"
     create_coverage_bw:
-      mem_mb: 10000
+      mem_mb: "8000 + (attempt - 1) * 4000"
     dedup_bam:
-      mem_mb: 7600
+      mem_mb: "5600 * attempt"
     dros_normalization:
-      mem_mb: 10000
+      mem_mb: "8000 + (attempt - 1) * 4000"
     filter_bam:
-      mem_mb: 800
+      mem_mb: "400 * attempt"
     filter_spiked_in_bam_int_genome:
-      mem_mb: 55000
+      mem_mb: "40000 + (attempt-1) * 15000"
     filter_spiked_in_bam_spike_in_genome:
-      mem_mb: 55000
+      mem_mb: "40000 + (attempt-1) * 15000"
     FRIP:
-      mem_mb: 2000
+      mem_mb: "1000 * attempt"
     generate_checksums:
-      mem_mb: 2000
+      mem_mb: "2000 * attempt"
       runtime: "60"
     get_strand_sep_bams:
-      mem_mb: 1000
+      mem_mb: "500 * attempt"
     index:
-      mem_mb: 800
+      mem_mb: "350 * attempt"
     insert_size_picard:
-      mem_mb: 1200
+      mem_mb: "600 * attempt"
     library_complexity_picard:
-      mem_mb: "int(input.size_mb * 0.5 + 6500)"
+      mem_mb: "int(input.size_mb * 0.5 + 4500 + (attempt - 1) * 2000)"
     merge_bams:
-      mem_mb: 800
+      mem_mb: "400 * attempt"
     merge_watson_or_crick:
-      mem_mb: 700
+      mem_mb: "350 * attempt"
     multiqc:
-      mem_mb: 800
+      mem_mb: "400 * attempt"
     process_aggregate_profiles:
-      mem_mb: "int(input.size_mb + 2000)"
+      mem_mb: "int(input.size_mb + 1000)"
     samstats:
-      mem_mb: 310
+      mem_mb: "210 + (attempt-1) * 100"
     samtools_flagstat:
-      mem_mb: 310
+      mem_mb: "210 + (attempt-1) * 100"
     trim_adaptase:
-      mem_mb: 800
+      mem_mb: "400 * attempt"
     trim_adapters_SE:
-      mem_mb: 5000
+      mem_mb: "3500 * attempt"
     trim_adapters_PE:
-      mem_mb: 5000
+      mem_mb: "3700 * attempt"

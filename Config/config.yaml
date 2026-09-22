@@ -1,23 +1,26 @@
 library:
   name: "Test_library"
-  general_info: "Whatever info you want to add about this library"
+  general_info: "" # Whatever info you want to add about this library, will be seen as intro in the html report
 
 # Should quality control analysis be done?
 qctrl: True
 
 # Reference genomes' paths
 genomes:
-    mm10: "/Volumes/hts_core/Shared/mus_musculus/mm10/bwa_0.7.12_indexed/mm10.fasta"
-    mm10_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drodophila6_mm10/final_files/dm6_mm10_fusion.fa"
-    mm10CAST_EiJ: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10cast/mm10.CAST_EiJ.fasta"
-    mm10_x_CAST_EiJ: "/Volumes/Pezza/hpc-nobackup/References/Genomes/mm10_CAST_plus_B6/mm10_B6plusCAST.fasta"
-    mm10_x_CAST_EiJ_f_d6: "/Volumes/Pezza/hpc-nobackup/References/Genomes/fusion_drosophila_mm10_CAST_plus_B6/d6_mm10_fusion.B6plusCAST.fasta"
-    hg38: "/Volumes/shared-refs/gatk_resources/hg38/v0/Homo_sapiens_assembly38.fasta"
+    mm10: "/Volumes/shared-refs/mus_musculus/mm10/bwa_0.7.12_indexed"
+    mm10_f_d6: "/hpc-prj/pezza/References/Genomes/fusion_drosophila6_mm10/dm6_mm10_fusion"
+    mm10CAST_EiJ: "/hpc-prj/pezza/References/Genomes/fusion_drosophila_mm10cast"
+    mm10_x_CAST_EiJ: "/hpc-prj/pezza/References/Genomes/mm10_CAST_plus_B6"
+    mm10_x_CAST_EiJ_f_d6: "/hpc-prj/pezza/References/Genomes/fusion_drosophila_mm10_CAST_plus_B6"
+    mm39: "/archive/cbds/idx/ensembl/Mus_musculus/GRCm39/sequence_only/bwa/0.7.18"
+    mm39_f_d6: "/hpc-prj/pezza/References/Genomes/fusion_drosophila6_mm39"
+    hg38: ""
     hg38_f_d6: ""
 
 # suffix added to spike-in chromosome-names
 spike_in_suffixes:
   mm10_f_d6: "_d"
+  mm39_f_d6: "_d"
   GRCh38_f_d6: "_d"
   hg38_f_d6: "_d"
   mm10_x_CAST_EiJ_f_d6: "_d"
@@ -47,15 +50,19 @@ MACS2:
   qvalue: "0.05" # 0.5 = MACS default
   control: # <techinque>_<ref_genome>_<frag._tech>_<library_tech>_<reads type and length>_<file_ID> # <chip|cyr|...>_<mm10_hg38...>_<sonic|mnase|...>_<accel|reg|...>_<(SR|PE)(50|75,etc)><1|2|...>
     no_input: ""
-    chip_mm10_sonic_testes_regular_SE75_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/INPUT_B180_2_28.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_regular_PE50_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/Input_11-6-19.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_regular_PE150_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2021_1_12_input_zyg.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_7_Input_zyg_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_adaptase_2: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/6-28-22_Input_8_Di_L_zyg_wtestes.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_MNAse_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_28_CHD4_7dpp_MNAse_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_mm10_sonic_testes_adaptase_7dpp: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/2022_1_24_input_7dpp_sonic_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
-    cyr_mm10_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/3_22_22_RaG_IgG_R4_MERGED.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
-    chip_B6xCAST_sonic_testes_adaptase_1: "/Volumes/Pezza/hpc-nobackup/References/Mice/Inputs/Bam/09_06_2023_ChIPseq_B6xCAST_input_B6xCAST_Wt_dros_8Di_whole_tt_douncer.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_regular_SE75_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/INPUT_B180_2_28.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_regular_PE50_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/Input_11-6-19.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_regular_PE150_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/2021_1_12_input_zyg.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_adaptase_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/2022_1_7_Input_zyg_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_adaptase_2: "/hpc-prj/pezza/References/Mice/Inputs/Bam/6-28-22_Input_8_Di_L_zyg_wtestes.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_MNAse_testes_adaptase_7dpp: "/hpc-prj/pezza/References/Mice/Inputs/Bam/2022_1_28_CHD4_7dpp_MNAse_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_sonic_testes_adaptase_7dpp: "/hpc-prj/pezza/References/Mice/Inputs/Bam/2022_1_24_input_7dpp_sonic_MERGED.mm10.q_filt.srt.nodup.mit_filt.bam"
+    cyr_mm10_testes_adaptase_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/3_22_22_RaG_IgG_R4_MERGED.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm10_B6xCAST_sonic_testes_adaptase_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/09_06_2023_ChIPseq_B6xCAST_input_B6xCAST_Wt_dros_8Di_whole_tt_douncer.mm10_f_d6.mm10.q_filt.srt.nodup.mit_filt.bam"
+    cyr_mm39_testes_adaptase_1: "/hpc-prj/pezza/References/Mice/Inputs/Bam/3_22_22_RaG_IgG_R4_MERGED.mm39_f_d6.mm39.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm39_sonic_testes_adaptase_2: "/hpc-prj/pezza/References/Mice/Inputs/Bam/6-28-22_Input_8_Di_L_zyg_wtestes.mm39.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm39_MNAse_testes_adaptase_7dpp: "/hpc-prj/pezza/References/Mice/Inputs/Bam/2022_1_28_input_7dpp_MNAse_MERGED.mm39.q_filt.srt.nodup.mit_filt.bam"
+    chip_mm39_sonic_testes_adaptase_7dpp: "2022_1_24_input_7dpp_sonic_MERGED.mm39.q_filt.srt.nodup.mit_filt.bam"
 
   # Single read arguments
   extension: "300"
@@ -63,34 +70,47 @@ MACS2:
 # Bed files
 references:
   mm10:
-    top_5000_plus_minus_2000: "Resources/bed_files/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_TOP_5000_center_plus_minus_2000.bed"
-    all_plus_minus_2000: "Resources/bed_files/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_center_plus_inus_2000.bed"
-    asymetric_watson_strong: "Resources/bed_files/asymetric_hotspots_watson_strong.bed"
-    asymetric_crick_strong: "Resources/bed_files/asymetric_hotspots_crick_strong.bed"
+    top_5000_plus_minus_2000: "Resources/bed_files/mm10/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_TOP_5000_center_plus_minus_2000.bed"
+    all_plus_minus_2000: "Resources/bed_files/mm10/SPO11_B6_mm10_GSE84689_Chr_BL_GRlst_filt_hits_desc_center_plus_inus_2000.bed"
+    asymetric_watson_strong: "Resources/bed_files/mm10/asymetric_hotspots_watson_strong.bed"
+    asymetric_crick_strong: "Resources/bed_files/mm10/asymetric_hotspots_crick_strong.bed"
     symetric_all: ""
     symetric_asym_ctrl: ""
-    x_non_par: "Resources/bed_files/SPO11_X-nonPAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
+    x_non_par: "Resources/bed_files/mm10/SPO11_X-nonPAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
     autosomal_all: ""
-    autosomal_x_non_par_ctrl: "Resources/bed_files/SPO11_autosomal-MATCHED-TO-X_non_PAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
-    B6xCAST_top_5000_pm_1000bp: "Resources/bed_files/B6xCAST_CASTxB6_common_HSs_top_5000_plus_minus_2000_bp.bed"
-    B6xCAST_pm_1000bp: "Resources/bed_files/B6xCAST_CASTxB6_common_HSs_plus_minus_2000_bp.bed"
-    B6xCAST_PRDM9_assymetric_hs_invading_strand: "Resources/bed_files/PRDM9_assymetric.autosomal.invading.dmc1_coords.bed"
-    B6xCAST_PRDM9_assymetric_hs_receiving_strand: "Resources/bed_files/PRDM9_assymetric.autosomal.receiving.dmc1_coords.bed"
-    B6xCAST_PRDM9_assymetric_hs_mm10_aligned: "Resources/bed_files/PRDM9_assymetric.autosomal.mm10.dmc1_coords.bed"
+    autosomal_x_non_par_ctrl: "Resources/bed_files/mm10/SPO11_autosomal-MATCHED-TO-X_non_PAR-GSE84689_B6_mm10_BL_GRlst_filt_hits_desc_center.bed"
+    B6xCAST_top_5000_pm_2000bp: "Resources/bed_files/mm10/B6xCAST_CASTxB6_common_HSs_top_5000_plus_minus_2000_bp.bed"
+    B6xCAST_pm_2000bp: "Resources/bed_files/mm10/B6xCAST_CASTxB6_common_HSs_plus_minus_2000_bp.bed"
+    B6xCAST_PRDM9_assymetric_hs_mm10_aligned: "Resources/bed_files/mm10/PRDM9_assymetric.autosomal.mm10.dmc1_coords.bed"
     TSS: ""
-    blacklist: "Resources/bed_files/mm10.blacklist_merge1000.bed"
-    black_grey: "Resources/bed_files/GREYLIST_PE150_ZYG_sonic_ACELL.bed"
+    blacklist: "Resources/bed_files/mm10/mm10-blacklist.v2.bed"
   #     sonic:
   #       PE_adaptase: ""
   #     MNAse:
   #       PE_adaptase: ""
-  hg38:
-    spo11:
-      top_5000_plus_minus_2000: ""
-      all_plus_minus_2000: ""
+  mm10_x_CAST_EiJ:
+    B6xCAST_PRDM9_assymetric_hs_invading_strand: "Resources/bed_files/mm10_x_CAST_EiJ/PRDM9_assymetric.autosomal.invading.dmc1_coords.bed"
+    B6xCAST_PRDM9_assymetric_hs_receiving_strand: "Resources/bed_files/mm10_x_CAST_EiJ/PRDM9_assymetric.autosomal.receiving.dmc1_coords.bed"
+  mm39:
+    top_5000_plus_minus_2000: "Resources/bed_files/mm39/SPO11_B6_mm39_GSE84689_Chr_BL_GRlst_filt_hits_desc_TOP_5000_center_plus_minus_2000.bed"
+    all_plus_minus_2000: "Resources/bed_files/mm39/SPO11_B6_mm39_GSE84689_Chr_BL_GRlst_filt_hits_desc_center_plus_inus_2000.bed"
+    asymetric_watson_strong: "Resources/bed_files/mm39/asymetric_hotspots_watson_strong.bed"
+    asymetric_crick_strong: "Resources/bed_files/mm39/asymetric_hotspots_crick_strong.bed"
+    symetric_all: ""
+    symetric_asym_ctrl: ""
+    x_non_par: "Resources/bed_files/mm39/SPO11_X-nonPAR-GSE84689_B6_mm39_BL_GRlst_filt_hits_desc_center.bed"
+    autosomal_all: ""
+    autosomal_x_non_par_ctrl: "Resources/bed_files/mm39/SPO11_autosomal-MATCHED-TO-X_non_PAR-GSE84689_B6_mm39_BL_GRlst_filt_hits_desc_center.bed"
+    B6xCAST_top_5000_pm_2000bp: "Resources/bed_files/mm39/B6xCAST_CASTxB6_common_HSs_top_5000_plus_minus_2000_bp.bed"
+    B6xCAST_pm_2000bp: "Resources/bed_files/mm39/B6xCAST_CASTxB6_common_HSs_plus_minus_2000_bp.bed"
+    B6xCAST_PRDM9_assymetric_hs_invading_strand: ""
+    B6xCAST_PRDM9_assymetric_hs_receiving_strand: ""
+    B6xCAST_PRDM9_assymetric_hs_mm39_aligned: "Resources/bed_files/mm39/PRDM9_assymetric.autosomal.mm39.dmc1_coords.bed"
     TSS: ""
-    blacklist: ""
-    black_grey: ""
+    blacklist: "Resources/bed_files/mm39/mm39.excluderanges.bed"
+  hg38:
+    TSS: ""
+    blacklist: "Resources/bed_files/hg38/hg38-blacklist.v2.bed"
 
 
 heatmaps:
@@ -115,11 +135,10 @@ bwa: "bwa/0.7.15"
 cutadapt: "cutadapt/3.7"
 deeptools: "deeptools/3.4.3"
 fastp: "fastp/0.23.2"
-homer: "homer/4.10"
 macs2: "macs2/2.2.7.1"
 multiqc: "multiqc/1.15"
-phantompeakqualtools: "phantompeakqualtools/1.2"
 picard: "picard/2.21.2"
 R: "R/4.1.2-mkl"
 samtools: "samtools/1.14"
 sambamba: "sambamba/0.8.2"
+rclone: "rclone"

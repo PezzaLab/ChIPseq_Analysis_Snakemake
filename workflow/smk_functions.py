@@ -3,9 +3,140 @@
 import pandas as pd
 import re
 import sys
+import os
+
+samples_table = None
+samples_table_2 = None
+config = None
+samples_table_no_merged_samples = None
+include_hotspots = True
+
+def expand_sample_table(raw_df):
+    r"""Expands sample table rows where 'reference_genome' contains multiple genomes.
+
+    Supports:
+    - Multiple genomes specified via comma or semicolon (e.g. 'mm10;mm39' or 'mm10, mm39').
+    - Broadcasting: any genome-dependent column with a single value is broadcast
+      to all genomes specified for that sample.
+    - Sets of values: any column with multiple values (delimited by ';' or ',')
+      must match the number of reference genomes exactly (1-to-1 mapping).
+    - 'merge_with' uses ';' as delimiter between genomes to allow space-separated
+      BAM/sample lists for each genome.
+    - Safe boolean conversion for 'True'/'False'/'T'/'F'/'1'/'0'.
+    - Assigns unique index 'f"{sample_name}.{reference_genome}"'.
+    """
+    import numpy as np
+    expanded_rows = []
+
+    sample_intrinsic_cols = {"sample_name", "fastq1", "fastq2", "library_technology", "PE"}
+    boolean_cols = {
+        "PE", "dros_spike_in", "get_single_strand",
+        "Clip_reads_to_1bp_on_5_prime", "top5000_HS_heatmap",
+        "Size_DNA_top_5000_HS", "B6xCAST"
+    }
+    bool_map = {
+        "true": True, "t": True, "1": True,
+        "false": False, "f": False, "0": False
+    }
+
+    for idx, row in raw_df.iterrows():
+        sample_name = str(row["sample_name"]).strip()
+        ref_val = row.get("reference_genome", "")
+        if pd.isna(ref_val) or not str(ref_val).strip():
+            sys.exit(f"\n\n* Sample '{sample_name}' has no reference_genome defined.\n")
+
+        # Split reference_genome by comma or semicolon
+        genomes = [g.strip() for g in re.split(r"[,;]", str(ref_val)) if g.strip()]
+        num_genomes = len(genomes)
+
+        col_values = {}
+        for col in raw_df.columns:
+            val = row[col]
+
+            if col == "sample_name":
+                col_values[col] = [sample_name] * num_genomes
+            elif col in {"fastq1", "fastq2"}:
+                val_clean = np.nan if (pd.isna(val) or str(val).strip() in ["-", ""]) else str(val).strip()
+                col_values[col] = [val_clean] * num_genomes
+            elif col == "reference_genome":
+                col_values[col] = genomes
+            elif col == "merge_with":
+                if pd.isna(val) or str(val).strip() in ["-", ""]:
+                    col_values[col] = [np.nan] * num_genomes
+                else:
+                    parts = [p.strip() for p in str(val).split(";")]
+                    if len(parts) == 1:
+                        p_val = np.nan if parts[0] in ["-", ""] else parts[0]
+                        col_values[col] = [p_val] * num_genomes
+                    elif len(parts) == num_genomes:
+                        col_values[col] = [np.nan if p in ["-", ""] else p for p in parts]
+                    else:
+                        sys.exit(
+                            f"\n\n* Sample '{sample_name}': column 'merge_with' has {len(parts)} values (semicolon-separated), "
+                            f"but {num_genomes} reference genomes were specified ({genomes}).\n"
+                        )
+            elif col in boolean_cols:
+                if isinstance(val, (bool, np.bool_)):
+                    col_values[col] = [bool(val)] * num_genomes
+                elif pd.isna(val) or str(val).strip() in ["-", ""]:
+                    col_values[col] = [False] * num_genomes
+                else:
+                    parts = [p.strip() for p in re.split(r"[,;]", str(val)) if p.strip()]
+                    converted = []
+                    for p in parts:
+                        p_low = p.lower()
+                        if p_low in bool_map:
+                            converted.append(bool_map[p_low])
+                        else:
+                            sys.exit(
+                                f"\n\n* Sample '{sample_name}': invalid boolean value '{p}' in column '{col}'.\n"
+                            )
+                    if len(converted) == 1:
+                        col_values[col] = converted * num_genomes
+                    elif len(converted) == num_genomes:
+                        col_values[col] = converted
+                    else:
+                        sys.exit(
+                            f"\n\n* Sample '{sample_name}': column '{col}' has {len(converted)} values, "
+                            f"but {num_genomes} reference genomes were specified ({genomes}).\n"
+                        )
+            else:
+                # Other string / metadata columns
+                if pd.isna(val) or str(val).strip() in ["-", ""]:
+                    col_values[col] = [np.nan] * num_genomes
+                else:
+                    parts = [p.strip() for p in re.split(r"[,;]", str(val)) if p.strip()]
+                    if len(parts) == 1:
+                        p_val = np.nan if parts[0] == "-" else parts[0]
+                        col_values[col] = [p_val] * num_genomes
+                    elif len(parts) == num_genomes:
+                        col_values[col] = [np.nan if p == "-" else p for p in parts]
+                    else:
+                        sys.exit(
+                            f"\n\n* Sample '{sample_name}': column '{col}' has {len(parts)} values, "
+                            f"but {num_genomes} reference genomes were specified ({genomes}).\n"
+                        )
+
+        # Check sample-intrinsic consistency
+        for col in sample_intrinsic_cols:
+            if col in col_values and len(set(col_values[col])) > 1:
+                sys.exit(
+                    f"\n\n* Sample '{sample_name}': sample-intrinsic column '{col}' has conflicting values "
+                    f"{col_values[col]} across genomes for the same sample.\n"
+                )
+
+        for i, g in enumerate(genomes):
+            rec = {col: col_values[col][i] for col in raw_df.columns}
+            rec["sample_entry_id"] = f"{sample_name}.{g}"
+            expanded_rows.append(rec)
+
+    df_expanded = pd.DataFrame(expanded_rows)
+    df_expanded.set_index("sample_entry_id", drop=False, inplace=True, verify_integrity=True)
+    return df_expanded
+
 
 def check_sample_table_format(samples_table):
-    """Check if samples_table.csv has been properly filled.
+    r"""Check if samples_table.csv has been properly filled.
 
     The following conditions should be met:
         * 'samples_names' do not contain '/', '.', ' ', or finish in '_MERGED'.
@@ -19,14 +150,13 @@ def check_sample_table_format(samples_table):
             samples_table, or an absolute path.
         * There must be 2 FASTQs when sample is PE and 1 when it is not.
         * FASTQ1 != FASTQ2
-        * If 'dros_equalization_group' is not empty, then
-            'dros_spike_in' == True
         * Booleans columns should have boolean values only
         * 'peak_ctrl_file_alias' should not contain '/', '.' or ' '
+        * If 'Clip_reads_to_1bp_on_5_prime' is TRUE, 'PE' must be FALSE (must be SE).
 
     Parameters:
     -----------
-        samples_table : dataframe produced by reading samples_table.csv
+        samples_table : dataframe produced by reading and expanding samples_table.csv
             containing samples information.
 
     Return:
@@ -46,164 +176,256 @@ def check_sample_table_format(samples_table):
         "Clip_reads_to_1bp_on_5_prime", "top5000_HS_heatmap"
     ]
     booleans_check = [
-        col for col in cols_to_check if samples_table[col].dtype != "bool"
+        col for col in cols_to_check
+        if col in samples_table.columns and samples_table[col].dtype != "bool"
     ]
 
     if (len(booleans_check) > 0):
         exit_bool_message = (
             "* The following column/s has/ve at least one"
-            " row  filled with something different than 'T', 'F', 'True',"
+            " row filled with something different than 'T', 'F', 'True',"
             " 'False', 'TRUE' or 'FALSE':\n"
             f"\t({booleans_check})"
         )
         sys.exit(exit_bool_message)
-    # If any of this booleans is not boolean I need to exit now because
-    # following checks use the boolean value of some of this columns
 
     # %% Samples names check
     # Check names of samples don't contain / or . or finish in "_MERGED"
-    if (samples_table['sample_name'].str.contains(r"\.") |
-            samples_table['sample_name'].str.contains("/") |
-            samples_table['sample_name'].str.contains(" ") |
-            samples_table['sample_name'].str.contains("_MERGED$")).any():
-        exit_message += ("* One or more sample names in samples table contain"
+    sample_names = samples_table['sample_name']
+    offending_names = sample_names[sample_names.str.contains(r'[./ ]')].to_list()
+    offending_names += sample_names[sample_names.str.contains('_MERGED$')].tolist()
+
+    if len(offending_names) > 0:
+        offending_names_str = "\n".join([f"- {s}" for s in set(offending_names)])
+        exit_message += ("\n\n* The following sample names contain"
                          " a dot ('.'), a slash ('/'), a space (' ') or ends"
                          " with the word '_MERGED'. These are not allowed in"
                          " sample names. Modify names and try again\n"
+                         f"{offending_names_str}"
                          )
         exit_script = True
-    # %% sample_name:genome unique
-    # Check that there is no sample_name:genome combination repeated
-    if samples_table.loc[:, ['sample_name',
-                             'reference_genome'
-                             ]
-                         ].duplicated().any():
+
+    # %% Check that (sample_name, reference_genome) pairs are not repeated
+    sample_genome_pairs = samples_table['sample_name'] + " : " + samples_table['reference_genome']
+    duplicated_pairs = sample_genome_pairs[sample_genome_pairs.duplicated()].unique().tolist()
+    if len(duplicated_pairs) > 0:
+        dup_str = "\n".join([f"\t- {p}" for p in duplicated_pairs])
         exit_message += (
-            "* One or more sample names in samples table is repeated.\n"
-            "Choose different names for all your samples.\n"
+            "\n\n* The following sample_name : reference_genome combinations are "
+            f"repeated in your samples table:\n{dup_str}\n"
         )
         exit_script = True
+
     # %% Merged samples
     if pd.notnull(samples_table['merge_with']).any():
         # Check that "merge_with" reference is not a deduplicated/filtered
         # file for spiked-in samples (it has to be raw bam)
-        if (samples_table['merge_with'].str.contains(".nodup.") &
-                samples_table['dros_spike_in']).any():
+        mask_merge = (
+            samples_table['merge_with'].astype(str).str.contains(r"\.nodup\.") &
+            samples_table['dros_spike_in']
+        )
+        offending_merge_df = samples_table[mask_merge]
+
+        if mask_merge.any():
+            offending_merge = "\n".join(
+                [f"\t- {s}" for s in offending_merge_df["sample_name"].unique()]
+            )
             exit_message += (
-                "* One or more samples' 'merge_with' parameter is a "
-                "deduplicated/filtered bam file AND has drosophila spike in. "
-                "When sample is spiked, the 'merge_with' file has to be the "
+                "\n\n* In the following samples the 'merge_with' parameter is "
+                "a deduplicated/filtered bam file AND has drosophila spike in."
+                " When sample is spiked, the 'merge_with' file has to be the "
                 "raw bam, otherwise you'll loose the drosophila reads.\n"
+                f"{offending_merge}"
             )
             exit_script = True
 
-        # Check that to merge samples are either an absolute path or another
+        # Check that merge samples are either an absolute path or another
         # sample from samples_table
         samples_names_not_in_library = []
-        for sample in samples_table['sample_name']:
-            if not pd.isnull(samples_table.loc[sample, 'merge_with']):
-                merge_samples = samples_table.loc[sample, 'merge_with'].split()
+        samples_merging_themselves = []
+        for idx, row in samples_table.iterrows():
+            sample = row['sample_name']
+            if pd.notnull(row['merge_with']):
+                merge_samples = str(row['merge_with']).split()
                 for merge_sample in merge_samples:
-                    absolute_path = merge_sample[0] == "/"
-                    in_library = merge_sample in samples_table['sample_name']
+                    absolute_path = merge_sample.startswith("/")
+                    in_library = merge_sample in samples_table['sample_name'].values
+                    merge_itself = merge_sample == sample
                     if not absolute_path and not in_library:
-                        samples_names_not_in_library.append(
-                            f"\t{merge_sample}")
+                        samples_names_not_in_library.append(f"\t{merge_sample}")
                         exit_script = True
-        format_samples_not_in_lib = "\n".join(samples_names_not_in_library)
-        exit_message += (
-            "* The following samples are not found at courrent samples table:"
-            f"\n{format_samples_not_in_lib}.\n"
-        ) if len(samples_names_not_in_library) > 0 else ""
+                    if merge_itself:
+                        samples_merging_themselves.append(f"\t{merge_sample}")
+                        exit_script = True
 
-    # %% # FASTQs and PE
-    # Check that there are 2 FASTQs when sample is PE and 1 when is not
-    if (
-        samples_table['PE'] &
-            ((samples_table['fastq1'] == "") |
-             (samples_table['fastq2'] == ""))).any():
-        exit_message += (
-            "* At least one sample is set as PE but only contains"
-            " one FASTQ path. Interleaved FASTQs are not supported yet.\n")
-        exit_script = True
-        # Above code doesn't work without the extra parentheses on each
-        # condition
-    if (~samples_table['PE'] & ~samples_table['fastq2'].isna()).any():
-        exit_message += (
-            "* At least one sample is set as SR (PE == False) but"
-            " contains a FASTQ path at column 'fastq2'. Please put it at "
-            "column 'fastq1'\n")
-        exit_script = True
-    # %% FASTQ1 != FASTQ2
-    if (samples_table['PE'] &
-            (samples_table['fastq1'] == samples_table['fastq2'])).any():
-        fastq_comp = samples_table['fastq1'] == samples_table['fastq2']
-        bad_samples = samples_table.loc[fastq_comp]['sample_name'].tolist()
-        exit_message += (
-            "* The following samples have identical paths for fastq1 and 2:\n"
+        if len(samples_names_not_in_library) > 0:
+            format_samples_not_in_lib = "\n".join(set(samples_names_not_in_library))
+            exit_message += (
+                "\n\n* The following samples are not found at current samples "
+                f"table:\n{format_samples_not_in_lib}\n"
+            )
+        if len(samples_merging_themselves) > 0:
+            format_samples_merging_themselves = "\n".join(set(samples_merging_themselves))
+            exit_message += (
+                "\n\n* The following samples are merging with themselves "
+                f"\n{format_samples_merging_themselves}\n"
+            )
+
+    # %% FASTQs and PE
+    mask_PE = (
+        samples_table['PE'] & (
+            samples_table['fastq1'].isna() | (samples_table['fastq1'] == "") |
+            samples_table['fastq2'].isna() | (samples_table['fastq2'] == "")
         )
-        for i in bad_samples:
-            exit_message += "\t" + i + "\n"
+    )
+    offending_PE = samples_table[mask_PE]["sample_name"].unique().tolist()
+    if len(offending_PE) > 0:
+        offending_PE_strg = "\n".join([f"\t- {s}" for s in offending_PE])
+        exit_message += (
+            "\n\n* The following samples are set as PE but only contain"
+            " one FASTQ path. Interleaved FASTQs are not supported yet.\n"
+            f"{offending_PE_strg}"
+        )
         exit_script = True
 
-    # %% Dros_eq and dros_spike_in
-    # Check that the samples with a "dros_equalization_group" have
-    # "dros_spike_in" == T (I don't do the complementary becuase you might
-    # have the sample to equalize on another library)
-    if (~samples_table['dros_equalization_group'].isnull() &
-            ~samples_table['dros_spike_in']).any():
+    mask_SR = ~samples_table['PE'] & ~samples_table['fastq2'].isna()
+    offending_SR = samples_table[mask_SR]["sample_name"].unique().tolist()
+    if len(offending_SR) > 0:
+        offending_SR_strg = "\n".join([f"\t- {s}" for s in offending_SR])
         exit_message += (
-            "* At least one of your samples has a 'dros_equalization_group' "
-            "assigned to it but has the field 'dros_spike_in' set as False.\n"
+            "\n\n* The following samples are set as SR (PE == False) but"
+            " contain a FASTQ path at column 'fastq2'. Please check and fix\n"
+            f"{offending_SR_strg}"
+        )
+        exit_script = True
+
+    # %% FASTQ1 != FASTQ2
+    mask_FQs = (
+        samples_table['PE'] &
+        (samples_table['fastq1'] == samples_table['fastq2'])
+    )
+    offending_FQs = samples_table[mask_FQs]["sample_name"].unique().tolist()
+    if len(offending_FQs) > 0:
+        offending_FQs_strg = "\n".join([f"\t- {s}" for s in offending_FQs])
+        exit_message += (
+            "\n\n* The following samples have identical paths for "
+            "fastq1 and 2:\n"
+            f"{offending_FQs_strg}"
         )
         exit_script = True
 
     # %% peak_ctrl_file_alias
-    # Convert peak_ctrl_file_alias series to str (in case it's all NaN values)
     peak_ctrls = samples_table['peak_ctrl_file_alias'].astype(str)
-    # Get list of wrongly filled samples
     bad_samples = samples_table.loc[
-        peak_ctrls.str.contains("/|\\.| ", regex=True, na=False)
+        peak_ctrls.str.contains(r"/|\.| ", regex=True, na=False)
     ]
-    # If necessary, assemble exit message
     if len(bad_samples) > 0:
         exit_message += (
-            "* The following samples have incorrect values on column "
+            "\n\n* The following samples have incorrect values on column "
             "'peak_ctrl_file_alias:'\n"
-            )
-        for i in bad_samples.index:
+        )
+        for i in bad_samples['sample_name'].unique():
             exit_message += "\t" + i + "\n"
         exit_script = True
 
     # %% Clip_reads and get_single_strand
-    # To be clipped samples
     clip_Y_get_ss_N = [
-        i for i in samples_table.index
-        if samples_table["Clip_reads_to_1bp_on_5_prime"][i] and
-        not samples_table["get_single_strand"][i]
+        row['sample_name'] for idx, row in samples_table.iterrows()
+        if row["Clip_reads_to_1bp_on_5_prime"] and not row["get_single_strand"]
     ]
     if len(clip_Y_get_ss_N) > 0:
         exit_message += (
-            "* The following samples are set TRUE for "
-            "`Clip_reads_to_1bp_on_5_prime` but FALSE for `get_single_strand`"
-            "\n"
+            "\n\n* The following samples are set TRUE for "
+            "`Clip_reads_to_1bp_on_5_prime` but FALSE for `get_single_strand`\n"
         )
-        for i in clip_Y_get_ss_N:
+        for i in set(clip_Y_get_ss_N):
             exit_message += "\t" + i + "\n"
         exit_message += ("Either set `Clip_reads_to_1bp_on_5_prime` to FALSE "
-                         "or `get_single_strand` to TRUE"
+                         "or `get_single_strand` to TRUE\n"
+                         )
+        exit_script = True
+
+    # %% Clip_reads and PE
+    clip_Y_PE_Y = [
+        row['sample_name'] for idx, row in samples_table.iterrows()
+        if row["Clip_reads_to_1bp_on_5_prime"] and row["PE"]
+    ]
+    if len(clip_Y_PE_Y) > 0:
+        exit_message += (
+            "\n\n* The following samples are set TRUE for "
+            "`Clip_reads_to_1bp_on_5_prime` but are also set TRUE for `PE`:\n"
+        )
+        for i in set(clip_Y_PE_Y):
+            exit_message += "\t" + i + "\n"
+        exit_message += (
+            "Samples with `Clip_reads_to_1bp_on_5_prime` must be Single-End (PE=False). "
+            "Either set `PE` to FALSE (and provide only fastq1) or set "
+            "`Clip_reads_to_1bp_on_5_prime` to FALSE.\n"
         )
         exit_script = True
+
+    # %% library_technology
+    allowed_values = {'adaptase', 'regular'}
+    mask = ~samples_table['library_technology'].isin(allowed_values)
+    non_matching_rows = samples_table.loc[mask, ['sample_name', 'library_technology']]
+
+    if not non_matching_rows.empty:
+        exit_message += (
+            f"\n\n* 'library_technology' can only be one of: {allowed_values}.\n"
+            "The following samples have other values:\n" +
+            non_matching_rows.drop_duplicates().to_string()
+        )
+        exit_script = True
+
     # %% Exit
-    # Exit if any previous condition is met
     if exit_script:
         sys.exit(exit_message)
+
+# %% Helper functions for safe sample and genome lookups
+
+def get_sample_fastq1(sample):
+    r"""Get FASTQ1 path for a sample name."""
+    rows = samples_table[samples_table['sample_name'] == sample]
+    if rows.empty:
+        sys.exit(f"\n\n* Sample '{sample}' not found in samples_table\n")
+    return rows['fastq1'].iloc[0]
+
+
+def get_sample_fastq2(sample):
+    r"""Get FASTQ2 path for a sample name."""
+    rows = samples_table[samples_table['sample_name'] == sample]
+    if rows.empty:
+        sys.exit(f"\n\n* Sample '{sample}' not found in samples_table\n")
+    return rows['fastq2'].iloc[0]
+
+
+def get_processed_bam(sample, genome):
+    r"""Get deduplicated, filtered BAM for a given sample and reference genome."""
+    rows = samples_table_2[
+        (samples_table_2['sample_name'] == sample) &
+        (samples_table_2['reference_genome'] == genome)
+    ]
+    if rows.empty:
+        sys.exit(f"\n\n* Sample '{sample}' for genome '{genome}' not found in samples_table_2\n")
+    return rows['dedup_flt_both_strds_bam'].iloc[0]
+
+
+def get_raw_bam(sample, genome):
+    r"""Get raw BAM for a given sample and reference genome."""
+    rows = samples_table_2[
+        (samples_table_2['sample_name'] == sample) &
+        (samples_table_2['reference_genome'] == genome)
+    ]
+    if rows.empty:
+        sys.exit(f"\n\n* Sample '{sample}' for genome '{genome}' not found in samples_table_2\n")
+    return rows['raw_bam'].iloc[0]
+
 
 # %% Functions to get inputs/params
 
 
 def align_fastq_input(w):
-    """Get FASTQ paths for align_fastq rule
+    r"""Get FASTQ paths for align_fastq rule
 
     wildcards
     ----------
@@ -214,15 +436,59 @@ def align_fastq_input(w):
     Returns
     -------
     input_: dictionary
-        Fastq/s path/s, taken from samples_table.csv
+        fq1: string with fastq 1 path, taken from samples_table.csv
+        fq2: string with fastq 2 path (if SE empty list), taken from samples_table.csv
     """
-    input_ = {"genome_path": config['genomes'][w.genomes_all]}
-    seq_tech = ""
+    # Get reference genome
+    genomes_dir = config['genomes'][w.genomes_all]
+    
+    try:
+        all_files = os.listdir(genomes_dir)
+    except FileNotFoundError:
+        sys.exit(f"Directory not found: {genomes_dir}")
 
-    if (samples_table.loc[w.sample, "library_technology"] == "adaptase"):
+    required_exts = {"sa", "pac", "bwt", "ann", "amb"}
+    pattern = re.compile(r"^(?P<base>.+)\.(?P<ext>sa|pac|bwt|ann|amb)$")
+
+    matched = []
+    bases = []
+    exts_found = set()
+
+    for f in all_files:
+        m = pattern.match(f)
+        if m:
+            matched.append(os.path.join(genomes_dir, f))
+            bases.append(m.group("base"))
+            exts_found.add(m.group("ext"))
+
+    missing = required_exts - exts_found
+    if missing:
+        sys.exit(f"Missing BWA index files with extensions: {', '.join(missing)} in {genomes_dir}")
+
+    if not matched:
+        sys.exit(f"No BWA index files (.sa, .pac, .bwt, .ann, .amb) found in {genomes_dir}")
+
+    # sanity check: all bases must be identical
+    unique_bases = set(bases)
+    if len(unique_bases) > 1:
+        sys.exit(f"Multiple reference bases found: {unique_bases}")
+
+    input_ = {
+        "reference_genome_indexed_files": matched
+    }
+
+    # Get fastq files
+    sample_rows = samples_table[samples_table['sample_name'] == w.sample]
+    if sample_rows.empty:
+        sys.exit(f"Sample {w.sample} not found in samples_table")
+    lib_tech = sample_rows['library_technology'].iloc[0]
+    is_pe = sample_rows['PE'].iloc[0]
+
+    seq_tech = ""
+    if lib_tech == "adaptase":
         seq_tech = ".adaptase_trimmed"
 
-    if samples_table.loc[w.sample, "PE"]:
+    if is_pe:
         fq1 = (f"Results/{w.sample}.adap_trimmed{seq_tech}.R1."
                "PE.fq.gz")
         fq2 = (f"Results/{w.sample}.adap_trimmed{seq_tech}.R2."
@@ -232,15 +498,12 @@ def align_fastq_input(w):
                "SE.fq.gz")
         fq2 = []
 
-        # Cannot use "" here because snakemake will look for "" file
-        # and give a "missing input" error. Instead, it returns
-        # an empty list
     input_ |= {"fq1": fq1, "fq2": fq2}
     return input_
 
 
 def call_peaks_macs2_input(w):
-    """Get input for call_peaks_macs2 rule.
+    r"""Get input for call_peaks_macs2 rule.
 
     Wildcards
     ----------
@@ -255,24 +518,96 @@ def call_peaks_macs2_input(w):
         Dictionary keys are "treat_bam", "treat_bai" and, unless
         peak_ctrl_file_alias == "no_input", "ctrl_bam" and "ctrl_bai"
     """
-    bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
+    bam = get_processed_bam(w.sample, w.genomes_not_fused)
     bai = bam + ".bai"
     input_ = {"treat_bam": bam, "treat_bai": bai}
-    # Get ctrl bam and bai
-    ctrl_alias = w.peak_params.split("__")  # "bco_1_qv_05__alias"
-    ctrl_alias = ctrl_alias[1]  # "alias"
+    # Get ctrl/input bam and bai
+    ctrl_alias = w.peak_params.split("__")[1]
     if ctrl_alias != "no_input":
-        ctrl_bam = config['MACS2']['control'][ctrl_alias]
-        ctrl_bai = ctrl_bam + ".bai"
-        input_ |= {
-            "ctrl_bam": ctrl_bam,
-            "ctrl_bai": ctrl_bai
-        }
+        if ctrl_alias in config['MACS2']['control']:
+            ctrl_bam = config['MACS2']['control'][ctrl_alias]
+            ctrl_bai = ctrl_bam + ".bai"
+            input_ |= {
+                "ctrl_bam": ctrl_bam,
+                "ctrl_bai": ctrl_bai
+            }
+        elif ctrl_alias in samples_table_2['sample_name'].values:
+            ctrl_bam = get_processed_bam(ctrl_alias, w.genomes_not_fused)
+            ctrl_bai = ctrl_bam + ".bai"
+            input_ |= {
+                "ctrl_bam": ctrl_bam,
+                "ctrl_bai": ctrl_bai
+            }
+        else:
+            sys.exit(f"Control alias '{ctrl_alias}' not found in config or samples table.")
     return input_
 
 
+def call_peaks_macs2_params(w):
+    r"""Get parameters for rule call_peaks_macs2.
+
+    Wildcards
+    ----------
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
+        Genomes not fused to spike-in genome
+    peak_params : (bco_[0-9]+_)?qv_[0-9]+__[^/]*
+        The first part (before the double underscore (__) of the wildcard are
+            bco (if peak is broad) and qv parameters. The second part is the
+            value of `peak_ctrl_file_alias` column for that sample.
+
+    Returns
+    -------
+    dict
+        Contains strings that will be used to assemble the shell script.
+        More specifically: genome, PE, extension, peak_type_options, qv_bco
+        and ctrl
+    """
+    if re.match(".*mm.*", w.genomes_not_fused):
+        genome = "mm"
+    elif re.match(".*hg.*", w.genomes_not_fused):
+        genome = "hs"
+    PE = ""
+    ext = ""
+    parameters = w.peak_params.split("__")
+    bco_qv = parameters[0].split("_")
+    ctrl_alias = parameters[-1]
+    if ctrl_alias == "no_input":
+        ctrl = ""
+    elif ctrl_alias in config['MACS2']['control'].keys():
+        ctrl_bam = config['MACS2']['control'][ctrl_alias]
+        ctrl = f"-c {ctrl_bam}"
+    elif ctrl_alias in samples_table_2['sample_name'].values:
+        ctrl_bam = get_processed_bam(ctrl_alias, w.genomes_not_fused)
+        ctrl = f"-c {ctrl_bam}"
+    else:
+        sys.exit(f"Control alias '{ctrl_alias}' not found in config or samples table.")
+
+    rows = samples_table[
+        (samples_table['sample_name'] == w.sample) &
+        (samples_table['reference_genome'] == w.genomes_not_fused)
+    ]
+    is_pe = rows['PE'].iloc[0] if not rows.empty else False
+    if is_pe:
+        PE = "--format BAMPE"
+    else:
+        ext = f"--extsize {config['MACS2']['extension']}"
+    if w.peak_type == "narrow":
+        peak_type = "--call-summits"
+        q = f"-q 0.{bco_qv[1]}"
+    else:
+        peak_type = "--broad"
+        q = f"-q 0.{bco_qv[3]} --broad-cutoff 0.{bco_qv[1]}"
+    return {
+        "genome": genome,
+        "PE": PE,
+        "extension": ext,
+        "peak_type_options": peak_type,
+        "qv_bco": q,
+        "ctrl": ctrl}
+
+
 def clip_1bp_input(w):
-    """Get input for clip_1bp rule
+    r"""Get input for clip_1bp rule
 
     Wildcards
     ----------
@@ -310,7 +645,8 @@ def clip_1bp_param(w):
 
 
 def compute_matrix_outfiles_hs_input(w):
-    """Get input for rule compute_matrix_outfiles_hs.
+    r"""Get input for rule compute_matrix_outfiles_hs.
+
     Rule's output
     -------------
     "Results/{genomes_not_fused}/Analysis/"
@@ -327,8 +663,8 @@ def compute_matrix_outfiles_hs_input(w):
                          )|
                 top_5000_plus_minus_2000|asymetric_(watson|crick)_strong|
                 x_non_par|autosomal_x_non_par_ctrl
-    
-    genomes_not_fused = mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+
+    genomes_not_fused = mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     strands = "Both_strands|Single_strand/(1bp_clipped_reads|Full_length_reads)"
     cov_params = "((CPM|RPKM|none|drosNormalized)_)?bs[0-9]+_sm[0-9]+_ex[0-9]+"
     sample = [^./ ]+
@@ -343,13 +679,12 @@ def compute_matrix_outfiles_hs_input(w):
         'bigwig', path to bigwig file
 
     """
-    hotspots = config['references']['mm10'][w.hs_region]
-    bigwig =  (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
-               f"{w.cov_params}/{w.sample}.{w.genomes_final}"
-               ".q_filt.srt.nodup.mit_filt."
-               f"{w.ss_condit}{w.clip_condit}bw"
-    )
-           
+    hotspots = config['references'][w.genomes_not_fused][w.hs_region]
+    bigwig = (f"Results/{w.genomes_not_fused}/Bigwigs/Coverage/{w.strands}/"
+              f"{w.cov_params}/{w.sample}.{w.genomes_final}"
+              ".q_filt.srt.nodup.mit_filt."
+              f"{w.ss_condit}{w.clip_condit}bw"
+              )
 
     return {"region": hotspots,
             "bigwig": bigwig}
@@ -362,7 +697,6 @@ def dros_normalization_input(w):
     ----------
     strand : (\.(83-163|99-147|inc_16|exc_16))?
     sample : [^./ ]+
-    dros_eq_group : [^./ ]+
 
     Returns
     -------
@@ -372,40 +706,46 @@ def dros_normalization_input(w):
         'bam', bam file to normalize
         'bai', index file of bam to normalize
     """
+    rows = samples_table_2[
+        (samples_table_2['sample_name'] == w.sample) &
+        (samples_table_2['reference_genome'] == w.genomes_not_fused)
+    ]
+    if rows.empty:
+        sys.exit(f"Sample '{w.sample}' for genome '{w.genomes_not_fused}' not found in samples_table_2")
+
     if w.strand == "":
-        bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
-    elif ("83-163" in w.strand) | ("inc_16" in w.strand):
-        bam = samples_table_2.loc[w.sample, 'ss_83_or_i16_bam']
-    elif ("99-147" in w.strand) | ("exc_16" in w.strand):
-        bam = samples_table_2.loc[w.sample, 'ss_99_or_e16_bam']
+        bam = rows['dedup_flt_both_strds_bam'].iloc[0]
+    else:
+        final_genome = rows['final_genome'].iloc[0]
+        strand_clean = w.strand.lstrip(".")
+        bam = (f"Results/{w.genomes_not_fused}/Bams/Single_strand/Full_length_reads/"
+               f"{w.sample}.{final_genome}.q_filt.srt.nodup.mit_filt.{strand_clean}.bam")
 
     bai = bam + ".bai"
     return {
         "report": ("Results/d6/Analysis/drosophila_normalization/"
-                   f"{w.dros_eq_group}/drosophila_equalization_report.tsv"),
+                   "drosophila_100K_reads/drosophila_equalization_report.tsv"),
         "bam": bam,
         "bai": bai
     }
 
 
 def dros_normalization_report_input(w):
-    """Get input for rule dros_normalization_report.
+    r"""Get input for rule dros_normalization_report.
 
     Wildcards
     ----------
-    dros_eq_group : [^./ ]+
+    No wildcards in this rule
 
     Returns
     -------
     List
-        Paths to outputs of samtools_flagstat of samples to be normalized on a
-            given 'dros_equalization_group'.
+        Paths to outputs of samtools_flagstat of samples to be normalized using
+        drosophila'.
     """
-    df = samples_table_2.loc[
-        samples_table_2['dros_equalization_group'].str.match(
-            w.dros_eq_group, na=False
-        ), :]
-    return df['processed_flagstat_dros'].tolist()
+    return samples_table_2.loc[
+    samples_table_2["dros_spike_in"], "processed_flagstat_dros"
+    ].tolist()
 
 
 def filter_bam_params(w):
@@ -425,7 +765,12 @@ def filter_bam_params(w):
         Filtering options for samtools view (-F and -f), according to wether
         the sample is SE or PE.
     """
-    if samples_table.loc[w.sample, "PE"]:
+    rows = samples_table[
+        (samples_table['sample_name'] == w.sample) &
+        (samples_table['reference_genome'] == w.genomes_not_fused)
+    ]
+    is_pe = rows['PE'].iloc[0] if not rows.empty else False
+    if is_pe:
         filter_ = "-F 3852 -f 3"
     else:
         filter_ = "-F 3844"
@@ -433,12 +778,12 @@ def filter_bam_params(w):
 
 
 def filter_peaks_blk_grey_list_input(w):
-    """Get input for rule filter_peaks_blk_grey_list
+    r"""Get input for rule filter_peaks_blk_grey_list
 
     Output of rule:
     ----------
     ("Results/{genomes_not_fused}/Peaks/MACS2/{peak_type}/"
-         "{peak_params}/Black-grey_filtered/{sample}."
+         "{peak_params}/black_list/{sample}."
          "{genomes_final}{extension}.{peak_type}Peak"
     )
 
@@ -450,20 +795,17 @@ def filter_peaks_blk_grey_list_input(w):
     -------
     dict:
         "peaks": list with paths of all peaks from that reference genome
-        "blck_gry_lst": path of black-greylist bed file if available, if not
-            path of black-list
+        "black_list": path of path of black-list bed file
 
     """
     peaks = (f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type}/"
              f"{w.peak_params}/{w.sample}.{w.genomes_final}{w.extension}_"
              f"peaks.{w.peak_type}Peak")
 
-    blck_gry_lst = config['references'][w.genomes_not_fused]['black_grey']
-    if (config['references'][w.genomes_not_fused]['black_grey'] == ""):
-        blck_gry_lst = config['references'][w.genomes_not_fused]['blacklist']
+    black_list = config['references'][w.genomes_not_fused]['blacklist']
 
     return {"peaks": peaks,
-            "blck_gry_lst": blck_gry_lst}
+            "black_list": black_list}
 
 
 def FRIP_input(w):
@@ -472,7 +814,7 @@ def FRIP_input(w):
     Wildcards
     ----------
     sample : [^./ ]+
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     genomes_final : (?<=\.)(?P<interest_genome>mm10|hg19|hg38|mm10_x_CAST_EiJ)+
                         (_f_d6\.((?P=interest_genome)|d6))?(?=\.)"
     extension : (\.q_filt\.srt\.nodup\.mit_filt)?
@@ -491,7 +833,7 @@ def FRIP_input(w):
            f"{w.sample}.{w.genomes_final}{w.extension}.bam")
 
     return {"peak": (f"Results/{w.genomes_not_fused}/Peaks/MACS2/{w.peak_type}"
-                     f"/{w.peak_params}/Black-grey_filtered/{w.sample}."
+                     f"/{w.peak_params}/blacklist_filtered/{w.sample}."
                      f"{w.genomes_final}{w.extension}.{w.peak_type}Peak"),
             "bam": bam,
             "bai": bam + ".bai"
@@ -499,7 +841,7 @@ def FRIP_input(w):
 
 
 def get_rv_fw_strand_input(w):
-    """Get input for rule get_rv_fw_strand
+    r"""Get input for rule get_rv_fw_strand
 
     Wildcards
     ----------
@@ -520,60 +862,8 @@ def get_rv_fw_strand_input(w):
             f"{w.sample_with_extensions}.bam")
 
 
-def get_call_peaks_macs2_params(w):
-    """Get parameters for rule call_peaks_macs2.
-
-    Wildcards
-    ----------
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
-        Genomes not fused to spike-in genome
-    peak_params : (bco_[0-9]+_)?qv_[0-9]+__[^/]*
-        The first part (before the double underscore (__) of the wildcard are
-            bco (if peak is broad) and qv parameters. The second part is the
-            value of `peak_ctrl_file_alias` column for that sample.
-
-    Returns
-    -------
-    dict
-        Contains strings that will be used to assemble the shell script.
-        More specifically: genome, PE, extension, peak_type_options, qv_bco
-        and ctrl
-    """
-    if re.match(".*mm.*", w.genomes_not_fused):
-        genome = "mm"
-    elif re.match(".*hg.*", w.genomes_not_fused):
-        genome = "hs"
-    PE = ""
-    ext = ""
-    parameters = w.peak_params.split("__")
-    bco_qv = parameters[0].split("_")
-    ctrl_alias = parameters[-1]
-    ctrl_bam = config['MACS2']['control'][ctrl_alias]
-    if parameters[-1] == "no_input":
-        ctrl = ""
-    else:
-        ctrl = f"-c {ctrl_bam}"
-    if samples_table.loc[w.sample, "PE"]:
-        PE = "--format BAMPE"
-    else:
-        ext = f"--extsize {config['MACS2']['extension']}"
-    if w.peak_type == "narrow":
-        peak_type = "--call-summits"
-        q = f"-q 0.{bco_qv[1]}"
-    else:
-        peak_type = "--broad"
-        q = f"-q 0.{bco_qv[3]} --broad-cutoff 0.{bco_qv[1]}"
-    return {
-        "genome": genome,
-        "PE": PE,
-        "extension": ext,
-        "peak_type_options": peak_type,
-        "qv_bco": q,
-        "ctrl": ctrl}
-
-
 def get_strand_sep_bams_params(w):
-    """Get parameters for rule get_strand_sep_bams
+    r"""Get parameters for rule get_strand_sep_bams
 
     Wildcads
     ----------
@@ -597,7 +887,7 @@ def intersect_peaks_HSs_list_input(w):
     Parameters
     ----------
     sample : [^./ ]+
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     peak_type: narrow|broad
     peak_params: (bco_[0-9]+_)?qv_[0-9]+__[^/]*
     genomes_final : (
@@ -611,23 +901,32 @@ def intersect_peaks_HSs_list_input(w):
         'hotspots', path to hotspots (from either mm10 or B6xCAST) bed file
         'sample_peaks', path to peaks bed file
     """
-    hotspots = config['references']['mm10']['top_5000_plus_minus_2000']
+    rows = samples_table[
+        (samples_table['sample_name'] == w.sample) &
+        (samples_table['reference_genome'] == w.genomes_not_fused)
+    ]
+    is_b6xcast = rows['B6xCAST'].iloc[0] if not rows.empty else False
+    if is_b6xcast:
+        hotspots = config['references'][w.genomes_not_fused]['B6xCAST_pm_2000bp']
+    else:
+        hotspots = config['references'][w.genomes_not_fused]['all_plus_minus_2000']
+
     return {
         "hotspots": hotspots,
         "sample_peaks": (
             f"Results/{w.genomes_not_fused}/Peaks/MACS2/"
-            f"{w.peak_type}/{w.peak_params}/Black-grey_filtered/"
+            f"{w.peak_type}/{w.peak_params}/blacklist_filtered/"
             f"{w.sample}.{w.genomes_final}{w.extension}.{w.peak_type}Peak"
         )
     }
 
 
 def markdown_report_aggregate_profiles_input(w):
-    """Get input for rule markdown_report_aggregate_profiles.
+    r"""Get input for rule markdown_report_aggregate_profiles.
 
     Wildcards
     ----------
-    genomes_not_fused = "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ"
+    genomes_not_fused = "mm10|d6|hg19|hg38|mm10_x_CAST_EiJ|mm39"
     smooth = "(smoothed|not_smoothed)+"
 
 
@@ -648,9 +947,9 @@ def markdown_report_aggregate_profiles_input(w):
             reference genome as the markdown report).
             These files will be used in the report to get the number of reads
             of the sample in the filtered bam file.
-        'mm10_top5000_asmtric_auto_XnonPAR_ag_profs'|'mm10_top_5000_ag_profs':
-            string. Only for mm10. Path to '.RData' object containing the
-            aggregate profiles in either "mm10 top 5000 hotspots", or in those
+        'mm_top5000_asmtric_auto_XnonPAR_ag_profs'|'mm_top_5000_ag_profs':
+            string. Only for mm10 or mm39. Path to '.RData' object containing the
+            aggregate profiles in either "mm{XX} top 5000 hotspots", or in those
             same hotspots plus XnonPAR, autosomal and assymetric (left vs
             right of DSB) hotspots. When all hotsopots lists are asked for
             (later case), the rule that provides the R object is the
@@ -660,7 +959,7 @@ def markdown_report_aggregate_profiles_input(w):
             string. Only for mm10. Path to '.RData' object containing the
             processed agggregate profiles of 1-bp clipped samples. If there is
             no clipped samples it delivers and empty list.
-        'B6xCAST_top_5000_pm_1000bp':
+        'B6xCAST_top_5000_pm_2000bp':
             string. Only for mm10. Path to ".RData" object containing the
             aggreagte profiles of all samples aligned to B6xCAST fused genome,
             in top 5000 B6xCAST hotspots.
@@ -680,7 +979,7 @@ def markdown_report_aggregate_profiles_input(w):
         samples_table["reference_genome"] == w.genomes_not_fused,
         'peak_ctrl_file_alias'
     ]
-    if pd.notna(ref_genome_peaks).any():
+    if (ref_genome_peaks.notna() & (ref_genome_peaks != "-")).any():
         peaks_summary = {
             "peaks_summary": (f"Results/{w.genomes_not_fused}/Analysis/"
                               "Peaks_summary.tsv")
@@ -726,42 +1025,44 @@ def markdown_report_aggregate_profiles_input(w):
     samples_fastp = {"fastp": samples_fastp_pe + samples_fastp_se}
 
     # Get processed aggregate profiles
-    mm10_agg_profiles = {}
+    mm_agg_profiles = {}
     B6xCAST_agg_profiles = {}
     B6xCAST_agg_profiles_clipped = {}
     top_5000_plus_minus_2000_clipped = {}
-    if (samples_table['top5000_HS_heatmap'] &
-        samples_table['get_single_strand'] &
-            ~samples_table['B6xCAST']).any():
-        # 'Lib_name_aggregate_profiles_data.RData' is the result of processing
-        # all top5000, asymmetrix and XnonPAR data (output of
-        # 'wrangle_X_nonPAR_asymmetric_HS' rule).
-        mm10_agg_profiles = {
-            "mm10_top5000_asmtric_auto_XnonPAR_ag_profs": (
+    
+    # Subset samples_table first
+# Subset samples_table first
+    st = samples_table[samples_table['reference_genome'] == w.genomes_not_fused]
+    
+    if (st['top5000_HS_heatmap'] &
+        st['get_single_strand'] &
+        ~st['B6xCAST']).any():
+        mm_agg_profiles = {
+            "mm_top5000_asmtric_auto_XnonPAR_ag_profs": (
                 f"Results/{w.genomes_not_fused}/Analysis/"
                 "Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_aggregate_profiles_data."
                 f"{w.smooth}.RData"
             )
         }
-    elif ((samples_table['top5000_HS_heatmap'] &
-           ~samples_table['B6xCAST']).any()):
-        mm10_agg_profiles = {
-            "mm10_top_5000_ag_profs": (
+    
+    elif (st['top5000_HS_heatmap'] & ~st['B6xCAST']).any():
+        mm_agg_profiles = {
+            "mm_top_5000_ag_profs": (
                 f"Results/{w.genomes_not_fused}/Analysis"
                 "/Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}_top_5000_plus_minus_2000."
                 f"{w.smooth}.RData"
             )
         }
-
-    if ((samples_table['top5000_HS_heatmap'] &
-         samples_table['B6xCAST']).any()):
+    
+    if w.genomes_not_fused == "mm10" and (
+       (st['top5000_HS_heatmap'] & st['B6xCAST']).any()):
         B6xCAST_agg_profiles = {
-            "B6xCAST_top_5000_pm_1000bp": (
+            "B6xCAST_top_5000_pm_2000bp": (
                 f"Results/{w.genomes_not_fused}/Analysis"
                 "/Heatmaps_and_aggregate_profiles/Hotspots/"
-                f"{config['library']['name']}_B6xCAST_top_5000_pm_1000bp."
+                f"{config['library']['name']}_B6xCAST_top_5000_pm_2000bp."
                 f"{w.smooth}.RData"
             ),
             "B6xCAST_PRDM9_assymetric_hs_invading_strand": (
@@ -776,30 +1077,31 @@ def markdown_report_aggregate_profiles_input(w):
                 f"{config['library']['name']}_B6xCAST_PRDM9_assymetric_hs_"
                 f"receiving_strand.{w.smooth}.RData"
             ),
-            "B6xCAST_PRDM9_assymetric_hs_mm10_aligned": (
-                "Results/mm10/Analysis/Heatmaps_and_aggregate_profiles/"
+            f"B6xCAST_PRDM9_assymetric_hs_{w.genomes_not_fused}_aligned": (
+                f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
                 f"Hotspots/{config['library']['name']}_"
-                "B6xCAST_PRDM9_assymetric_hs_mm10_aligned."
+                f"B6xCAST_PRDM9_assymetric_hs_{w.genomes_not_fused}_aligned."
                 f"{w.smooth}.RData"),
         }
-
+    
     # Clipped profiles
-    if ((samples_table['top5000_HS_heatmap']
-         & samples_table['B6xCAST']
-         & samples_table['get_single_strand']
-         & samples_table['Clip_reads_to_1bp_on_5_prime']).any()):
+    if ((st['top5000_HS_heatmap']
+         & st['B6xCAST']
+         & st['get_single_strand']
+         & st['Clip_reads_to_1bp_on_5_prime']).any()):
         B6xCAST_agg_profiles_clipped = {
-            "B6xCAST_top_5000_pm_1000bp_clipped": (
+            "B6xCAST_top_5000_pm_2000bp_clipped": (
                 f"Results/{w.genomes_not_fused}/Analysis"
                 "/Heatmaps_and_aggregate_profiles/Hotspots/"
                 f"{config['library']['name']}"
-                "_B6xCAST_top_5000_pm_1000bp_clipped."
+                "_B6xCAST_top_5000_pm_2000bp_clipped."
                 f"{w.smooth}.RData"
             )}
-    if ((samples_table['top5000_HS_heatmap'] 
-         & ~samples_table['B6xCAST']
-         & samples_table['get_single_strand']
-         & samples_table['Clip_reads_to_1bp_on_5_prime']).any()):
+    
+    if ((st['top5000_HS_heatmap'] 
+         & ~st['B6xCAST']
+         & st['get_single_strand']
+         & st['Clip_reads_to_1bp_on_5_prime']).any()):
         top_5000_plus_minus_2000_clipped = {
             "top_5000_plus_minus_2000_clipped": (
                 f"Results/{w.genomes_not_fused}/Analysis"
@@ -809,12 +1111,15 @@ def markdown_report_aggregate_profiles_input(w):
                 f"{w.smooth}.RData"
             )}
 
+
+
     # Return
-    if w.genomes_not_fused == "mm10":
+    if (w.genomes_not_fused == "mm10") | (w.genomes_not_fused == "mm39"):
         return (peaks_summary | bamfiles_reads | samples_fastp |
-                mm10_agg_profiles | B6xCAST_agg_profiles |
+                mm_agg_profiles | B6xCAST_agg_profiles |
                 B6xCAST_agg_profiles_clipped |
                 top_5000_plus_minus_2000_clipped)
+
     else:
         return peaks_summary | bamfiles_reads | samples_fastp
 
@@ -837,21 +1142,93 @@ def merge_bams_input(w):
     samples : List
         List with paths to the raw bam files to be merged.
     """
-    samples_merge = samples_table.loc[w.sample, 'merge_with'].split()
-    samples = [f"Results/{w.sample}.{w.genomes_all}.bam"]
+    base_sample = w.sample.removesuffix("_MERGED")
+    rows = samples_table[samples_table['sample_name'] == base_sample]
+    if rows.empty:
+        rows = samples_table[samples_table['sample_name'] == w.sample]
+    if rows.empty:
+        sys.exit(f"Sample '{w.sample}' not found in samples_table")
+
+    merge_with_val = rows['merge_with'].dropna()
+    if merge_with_val.empty:
+        sys.exit(f"Sample '{w.sample}' has no merge_with value specified.")
+
+    samples_merge = str(merge_with_val.iloc[0]).split()
+    samples = [f"Results/{base_sample}.{w.genomes_all}.bam"]
     # If sample to merge with is a path, use it as is, otherwise look for the
     # raw bam file on samples_table_2
     for sample in samples_merge:
-        if re.search("/", sample):
-            samples += [sample]
+        if "/" in sample:
+            samples.append(sample)
         else:
             second_bam = f"Results/{sample}.{w.genomes_all}.bam"
-            samples += [second_bam]
+            samples.append(second_bam)
     return samples
 
 
+def multiqc_input(w):
+    r"""Get inputs for rule multiqc
+
+    Rule output
+    -----------
+    directory(
+            "Results/{genomes_not_fused}/Qctrl/multiqc_report_{library_name}_data"
+            ),
+    html = "Results/{genomes_not_fused}/Qctrl/multiqc_report_{library_name}.html"
+
+    Wildcards used
+    --------------
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
+    library_name = config['library']['name']
+
+    Returns
+    -------
+    List
+        List containing file paths for FASTQ_reports, crosscorrlelation,
+        insert_size_picard, picard_library_complexity, samstats and flagstat
+        output files.
+    """
+    df = samples_table_no_merged_samples.loc[
+        samples_table_no_merged_samples["reference_genome"] == w.genomes_not_fused
+    ]
+
+    PE = ["PE" if x else "SE" for x in df['PE']]
+
+    fastp = [
+        f"Results/FASTQ_reports/{nme}.{pe}.fastp.json"
+        for nme, pe in zip(df['sample_name'], PE)
+    ]
+
+    insert_size = [
+        f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Processed_bam/{nme}"
+        ".insert_size_picard.tab"
+        for nme, pe in zip(df['sample_name'], df['PE']) if pe
+    ]  # insert size only applies for PE samples
+
+    library_complexity = [
+        f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Raw_bam/{nme}."
+        "picard_library_complexity.tab"
+        for nme in df['sample_name']
+    ]
+
+    samstat = [
+        f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Processed_bam/{nme}"
+        ".samstats.txt"
+        for nme in df['sample_name']
+    ]
+
+    flagstat = [
+        f"Results/{w.genomes_not_fused}/Qctrl/{nme}/Processed_bam/{nme}"
+        ".flagstat.txt"
+        for nme in df['sample_name']
+    ]
+
+    res = (fastp + insert_size + library_complexity + samstat + flagstat)
+    return res
+
+
 def process_aggregate_profiles_clipped_input(w):
-    """Get inputs for rule process_aggregate_profiles_clipped.
+    r"""Get inputs for rule process_aggregate_profiles_clipped.
     Rule output
     -----------
     "Results/{genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/"
@@ -859,7 +1236,7 @@ def process_aggregate_profiles_clipped_input(w):
 
     Wildcards used
     --------------
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     hs_region : B6xCAST_(top_5000_pm_1000bp|
                          PRDM9_assymetric_hs_((invading|receiving)_strand|
                                               mm10_aligned))|
@@ -883,32 +1260,28 @@ def process_aggregate_profiles_clipped_input(w):
                  for b in strand_se
                  ]
 
-    files = list({
-      "Results/"
-          + f"{w.genomes_not_fused}"
-          + "/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
-          + f"{w.hs_region}/Single_strand/1bp_clipped_reads/"
-          + f"{cov_params}/matrixes/{sample}."
-          + f"{genome}.q_filt.srt.nodup.mit_filt."
-          + (f"{s_pe}" if samples_table_2["PE"][sample]
-             else f"{s_se}")
-          + ".clipped_1_bp.matrix"
-      for sample, genome in zip(samples_table_2.index,
-                                samples_table_2['final_genome'])
-      if samples_table_2['Clip_reads_to_1bp_on_5_prime'][sample]
-      for s_pe in strand_pe
-      for s_se in strand_se
-    }) # I do set comprehension because if I do list comprehension
-       # I get items duplicated
-    return files
+    df = samples_table_2[samples_table_2['reference_genome'] == w.genomes_not_fused]
+    files = set()
+    for _, row in df.iterrows():
+        if row.get('Clip_reads_to_1bp_on_5_prime', False):
+            strands = strand_pe if row['PE'] else strand_se
+            for s in strands:
+                files.add(
+                    f"Results/{w.genomes_not_fused}/Analysis/Heatmaps_and_aggregate_profiles/Hotspots/"
+                    f"{w.hs_region}/Single_strand/1bp_clipped_reads/"
+                    f"{cov_params}/matrixes/{row['sample_name']}."
+                    f"{row['final_genome']}.q_filt.srt.nodup.mit_filt."
+                    f"{s}.clipped_1_bp.matrix"
+                )
+    return sorted(list(files))
 
 
 def process_aggregate_profiles_inputs(w):
-    """Get inputs for rule process_aggregate_profiles.
+    r"""Get inputs for rule process_aggregate_profiles.
 
     Wildcards
     ----------
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     hs_region : B6xCAST_(top_5000_pm_1000bp|
                          PRDM9_assymetric_hs_((invading|receiving)_strand|
                                               mm10_aligned))|
@@ -922,22 +1295,26 @@ def process_aggregate_profiles_inputs(w):
         sample/strand combinations possible for one particular hostpots list
         (top_5000_plus_minus_2000, x_non_par, etc.).
 
-    Matrixes paths are taken from samples_table_2. So, the actual decition of
+    Matrixes paths are taken from samples_table_2. So, the actual decision of
     which sample will have a matrix in which hotspot list and in which strands
     is actually taking place during samples_table_2 generation
-    (suffixes.generate_samples_table_2())
+    (suffixes.generate_samples_table_2()). For now, this process is only
+    available for 'mm10' genome.
     """
-
-    matrixes_df = samples_table_2.filter(
-        regex=f"^{w.hs_region}.*matrix$"
+    w.genomes_not_fused = "mm10" if w.genomes_not_fused == "mm10_x_CAST_EiJ" else w.genomes_not_fused
+    mask_genome = samples_table_2['reference_genome'] == f"{w.genomes_not_fused}"
+    df = samples_table_2.loc[mask_genome]
+    hs_modified = re.sub(r"mm\d+(?=_aligned)", "mm", w.hs_region)
+    matrixes_df = df.filter(
+        regex=f"^{hs_modified}.*matrix$"
     )
     matrixes_array = matrixes_df.to_numpy().ravel()
     matrixes_list = matrixes_array[~pd.isnull(matrixes_array)].tolist()
     return matrixes_list
 
 
-def sumarize_peak_count_input(w):
-    """Get input for rule sumarize_peak_count.
+def summarize_peak_count_input(w):
+    r"""Get input for rule summarize_peak_count.
 
     Wildcards
     ----------
@@ -946,11 +1323,11 @@ def sumarize_peak_count_input(w):
     Returns
     -------
     peaks : dictionary
-        'narrow_all': contains paths for all bed files with black/grey-list-
+        'narrow_all': contains paths for all bed files with blacklist-
                     filtered narrow peaks (for that particular reference
                     genome),
         'broad_all': same but broad peaks,
-        'narrow_hs': bed files with black/grey-list-filtered peaks intersected
+        'narrow_hs': bed files with blacklist-filtered peaks intersected
                     with hs list (this files only exist for mm10),
         'broad_hs': same as above but broad peaks
     """
@@ -961,35 +1338,44 @@ def sumarize_peak_count_input(w):
     peak_types = ["narrow", "broad"]
     peaks = {}
     for peak_type in peak_types:
-        selection_criteria_all = (
-            genome_filtered[f'{peak_type}_peak_bl_gr_flt'].notnull()
-        )
-        selection_criteria_hs = (
-            genome_filtered[f'{peak_type}_peak_bl_gr_flt_hs_int'].notnull()
-        )
-
-        peaks |= {
-            f"{peak_type}_all": genome_filtered.loc[
+        col_all = f'{peak_type}_peak_bl_gr_flt'
+        if col_all in genome_filtered:
+            selection_criteria_all = (
+                genome_filtered[col_all].notnull()
+            )
+            peaks[f"{peak_type}_all"] = genome_filtered.loc[
                 selection_criteria_all,
-                f'{peak_type}_peak_bl_gr_flt'
-                ].values.tolist(),
-            f"{peak_type}_hs": genome_filtered.loc[
+                col_all
+            ].values.tolist()
+        else:
+            peaks[f"{peak_type}_all"] = []
+
+        col_hs = f'{peak_type}_peak_bl_gr_flt_hs_int'
+        if include_hotspots and col_hs in genome_filtered:
+            selection_criteria_hs = (
+                genome_filtered[col_hs].notnull()
+            )
+            peaks[f"{peak_type}_hs"] = genome_filtered.loc[
                 selection_criteria_hs,
-                f'{peak_type}_peak_bl_gr_flt_hs_int'
-                ].values.tolist(),
-        }
-    if not (len(peaks['narrow_all']) > 1):
-        exit
+                col_hs
+            ].values.tolist()
+        else:
+            peaks[f"{peak_type}_hs"] = []
+
     return peaks
 
 
+# Backwards compatibility alias
+sumarize_peak_count_input = summarize_peak_count_input
+
+
 def samstats_samtools_flagstat_input(w):
-    """Get input for rules samstats and samtools_flagstat.
+    r"""Get input for rules samstats and samtools_flagstat.
 
     Wildcards
     ----------
     sample : [^./ ]+
-    genomes_not_fused : mm10|d6|hg19|hg38|mm10_x_CAST_EiJ
+    genomes_not_fused : mm10|mm39|d6|hg19|hg38|mm10_x_CAST_EiJ
     bam_type : Raw_bam|Processed_bam
 
     Returns
@@ -997,15 +1383,24 @@ def samstats_samtools_flagstat_input(w):
     dictionary
         Bam and bai paths.
     """
-    genome = samples_table.loc[w.sample, 'reference_genome']
-    if f"{w.bam_type}" == 'Raw_bam':
-        if w.genomes_not_fused != "d6":
-            bam = samples_table_2.loc[w.sample, 'raw_bam']
+    if w.genomes_not_fused != "d6":
+        rows = samples_table_2[
+            (samples_table_2['sample_name'] == w.sample) &
+            (samples_table_2['reference_genome'] == w.genomes_not_fused)
+        ]
+        if rows.empty:
+            sys.exit(f"Sample '{w.sample}' for genome '{w.genomes_not_fused}' not found in samples_table_2")
+        if f"{w.bam_type}" == 'Raw_bam':
+            bam = rows['raw_bam'].iloc[0]
         else:
-            bam = f"Results/{w.w.sample}.{genome}_f_d6.d6.bam"
+            bam = rows['dedup_flt_both_strds_bam'].iloc[0]
     else:
-        if w.genomes_not_fused != "d6":
-            bam = samples_table_2.loc[w.sample, 'dedup_flt_both_strds_bam']
+        rows = samples_table[samples_table['sample_name'] == w.sample]
+        if rows.empty:
+            sys.exit(f"Sample '{w.sample}' not found in samples_table")
+        genome = rows['reference_genome'].iloc[0]
+        if f"{w.bam_type}" == 'Raw_bam':
+            bam = f"Results/{w.sample}.{genome}_f_d6.d6.bam"
         else:
             bam = (f"Results/d6/Bams/Both_strands/{w.sample}.{genome}_f_d6.d6."
                    "q_filt.srt.nodup.mit_filt.bam")
@@ -1017,7 +1412,7 @@ def samstats_samtools_flagstat_input(w):
 
 
 def trim_adapters_PE_input(w):
-    """Get FASTQ paths for trim_adapters_PE rule
+    r"""Get FASTQ paths for trim_adapters_PE rule
 
     wildcards
     ----------
@@ -1028,5 +1423,7 @@ def trim_adapters_PE_input(w):
     input_: dictionary
         Fastq/s path/s, taken from samples_table.csv
     """
-    return {"fastq1": samples_table.loc[w.sample, "fastq1"],
-            "fastq2": samples_table.loc[w.sample, "fastq2"]}
+    return {
+        "fastq1": get_sample_fastq1(w.sample),
+        "fastq2": get_sample_fastq2(w.sample)
+    }
