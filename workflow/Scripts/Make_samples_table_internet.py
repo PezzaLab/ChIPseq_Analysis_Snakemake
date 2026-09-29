@@ -7,9 +7,9 @@ Created on Tue Sep 20 19:59:14 2022
 """
 ########################################################################
 # USAGE:
-#   Create a directory on scratch with the library name, and another 
-#   directory within called 'FASTQs', where all .fastq.gz files should
-#   be found. e.g.: /s/pezzar-lab/Chen_et_al_2020/FASTQs
+#   Create a directory on scratch with the library name (or user/library),
+#   and another directory within called 'FASTQs', where all .fastq.gz
+#   files should be found. e.g.: /s/pezzar-lab/agustin/lib2/FASTQs
 #   Run this script directly from IDE or at the command line by running:
 #       ml python/3.10.2 pandas/1.4.2 && python <this/script/path>
 ########################################################################
@@ -30,14 +30,37 @@ pipeline_path = "/hpc-prj/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake"
 
 
 def get_lib_name():
-    library_name = input(
+    raw_input = input(
         f"What is the library name?\nLibrary should be on {base_path}/ "
         "it should contain a directory called 'FASTQs' with all the fastq.gz "
-        f"files in it. e.g.: {base_path}/<library_name>/FASTQs\n")
-    return {"library_name": library_name,
-            "fastqs": os.path.join(base_path, library_name, "FASTQs"),
-            "scratch": os.path.join(base_path, library_name)
-            }
+        f"files in it. e.g.: {base_path}/<library_name>/FASTQs or "
+        f"{base_path}/<user>/<library_name>/FASTQs\n"
+    ).strip()
+
+    norm_path = os.path.normpath(raw_input)
+    if os.path.isabs(norm_path):
+        if norm_path.startswith(base_path):
+            rel_path = os.path.relpath(norm_path, base_path)
+            scratch_path = norm_path
+        elif norm_path.startswith("/s/pezza"):
+            rel_path = os.path.relpath(norm_path, "/s/pezza")
+            scratch_path = os.path.join(base_path, rel_path)
+        else:
+            rel_path = norm_path.lstrip("/")
+            scratch_path = norm_path
+    else:
+        rel_path = norm_path.lstrip("/")
+        scratch_path = os.path.join(base_path, rel_path)
+
+    lib_name = os.path.basename(scratch_path)
+    fastqs_path = os.path.join(scratch_path, "FASTQs")
+
+    return {
+        "library_name": lib_name,
+        "rel_path": rel_path,
+        "fastqs": fastqs_path,
+        "scratch": scratch_path,
+    }
 
 
 def get_seq_mode():
@@ -145,6 +168,12 @@ else:
     with open(commands_source_path, 'r') as file:
         commands = file.read()
     # Replace the target strings
+    commands = commands.replace('/s/pezzar-lab/{library_name}',
+                                library_paths['scratch'])
+    commands = commands.replace('/s/pezza/{library_name}',
+                                library_paths['scratch'])
+    commands = commands.replace('dropboxOMRF:Bioinformatics/Libraries/{library_name}',
+                                f'dropboxOMRF:Bioinformatics/Libraries/{library_paths["rel_path"]}')
     commands = commands.replace('{library_name}',
                                 library_paths["library_name"])
     commands = commands.replace('{sha}', sha)
@@ -169,6 +198,13 @@ fastqs_temp = os.listdir(library_paths['fastqs'])
 fastqs_temp2 = [x for x in fastqs_temp if re.search(r".*\.fastq\.gz$", x)]
 fastqs = sorted(fastqs_temp2, key=str.lower)
 fastqs = [os.path.join(library_paths['fastqs'], file) for file in fastqs]
+
+# Verification step
+if pe_dic[pe_sr] and len(fastqs) % 2 != 0:
+    raise ValueError(
+        f"Paired-End (PE) mode selected, but an odd number of FASTQ files ({len(fastqs)}) "
+        f"was found in '{library_paths['fastqs']}'. Each sample requires both mates."
+    )
 
 # Define values of table
 if pe_dic[pe_sr]:
