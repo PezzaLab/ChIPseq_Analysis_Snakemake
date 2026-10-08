@@ -44,6 +44,7 @@ dot -Tsvg > rulegraph.svg
 cd /s/pezzar-lab/{library_name}
 # Generate new terminal session
 tmux new -s {library_name}
+module purge && ml slurm python/3.14.7
 	# If you already created the session and want to re-join, use:
 	# tmux attach -t {library_name}
 	# Run command inside tmux (replace 'full' with 'basic' for basic analysis mode):
@@ -82,41 +83,33 @@ tmux kill-session -t <session_name>
 # or:
 #   snakemake --profile Config/Profiles/slurm_quio_repeat_10 checksums
 
+# 1) OPTIONAL: Dry-run checks (inspect what will be transferred or left behind)
 # Load rclone
 ml rclone
 
-# Check what we are leaving behind:
+## Check what we are leaving behind (> 50M):
 rclone copy --dry-run /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name} \
 --min-size 50M 2>&1 | grep -E -v '.*bam|bw|fq\.gz|matrix|fastq\.gz.|\.sra*'
 
-# Do backup
-rclone copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name} \
---max-size 50M \
---filter '+ .snakemake/slurm_logs/**' \
---filter '- .*' \
---filter '- .*/' \
---filter '- ~*' \
---filter '- *fastp.html' \
---filter '- not_copy*' \
---filter '- *.bai' \
---filter '- *.bam' \
---filter '- *.bw' \
---filter '- *.filename' \
---filter '- *.matrix' \
---filter '- *.fq.gz' \
---filter '- *.fastq.gz' \
---filter '- *.sra' \
---filter '- *.homer_anotated.tsv' \
---filter '- *.gappedPeak' \
---filter '- Intersect_HSs_plus_minus_2000_bp/' \
---filter '+ **blacklist**' \
---filter '- Peaks/**'
-
-# Copy bigwigs
-## Check if it is copying anything other than a .bw
+## Check if it is copying anything other than a .bw:
 rclone --dry-run copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name} \
 --include '*.bw' 2>&1 | grep -v '.*\.bw'
 
-## Copy
-rclone copy /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name} \
---include '*.bw'
+
+# 2) Submit backup batch job to SLURM (1 CPU, 1G memory)
+# (Default: dropboxOMRF:Bioinformatics/Libraries/{library_name})
+mkdir -p .snakemake/slurm_logs && \
+sbatch --mem=1G -c 1 workflow/Scripts/backup_rclone.slurm /s/pezzar-lab/{library_name} dropboxOMRF:Bioinformatics/Libraries/{library_name}
+
+# NOTE for alternative backup destination:
+# To back up to a custom folder under Bioinformatics/ instead of 'Libraries/',
+# pass the '--non-library' flag with the path after Bioinformatics/:
+#   sbatch --mem=1G -c 1 workflow/Scripts/backup_rclone.slurm /s/pezzar-lab/{library_name} --non-library <subpath>
+# E.g.:
+#   sbatch --mem=1G -c 1 workflow/Scripts/backup_rclone.slurm /s/pezzar-lab/{library_name} --non-library Other_Projects/Collaboration
+
+# Check backup job status:
+# squeue --me -o %i%.60k
+# Monitor backup log:
+# tail -f .snakemake/slurm_logs/rclone_backup_*.log
+
