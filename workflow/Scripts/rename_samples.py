@@ -9,7 +9,7 @@ Usage:
     cd /project/path && python workflow/Scripts/rename_samples.py
 
 Usage example in the cluster:
-    ml python pandas numpy && \
+    ml slurm python/3.14.7 && \
     cd /project/path && \
     python workflow/Scripts/rename_samples.py
     
@@ -17,8 +17,8 @@ Requirements:
     ./Config/renaming_info.tsv: 
         1st column should contain the old sample name (full), 2nd column the 
         new sample name
-    pandas:
-        This script should be run on an environment with pandas installed
+    python/3.14.7:
+        This script should be run with python/3.14.7 loaded (which includes pandas and numpy)
 
 Description:
     Script will rename files and folders within the '../../Results/'

@@ -11,7 +11,7 @@ Created on Tue Sep 20 19:59:14 2022
 #   and another directory within called 'FASTQs', where all .fastq.gz
 #   files should be found. e.g.: /s/pezzar-lab/agustin/lib2/FASTQs
 #   Run this script directly from IDE or at the command line by running:
-#       ml python/3.10.2 pandas/1.4.2 && python <this/script/path>
+#       ml python/3.14.7 && python <this/script/path>
 ########################################################################
 
 # %% Imports
@@ -297,4 +297,4 @@ print(
 
 
 # Run this script:
-# ml slurm python/3.10.2 pandas/1.4.2 && python /hpc-prj/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow/Scripts/Make_samples_table_internet.py
+# ml slurm python/3.14.7 && python /hpc-prj/pezza/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow/Scripts/Make_samples_table_internet.py

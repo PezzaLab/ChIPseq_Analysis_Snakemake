@@ -1,6 +1,6 @@
 # Run script to set up te pipeline  
 On the terminal run the following code (copy all together):  
-`ml slurm python/3.10.2 pandas/1.4.2 && \
+`ml slurm python/3.14.7 && \
 python /Volumes/Pezza/hpc-nobackup/Agustin/test_folder/ChIPseq_Analysis_Snakemake/workflow/Scripts/Make_samples_table_lab_library.py`
 
 # Fill/check samples_table.csv  
