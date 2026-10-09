@@ -25,18 +25,18 @@ module purge && ml slurm python/3.14.7
 # 2) OPTIONAL. Dry run summary ("mock" run, no files are created)
 # Note: target is 'full' by default; replace with 'basic' for basic analysis mode.
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio_repeat_10 -np --quiet full
+snakemake --profile Config/Profiles/slurm_quio_repeat_3 -np --quiet full
 
 # 2.bis) OPTIONAL. Dry run extended version, text printed to the screen
 # is also saved on file 'dry_run.txt'
 # Note: target is 'full' by default; replace with 'basic' for basic analysis mode.
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio_repeat_10 -np full | tee dry_run.txt
+snakemake --profile Config/Profiles/slurm_quio_repeat_3 -np full | tee dry_run.txt
 
 # 3) OPTIONAL. DAG (A plot to see the dependencies between the rules).
 # Note: target is 'full' by default; replace with 'basic' for basic analysis mode.
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio_repeat_10 --rulegraph full | \
+snakemake --profile Config/Profiles/slurm_quio_repeat_3 --rulegraph full | \
 dot -Tsvg > rulegraph.svg
 
 
@@ -49,7 +49,7 @@ module purge && ml slurm python/3.14.7
 	# tmux attach -t {library_name}
 	# Run command inside tmux (replace 'full' with 'basic' for basic analysis mode):
 cd /s/pezzar-lab/{library_name} && \
-snakemake --profile Config/Profiles/slurm_quio_repeat_10 --notemp full
+snakemake --profile Config/Profiles/slurm_quio_repeat_3 --notemp full
 
 # ---------
 # Helpful commands:
@@ -81,7 +81,7 @@ tmux kill-session -t <session_name>
 # To regenerate on demand:
 #   bash workflow/Scripts/generate_rclone_checksums.sh .
 # or:
-#   snakemake --profile Config/Profiles/slurm_quio_repeat_10 checksums
+#   snakemake --profile Config/Profiles/slurm_quio_repeat_3 checksums
 
 # 1) OPTIONAL: Dry-run checks (inspect what will be transferred or left behind)
 # Load rclone

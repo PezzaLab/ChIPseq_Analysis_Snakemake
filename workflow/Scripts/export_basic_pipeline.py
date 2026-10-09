@@ -111,7 +111,7 @@ This is a self-contained, reproducible Snakemake workflow for standard ChIP-seq 
 snakemake -n basic
 
 # Run on SLURM cluster
-snakemake --profile Config/Profiles/slurm_quio basic
+snakemake --profile Config/Profiles/slurm_quio_repeat_3 basic
 ```
 """
     with open(dest_dir / "README.md", "w") as fp:

@@ -289,7 +289,7 @@ print(
     "Please review the following pipeline files within the 'Config' folder:\n"
     "1) samples_table.csv.\n"
     "2) config.yaml\n"
-    "3) Profiles/slurm_quio/config.yaml\n\n"
+    "3) Profiles/slurm_quio_repeat_3/config.yaml\n\n"
     "For more information on how to fill the files please visit "
     "https://github.com/PezzaLab/ChIPseq_Analysis_Snakemake\n\n"
     "Thanks and have a nice day!...biaatch!"
